@@ -135,25 +135,18 @@ async function assertExplicitProviderCliValidatesBeforeAdapterUse() {
     throw new Error(`Provider CLI path did not report missing API key:\n${missingKeyRun.stderr}`);
   }
 
-  const unsupportedRun = await expectCliFailure(
-    [
-      "generate-personas",
-      "--profile",
-      "sample-retail-support",
-      "--out",
-      join(workspace.pathname, "personas.json"),
-      "--persona-provider",
-      "anthropic",
-      "--persona-model",
-      "claude-opus-4-8",
-      "--persona-api-key-env",
-      "PHASE1_ANTHROPIC_KEY",
-    ],
-    { PHASE1_ANTHROPIC_KEY: "test-key" },
-  );
+  const missingPersonaModelRun = await expectCliFailure([
+    "generate-personas",
+    "--profile",
+    "sample-retail-support",
+    "--out",
+    join(workspace.pathname, "personas.json"),
+    "--persona-provider",
+    "anthropic",
+  ]);
 
-  if (!unsupportedRun.stderr.includes("anthropic persona generation is not implemented in this phase")) {
-    throw new Error(`Provider CLI path did not stop at the Phase 1 adapter boundary:\n${unsupportedRun.stderr}`);
+  if (!missingPersonaModelRun.stderr.includes("Missing required --persona-model <model> for anthropic provider.")) {
+    throw new Error(`Provider persona CLI path did not validate missing model:\n${missingPersonaModelRun.stderr}`);
   }
 
   const invalidProviderRun = await expectCliFailure([

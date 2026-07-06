@@ -6,7 +6,10 @@ import {
   buildOpenAIFineTuningRow,
   bundledScenarioProfiles,
   cliCommands,
+  createDeterministicPersonaGenerator,
   createDeferredLogConversionError,
+  createModelBackedPersonaGenerator,
+  createModelClientFromConfig,
   deferredLogConversionBoundary,
   defaultApiKeyEnvForProvider,
   loadScenarioSource,
@@ -22,6 +25,7 @@ import {
   type JsonObject,
   type JsonSchemaValue,
   type OpenAIChatFineTuningRow,
+  type PersonaGenerator,
   type PersonaDefinition,
   type ProviderRuntimeConfig,
   type ScenarioDefinition,
@@ -93,15 +97,8 @@ async function generatePersonas({ args }: CliContext): Promise<void> {
   const count = readOptionalIntegerFlag(args, "count") ?? scenario.definition.personaSource.count;
   const provider = readDeterministicProviderChoice(args, "persona-provider", "deterministic");
 
-  if (provider !== "deterministic") {
-    validateExplicitProviderRuntime(args, provider, "persona");
-    throw new ProviderUnsupportedFeatureError(
-      `${provider} persona generation is not implemented in this phase; use --persona-provider deterministic.`,
-      { provider },
-    );
-  }
-
-  const personas = buildPersonas(scenario, count);
+  const generator = createCliPersonaGenerator(args, provider);
+  const personas = await generator.generate({ scenario, count });
 
   await writeBatchFile(outputPath, `${JSON.stringify(personas, null, 2)}\n`, force);
 
@@ -125,7 +122,7 @@ async function simulateDataset({ args }: CliContext): Promise<void> {
     );
   }
 
-  const personas = buildPersonas(scenario, count);
+  const personas = await createDeterministicPersonaGenerator().generate({ scenario, count });
   const trajectories = buildDeterministicTrajectories(scenario.definition, personas, mode);
   const rows = trajectories.map((trajectory) => buildOpenAIFineTuningRow(trajectory, { mode }));
   const contents = serializeOpenAIJsonlRows(rows);
@@ -230,36 +227,6 @@ async function readScenarioSource(args: ParsedArgs): Promise<ScenarioSource> {
   }
 
   return loadScenarioSource({ json: contents, metadata: { configPath } });
-}
-
-function buildPersonas(source: ScenarioSource, count: number): PersonaDefinition[] {
-  if (count < 0) {
-    throw new Error("--count and --limit must be non-negative integers.");
-  }
-
-  const bundledPersonas = source.personas ?? source.definition.personaSource.personas ?? [];
-  const personas = bundledPersonas.slice(0, count);
-
-  for (let index = personas.length; index < count; index += 1) {
-    const goal = source.definition.conversationGoals[index % source.definition.conversationGoals.length];
-    const persona: PersonaDefinition = {
-      id: `${source.definition.id}-persona-${index + 1}`,
-      label: `${source.definition.business.domain} user ${index + 1}`,
-      goals: [goal ?? `Ask ${source.definition.business.name} for help.`],
-      metadata: {
-        generated: true,
-        scenarioId: source.definition.id,
-      },
-    };
-
-    if (source.definition.business.locale) {
-      persona.locale = source.definition.business.locale;
-    }
-
-    personas.push(persona);
-  }
-
-  return personas;
 }
 
 function buildDeterministicTrajectories(
@@ -468,6 +435,20 @@ function readTranslationStrategyChoice(
   }
 
   return value;
+}
+
+function createCliPersonaGenerator(args: ParsedArgs, provider: DeterministicProviderChoice): PersonaGenerator {
+  if (provider === "deterministic") {
+    return createDeterministicPersonaGenerator();
+  }
+
+  const config = validateExplicitProviderRuntime(args, provider, "persona");
+  return createModelBackedPersonaGenerator({
+    modelClient: createModelClientFromConfig(config),
+    provider,
+    model: config.model,
+    ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
+  });
 }
 
 function validateExplicitProviderRuntime(

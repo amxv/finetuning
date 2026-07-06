@@ -127,6 +127,9 @@ export {
 export type {
   DatasetWriter,
   FileSystemAdapter,
+  ModelBackedPersonaGeneratorOptions,
+  PersonaGenerationRequest,
+  PersonaGenerator,
   PersistenceAdapter,
   ScenarioSource,
   ScenarioSourceInput,
@@ -134,7 +137,13 @@ export type {
   SimulationRunner,
   SimulationRuntimeAdapters,
 } from "./simulation/index.js";
-export { createDeferredSimulationRunner, loadScenarioSource } from "./simulation/index.js";
+export {
+  buildDeterministicPersonas,
+  createDeferredSimulationRunner,
+  createDeterministicPersonaGenerator,
+  createModelBackedPersonaGenerator,
+  loadScenarioSource,
+} from "./simulation/index.js";
 import { deferredLogConversionBoundary } from "./core/index.js";
 import type { CliCommandDefinition, PublicWorkflow } from "./core/index.js";
 
