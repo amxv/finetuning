@@ -43,6 +43,7 @@ export type {
 export type {
   TranslateOpenAIJsonlOptions,
   TranslateOpenAIRowOptions,
+  ProviderTranslationAdapterOptions,
   TranslationProviderKind,
   TranslationRequestPath,
   TranslationResult,
@@ -81,7 +82,10 @@ export {
 } from "./core/index.js";
 export {
   assertValidLocaleCode,
+  createAnthropicTranslationAdapter,
+  createOpenAITranslationAdapter,
   createPseudoTranslationAdapter,
+  createProviderTranslationAdapter,
   experimentalTranslationRules,
   translateOpenAIFineTuningRow,
   translateOpenAIJsonl,

@@ -6,6 +6,8 @@ import {
   assertValidOpenAIFineTuningRow,
   buildOpenAIFineTuningRow,
   checkAvailabilityToolTrajectoryFixture,
+  createProviderTranslationAdapter,
+  ProviderResponseError,
   serializeOpenAIJsonlRows,
   translateOpenAIFineTuningRow,
   validateOpenAIJsonl,
@@ -49,6 +51,75 @@ if (finalAssistant.role !== "assistant" || !finalAssistant.content?.startsWith("
   throw new Error("Final assistant content was not translated by the pseudo adapter.");
 }
 
+const fakeProviderAdapter = createProviderTranslationAdapter(
+  {
+    async invoke(request) {
+      if (request.metadata?.requestPath !== "provider-adapter") {
+        throw new Error(`Provider translation request path was not passed in metadata: ${JSON.stringify(request)}`);
+      }
+
+      return {
+        kind: "text",
+        content: `[provider:${request.model}:${request.metadata.targetLocale}:${request.metadata.translationFieldPath}]`,
+      };
+    },
+  },
+  "openai",
+  "translation-test-model",
+);
+
+const providerTranslated = await translateOpenAIFineTuningRow(row, {
+  sourceLocale: "en-US",
+  targetLocale: "de-DE",
+  adapter: fakeProviderAdapter,
+});
+
+assertValidOpenAIFineTuningRow(providerTranslated.row);
+
+if (
+  providerTranslated.provider !== "openai" ||
+  providerTranslated.requestPath !== "provider-adapter" ||
+  providerTranslated.row.metadata?.translationProvider !== "openai" ||
+  providerTranslated.row.metadata?.translationRequestPath !== "provider-adapter" ||
+  providerTranslated.row.metadata?.translationModel !== "translation-test-model" ||
+  providerTranslated.row.metadata?.sourceLocale !== "en-US" ||
+  providerTranslated.row.metadata?.targetLocale !== "de-DE"
+) {
+  throw new Error(`Provider translation metadata was incomplete: ${JSON.stringify(providerTranslated.row.metadata)}`);
+}
+
+assertDeepEqual(providerTranslated.row.messages[2].tool_calls, originalAssistantToolCall.tool_calls, "provider assistant tool calls");
+assertDeepEqual(providerTranslated.row.messages[3], originalToolResult, "provider tool result message");
+assertDeepEqual(providerTranslated.row.tools, row.tools, "provider row tools");
+
+const malformedProviderAdapter = createProviderTranslationAdapter(
+  {
+    async invoke() {
+      return { kind: "text", content: "" };
+    },
+  },
+  "anthropic",
+  "malformed-translation-model",
+);
+
+let malformedProviderFailed = false;
+try {
+  await translateOpenAIFineTuningRow(row, {
+    sourceLocale: "en-US",
+    targetLocale: "fr-FR",
+    adapter: malformedProviderAdapter,
+  });
+} catch (error) {
+  if (!(error instanceof ProviderResponseError) || !error.message.includes("returned empty text")) {
+    throw error;
+  }
+  malformedProviderFailed = true;
+}
+
+if (!malformedProviderFailed) {
+  throw new Error("Malformed provider translation output did not fail.");
+}
+
 const sourcePath = join(workspace.pathname, "source.jsonl");
 const outPath = join(workspace.pathname, "translated.jsonl");
 await writeFile(sourcePath, serializeOpenAIJsonlRows([row]));
@@ -79,8 +150,40 @@ const cliTranslatedRow = JSON.parse(translatedJsonl.trim());
 assertDeepEqual(cliTranslatedRow.messages[2], originalAssistantToolCall, "CLI assistant tool-call message");
 assertDeepEqual(cliTranslatedRow.messages[3], originalToolResult, "CLI tool result message");
 
+const missingModelRun = await expectCliFailure([
+  "translate-dataset",
+  sourcePath,
+  "--target-locale",
+  "es-ES",
+  "--out",
+  join(workspace.pathname, "provider-missing-model.jsonl"),
+  "--strategy",
+  "openai",
+]);
+
+if (!missingModelRun.stderr.includes("Missing required --translation-model <model> for openai provider.")) {
+  throw new Error(`translate-dataset did not reject provider strategy without a model:\n${missingModelRun.stderr}`);
+}
+
+const missingKeyRun = await expectCliFailure([
+  "translate-dataset",
+  sourcePath,
+  "--target-locale",
+  "es-ES",
+  "--out",
+  join(workspace.pathname, "provider-missing-key.jsonl"),
+  "--strategy",
+  "anthropic",
+  "--translation-model",
+  "claude-translation-test",
+]);
+
+if (!missingKeyRun.stderr.includes("Missing ANTHROPIC_API_KEY for anthropic provider")) {
+  throw new Error(`translate-dataset did not use the default Anthropic API key env:\n${missingKeyRun.stderr}`);
+}
+
 await rm(workspace, { recursive: true, force: true });
-console.log("Verified experimental translation preserves schema, tool calls, tool results, and valid JSONL.");
+console.log("Verified experimental translation preserves schema, provider adapters, CLI config validation, and valid JSONL.");
 
 function assertDeepEqual(actual, expected, label) {
   const actualJson = JSON.stringify(actual);
@@ -88,4 +191,17 @@ function assertDeepEqual(actual, expected, label) {
   if (actualJson !== expectedJson) {
     throw new Error(`${label} changed during translation.\nExpected: ${expectedJson}\nActual: ${actualJson}`);
   }
+}
+
+async function expectCliFailure(args) {
+  try {
+    await execFileAsync(process.execPath, [cliPath, ...args]);
+  } catch (error) {
+    return {
+      stdout: error.stdout ?? "",
+      stderr: error.stderr ?? "",
+    };
+  }
+
+  throw new Error(`Expected CLI command to fail: ${args.join(" ")}`);
 }

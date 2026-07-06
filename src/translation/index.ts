@@ -6,7 +6,11 @@ import {
   type OpenAIChatFineTuningMessage,
   type OpenAIChatFineTuningRow,
 } from "../core/index.js";
-import type { ModelProviderKind } from "../providers/index.js";
+import {
+  ProviderResponseError,
+  type ModelClient,
+  type ModelProviderKind,
+} from "../providers/index.js";
 
 export type TranslationWorkflowStatus = "experimental";
 export type TranslationRequestPath = "local-pseudo" | "provider-adapter";
@@ -32,7 +36,12 @@ export interface TranslationTextRequest {
 export interface TranslationTextAdapter {
   provider: TranslationProviderKind;
   requestPath: TranslationRequestPath;
+  model?: string;
   translateText(request: TranslationTextRequest): Promise<string>;
+}
+
+export interface ProviderTranslationAdapterOptions {
+  temperature?: number;
 }
 
 export interface TranslateOpenAIRowOptions {
@@ -82,6 +91,75 @@ export function createPseudoTranslationAdapter(): TranslationTextAdapter {
   };
 }
 
+export function createProviderTranslationAdapter(
+  modelClient: ModelClient,
+  provider: Exclude<ModelProviderKind, "custom">,
+  model: string,
+  options: ProviderTranslationAdapterOptions = {},
+): TranslationTextAdapter {
+  if (!model) {
+    throw new ProviderResponseError(`Missing translation model for ${provider} translation provider`, {
+      provider,
+    });
+  }
+
+  return {
+    provider,
+    requestPath: "provider-adapter",
+    model,
+    async translateText(request): Promise<string> {
+      const response = await modelClient.invoke({
+        provider,
+        model,
+        ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+        messages: [
+          {
+            role: "system",
+            content:
+              "Translate exactly one text field. Return only the translated text. Do not return JSON, markdown, quotes, labels, explanations, or commentary. Preserve placeholders, code-like strings, identifiers, and formatting where possible.",
+          },
+          {
+            role: "user",
+            content: buildProviderTranslationPrompt(request),
+          },
+        ],
+        metadata: {
+          requestPath: "provider-adapter",
+          translationFieldPath: request.path,
+          targetLocale: request.targetLocale,
+          ...(request.sourceLocale ? { sourceLocale: request.sourceLocale } : {}),
+        },
+      });
+
+      if (response.kind !== "text") {
+        throw new ProviderResponseError(`${provider} translation returned tool calls instead of text`, {
+          provider,
+          model,
+          details: { path: request.path },
+        });
+      }
+
+      return validateProviderTranslatedText(response.content, request, provider, model);
+    },
+  };
+}
+
+export function createOpenAITranslationAdapter(
+  modelClient: ModelClient,
+  model: string,
+  options?: ProviderTranslationAdapterOptions,
+): TranslationTextAdapter {
+  return createProviderTranslationAdapter(modelClient, "openai", model, options);
+}
+
+export function createAnthropicTranslationAdapter(
+  modelClient: ModelClient,
+  model: string,
+  options?: ProviderTranslationAdapterOptions,
+): TranslationTextAdapter {
+  return createProviderTranslationAdapter(modelClient, "anthropic", model, options);
+}
+
 export async function translateOpenAIFineTuningRow(
   row: OpenAIChatFineTuningRow,
   options: TranslateOpenAIRowOptions,
@@ -107,6 +185,7 @@ export async function translateOpenAIFineTuningRow(
     translationStatus: "experimental",
     translationProvider: adapter.provider,
     translationRequestPath: adapter.requestPath,
+    ...(adapter.model ? { translationModel: adapter.model } : {}),
   };
 
   if (sourceLocale) {
@@ -120,6 +199,7 @@ export async function translateOpenAIFineTuningRow(
   };
 
   assertValidOpenAIFineTuningRow(translatedRow);
+  assertTranslationPreservedSchemaFields(row, translatedRow);
 
   return {
     row: translatedRow,
@@ -177,7 +257,7 @@ async function translateMessage(
   if (message.role === "system" || message.role === "user") {
     return {
       role: message.role,
-      content: await adapter.translateText(buildTextRequest(message.content, options, `messages[${index}].content`)),
+      content: await translateTextField(message.content, options, adapter, `messages[${index}].content`),
     };
   }
 
@@ -187,12 +267,26 @@ async function translateMessage(
       content:
         message.content === null
           ? null
-          : await adapter.translateText(buildTextRequest(message.content, options, `messages[${index}].content`)),
+          : await translateTextField(message.content, options, adapter, `messages[${index}].content`),
       ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}),
     };
   }
 
   return message;
+}
+
+async function translateTextField(
+  text: string,
+  options: TranslateOpenAIRowOptions,
+  adapter: TranslationTextAdapter,
+  path: string,
+): Promise<string> {
+  const translated = await adapter.translateText(buildTextRequest(text, options, path));
+  if (text.length > 0 && translated.length === 0) {
+    throw new Error(`Translation for ${path} must be non-empty when source content is non-empty.`);
+  }
+
+  return translated;
 }
 
 function buildTextRequest(
@@ -215,4 +309,117 @@ function buildTextRequest(
 
 function readMetadataLocale(metadata: JsonObject | undefined): string | undefined {
   return typeof metadata?.locale === "string" ? metadata.locale : undefined;
+}
+
+function buildProviderTranslationPrompt(request: TranslationTextRequest): string {
+  const sourceLocale = request.sourceLocale ?? "the source locale";
+  return [
+    `Source locale: ${sourceLocale}`,
+    `Target locale: ${request.targetLocale}`,
+    `Field path: ${request.path}`,
+    "",
+    "Translate this text field and return only translated text:",
+    request.text,
+  ].join("\n");
+}
+
+function validateProviderTranslatedText(
+  content: string,
+  request: TranslationTextRequest,
+  provider: Exclude<ModelProviderKind, "custom">,
+  model: string,
+): string {
+  const translated = content.trim();
+
+  if (request.text.length > 0 && translated.length === 0) {
+    throw new ProviderResponseError(`${provider} translation returned empty text for ${request.path}`, {
+      provider,
+      model,
+      details: { path: request.path },
+    });
+  }
+
+  if (translated.startsWith("```") || translated.endsWith("```")) {
+    throw new ProviderResponseError(`${provider} translation returned markdown for ${request.path}`, {
+      provider,
+      model,
+      details: { path: request.path },
+    });
+  }
+
+  if (isWrappedInQuotes(translated)) {
+    throw new ProviderResponseError(`${provider} translation returned quoted text for ${request.path}`, {
+      provider,
+      model,
+      details: { path: request.path },
+    });
+  }
+
+  if (looksLikeJsonWrapper(translated)) {
+    throw new ProviderResponseError(`${provider} translation returned JSON instead of plain text for ${request.path}`, {
+      provider,
+      model,
+      details: { path: request.path },
+    });
+  }
+
+  return translated;
+}
+
+function isWrappedInQuotes(value: string): boolean {
+  return (
+    value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+  );
+}
+
+function looksLikeJsonWrapper(value: string): boolean {
+  if (
+    !((value.startsWith("{") && value.endsWith("}")) || (value.startsWith("[") && value.endsWith("]")))
+  ) {
+    return false;
+  }
+
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function assertTranslationPreservedSchemaFields(
+  original: OpenAIChatFineTuningRow,
+  translated: OpenAIChatFineTuningRow,
+): void {
+  assertJsonEqual(translated.tools, original.tools, "tools");
+
+  for (const [index, originalMessage] of original.messages.entries()) {
+    const translatedMessage = translated.messages[index];
+    if (!translatedMessage) {
+      throw new Error(`Translated row is missing messages[${index}].`);
+    }
+
+    if (originalMessage.role === "assistant") {
+      const translatedAssistant = translatedMessage.role === "assistant" ? translatedMessage : undefined;
+      assertJsonEqual(
+        translatedAssistant?.tool_calls,
+        originalMessage.tool_calls,
+        `messages[${index}].tool_calls`,
+      );
+    }
+
+    if (originalMessage.role === "tool") {
+      assertJsonEqual(translatedMessage, originalMessage, `messages[${index}]`);
+    }
+  }
+}
+
+function assertJsonEqual(actual: unknown, expected: unknown, label: string): void {
+  const actualJson = JSON.stringify(actual);
+  const expectedJson = JSON.stringify(expected);
+  if (actualJson !== expectedJson) {
+    throw new Error(`${label} changed during translation.`);
+  }
 }

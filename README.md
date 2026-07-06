@@ -11,7 +11,7 @@ The current v1 surface is intentionally narrow and OSS-focused: define an assist
 | Synthetic persona generation | V1 | `generate-personas` |
 | Synthetic dataset generation | V1 | `simulate-dataset` |
 | OpenAI JSONL validation | V1 | `validate-dataset` |
-| Schema-preserving pseudo-translation | Experimental | `translate-dataset` |
+| Schema-preserving translation | Experimental | `translate-dataset` |
 | Log-derived dataset conversion | Deferred | `convert-logs` exits with a deferred error |
 
 Full tool trajectories are the canonical tool-calling dataset shape. Each generated tool example includes:
@@ -142,7 +142,7 @@ The current CLI simulation is deterministic and sample-oriented. Provider-backed
 
 ## Translation
 
-Translation is experimental. The CLI supports only the local pseudo-translation strategy, which prefixes translatable message text and preserves schema-bearing fields:
+Translation is experimental. The default `local-pseudo` strategy is offline and prefixes translatable message text while preserving schema-bearing fields:
 
 ```bash
 node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
@@ -150,16 +150,34 @@ node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
   --out outputs/receptionist-sample.es-ES.jsonl
 ```
 
+Provider-backed translation is available through the same schema-preserving path. It translates one message text field per provider request, requires an explicit model, and reads API keys from environment variables:
+
+```bash
+OPENAI_API_KEY=... node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
+  --strategy openai \
+  --translation-model <model> \
+  --target-locale es-ES \
+  --out outputs/receptionist-sample.es-ES.jsonl
+
+ANTHROPIC_API_KEY=... node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
+  --strategy anthropic \
+  --translation-model <model> \
+  --target-locale fr-CA \
+  --out outputs/receptionist-sample.fr-CA.jsonl
+```
+
+Use `--translation-api-key-env <ENV_NAME>` when the key lives in a non-default environment variable. The default env vars are `OPENAI_API_KEY` for `--strategy openai` and `ANTHROPIC_API_KEY` for `--strategy anthropic`.
+
 Rules:
 
 - system, user, and assistant text content are translated
 - assistant `tool_calls` are preserved exactly
 - tool result messages are preserved exactly
 - tool definitions are preserved exactly
-- metadata is preserved and extended with `targetLocale`, `translationStatus`, `translationProvider`, and `translationRequestPath`
+- provider-backed output must be non-empty when the source field is non-empty
+- translated rows are validated before writing
+- metadata is preserved and extended with `sourceLocale` when known, `targetLocale`, `translationStatus`, `translationProvider`, `translationRequestPath`, and `translationModel` for provider-backed translation
 - target locales must be BCP 47 codes such as `es-ES`, `fr-CA`, or `hi-IN`
-
-Provider-backed translation is exposed only as a library adapter boundary.
 
 ## Log-Derived Datasets
 

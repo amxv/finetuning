@@ -9,13 +9,14 @@ import {
   createDeterministicPersonaGenerator,
   createDeterministicSimulationRunner,
   createDeferredLogConversionError,
+  createAnthropicTranslationAdapter,
   createModelBackedPersonaGenerator,
   createModelBackedSimulationRunner,
   createModelClientFromConfig,
+  createOpenAITranslationAdapter,
   deferredLogConversionBoundary,
   defaultApiKeyEnvForProvider,
   loadScenarioSource,
-  ProviderUnsupportedFeatureError,
   resolveProviderClientOptions,
   serializeOpenAIJsonlRows,
   summarizeOpenAIJsonlRows,
@@ -159,19 +160,13 @@ async function translateDataset({ args }: CliContext): Promise<void> {
   const sourceLocale = readOptionalStringFlag(args, "source-locale");
   const strategy = readTranslationStrategyChoice(args, "strategy", "local-pseudo");
   const force = readBooleanFlag(args, "force");
-
-  if (strategy !== "local-pseudo") {
-    validateExplicitProviderRuntime(args, strategy, "translation");
-    throw new ProviderUnsupportedFeatureError(
-      `${strategy} translation is not implemented in this phase; use --strategy local-pseudo.`,
-      { provider: strategy },
-    );
-  }
+  const adapter = createCliTranslationAdapter(args, strategy);
 
   const contents = await readFile(inputPath, "utf8");
   const result = await translateOpenAIJsonl(contents, {
     targetLocale,
     ...(sourceLocale ? { sourceLocale } : {}),
+    ...(adapter ? { adapter } : {}),
   });
 
   await writeBatchFile(outputPath, result.jsonl, force);
@@ -181,6 +176,9 @@ async function translateDataset({ args }: CliContext): Promise<void> {
   console.log(`Status: experimental`);
   console.log(`Provider: ${result.provider}`);
   console.log(`Request path: ${result.requestPath}`);
+  if (adapter?.model) {
+    console.log(`Translation model: ${adapter.model}`);
+  }
   console.log(`Target locale: ${targetLocale}`);
   printDatasetSummary(validation.summary);
 }
@@ -341,6 +339,21 @@ function createCliSimulationRunner(args: ParsedArgs, provider: DeterministicProv
     model: config.model,
     ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
   });
+}
+
+function createCliTranslationAdapter(args: ParsedArgs, strategy: TranslationStrategyChoice) {
+  if (strategy === "local-pseudo") {
+    return undefined;
+  }
+
+  const config = validateExplicitProviderRuntime(args, strategy, "translation");
+  const modelClient = createModelClientFromConfig(config);
+
+  if (strategy === "openai") {
+    return createOpenAITranslationAdapter(modelClient, config.model);
+  }
+
+  return createAnthropicTranslationAdapter(modelClient, config.model);
 }
 
 function validateExplicitProviderRuntime(
