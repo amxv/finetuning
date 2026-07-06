@@ -27,7 +27,8 @@
     "verify:provider-config": "npm run build && node scripts/verify-provider-config.mjs",
     "verify:provider-adapters": "npm run build && node scripts/verify-provider-adapters.mjs",
     "verify:persona-generation": "npm run build && node scripts/verify-persona-generation.mjs",
-    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs && node scripts/verify-provider-config.mjs && node scripts/verify-provider-adapters.mjs && node scripts/verify-persona-generation.mjs && node scripts/verify-log-deferment.mjs && node scripts/verify-readme-workflow.mjs"
+    "verify:simulation-runners": "npm run build && node scripts/verify-simulation-runners.mjs",
+    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs && node scripts/verify-provider-config.mjs && node scripts/verify-provider-adapters.mjs && node scripts/verify-persona-generation.mjs && node scripts/verify-simulation-runners.mjs && node scripts/verify-log-deferment.mjs && node scripts/verify-readme-workflow.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

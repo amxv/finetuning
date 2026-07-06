@@ -1,11 +1,19 @@
 import type {
+  AssistantToolCallMessage,
+  ConversationMessage,
   ConversationTrajectory,
+  ExportMode,
   FineTuningToolkitConfig,
   JsonObject,
+  JsonSchemaValue,
   JsonValue,
   PersonaDefinition,
   ScenarioDefinition,
   SimulatedAssistantTurn,
+  ToolCall,
+  ToolResult,
+  ToolResultMessage,
+  ToolSchema,
 } from "../core/index.js";
 import {
   findBundledScenarioProfile,
@@ -13,8 +21,8 @@ import {
   parseScenarioDefinitionJson,
 } from "../core/index.js";
 import type { ModelClient } from "../providers/index.js";
-import { ProviderResponseError } from "../providers/index.js";
-import type { ModelProviderKind } from "../providers/index.js";
+import { ProviderResponseError, ProviderToolCallError } from "../providers/index.js";
+import type { ModelMessage, ModelProviderKind } from "../providers/index.js";
 
 export interface FileSystemAdapter {
   readText(path: string): Promise<string>;
@@ -72,10 +80,11 @@ export interface SimulationRequest {
   scenario: ScenarioSource;
   outputDirectory: string;
   limit?: number;
+  mode?: ExportMode;
 }
 
 export interface SimulationRunner {
-  run(request: SimulationRequest, adapters: SimulationRuntimeAdapters): Promise<ConversationTrajectory[]>;
+  run(request: SimulationRequest, adapters?: SimulationRuntimeAdapters): Promise<ConversationTrajectory[]>;
 }
 
 export interface AssistantTurnSimulator {
@@ -99,6 +108,28 @@ export interface ModelBackedPersonaGeneratorOptions {
   provider: Exclude<ModelProviderKind, "custom">;
   model: string;
   temperature?: number;
+}
+
+export interface ToolResultRequest {
+  scenario: ScenarioDefinition;
+  persona: PersonaDefinition;
+  toolCall: ToolCall;
+  tool: ToolSchema;
+  trajectoryId: string;
+  turnIndex: number;
+}
+
+export interface ToolResultProvider {
+  source: "deterministic" | "caller";
+  getToolResult(request: ToolResultRequest): Promise<ToolResult>;
+}
+
+export interface ModelBackedSimulationRunnerOptions {
+  modelClient: ModelClient;
+  provider: Exclude<ModelProviderKind, "custom">;
+  model: string;
+  temperature?: number;
+  toolResultProvider?: ToolResultProvider;
 }
 
 export function createDeterministicPersonaGenerator(): PersonaGenerator {
@@ -202,12 +233,523 @@ export function buildDeterministicPersonas(source: ScenarioSource, count: number
   return personas;
 }
 
+export function createDeterministicToolResultProvider(): ToolResultProvider {
+  return {
+    source: "deterministic",
+    async getToolResult(request: ToolResultRequest): Promise<ToolResult> {
+      return {
+        toolCallId: request.toolCall.id,
+        name: request.toolCall.name,
+        payloadFormat: "normalized_json",
+        result: {
+          scenarioId: request.scenario.id,
+          personaId: request.persona.id,
+          answer: `Deterministic sample result for ${request.toolCall.name}.`,
+          source: "deterministic_simulation",
+        },
+      };
+    },
+  };
+}
+
+export function createDeterministicSimulationRunner(): SimulationRunner {
+  return {
+    async run(request: SimulationRequest): Promise<ConversationTrajectory[]> {
+      const mode = request.mode ?? "full_tool_trajectory";
+      const count = request.limit ?? request.scenario.definition.personaSource.count;
+      const personas = buildDeterministicPersonas(request.scenario, count);
+      return buildDeterministicTrajectories(request.scenario.definition, personas, mode);
+    },
+  };
+}
+
+export function createModelBackedSimulationRunner(
+  options: ModelBackedSimulationRunnerOptions,
+): SimulationRunner {
+  return {
+    async run(request: SimulationRequest): Promise<ConversationTrajectory[]> {
+      const mode = request.mode ?? "full_tool_trajectory";
+      const count = request.limit ?? request.scenario.definition.personaSource.count;
+      const personas = buildDeterministicPersonas(request.scenario, count);
+      const toolResultProvider = options.toolResultProvider ?? createDeterministicToolResultProvider();
+      const trajectories: ConversationTrajectory[] = [];
+
+      for (const [index, persona] of personas.entries()) {
+        trajectories.push(await simulateModelBackedTrajectory(request.scenario.definition, persona, index, mode, options, toolResultProvider));
+      }
+
+      return trajectories;
+    },
+  };
+}
+
+export function buildDeterministicTrajectories(
+  scenario: ScenarioDefinition,
+  personas: PersonaDefinition[],
+  mode: ExportMode,
+): ConversationTrajectory[] {
+  return personas.map((persona, index) => {
+    const tool =
+      mode === "plain_chat" ? undefined : scenario.toolInventory.tools[index % scenario.toolInventory.tools.length];
+    const messages: ConversationMessage[] = buildInitialMessages(scenario, persona);
+
+    if (!tool) {
+      messages.push({
+        kind: "assistant_text",
+        content: `I can help with that. ${scenario.conversationGoals[0] ?? "Here is the next step."}`,
+      });
+    } else {
+      const callId = `call_${scenario.id.replaceAll("-", "_")}_${index + 1}`;
+      const toolCall: ToolCall = {
+        id: callId,
+        name: tool.name,
+        arguments: buildToolArguments(tool),
+      };
+      const toolResult: ToolResult = {
+        toolCallId: toolCall.id,
+        name: toolCall.name,
+        payloadFormat: "normalized_json",
+        result: {
+          scenarioId: scenario.id,
+          personaId: persona.id,
+          answer: `Deterministic sample result for ${tool.name}.`,
+          source: "cli_sample_simulation",
+        },
+      };
+
+      messages.push(
+        {
+          kind: "assistant_tool_call",
+          toolCalls: [toolCall],
+        },
+        {
+          kind: "tool_result",
+          result: toolResult,
+        },
+        {
+          kind: "assistant_text",
+          content: `I checked ${tool.name} and found the next step for ${persona.label}.`,
+        },
+      );
+    }
+
+    const trajectory: ConversationTrajectory = {
+      id: `${scenario.id}-trajectory-${index + 1}`,
+      business: scenario.business,
+      persona,
+      messages,
+      metadata: {
+        scenarioId: scenario.id,
+        personaId: persona.id,
+        locale: scenario.business.locale ?? "und",
+        generatedBy: "finetuning-cli",
+        exportMode: mode,
+        simulationProvider: "deterministic",
+        simulationPath: "deterministic",
+        toolResultProvider: tool ? "deterministic" : "none",
+      },
+    };
+
+    if (tool) {
+      trajectory.tools = [tool];
+    }
+
+    return trajectory;
+  });
+}
+
+export function buildToolArguments(tool: ToolSchema): JsonObject {
+  return Object.fromEntries(
+    Object.entries(tool.parameters.properties).map(([key, value]) => [key, sampleJsonValue(value, key)]),
+  ) as JsonObject;
+}
+
 export function createDeferredSimulationRunner(): SimulationRunner {
   return {
     async run(): Promise<ConversationTrajectory[]> {
       throw new Error("simulation runner is not implemented in this phase");
     },
   };
+}
+
+async function simulateModelBackedTrajectory(
+  scenario: ScenarioDefinition,
+  persona: PersonaDefinition,
+  index: number,
+  mode: ExportMode,
+  options: ModelBackedSimulationRunnerOptions,
+  toolResultProvider: ToolResultProvider,
+): Promise<ConversationTrajectory> {
+  const trajectoryId = `${scenario.id}-trajectory-${index + 1}`;
+  const messages: ConversationMessage[] = buildInitialMessages(scenario, persona);
+  const availableTools = mode === "plain_chat" ? [] : scenario.toolInventory.tools;
+
+  const firstResponse = await options.modelClient.invoke({
+    provider: options.provider,
+    model: options.model,
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    messages: [
+      ...toModelMessages(messages),
+      {
+        role: "user",
+        content: buildInitialSimulationPrompt(scenario, persona, mode),
+      },
+    ],
+    ...(availableTools.length > 0 ? { tools: availableTools } : {}),
+    metadata: {
+      scenarioId: scenario.id,
+      personaId: persona.id,
+      requestPath: "simulation-initial",
+      exportMode: mode,
+    },
+  });
+
+  if (firstResponse.kind === "text") {
+    const content = assertNonEmptyAssistantText(firstResponse.content, options, "initial assistant response");
+    messages.push({ kind: "assistant_text", content });
+    return buildTrajectory(scenario, persona, trajectoryId, messages, [], mode, options, "model-text", "none");
+  }
+
+  const validatedToolCalls = firstResponse.toolCalls.map((toolCall, toolCallIndex) =>
+    validateProviderToolCall(toolCall, availableTools, toolCallIndex, options),
+  );
+  const assistantToolCall: AssistantToolCallMessage = {
+    kind: "assistant_tool_call",
+    toolCalls: validatedToolCalls,
+    ...(firstResponse.content ? { content: firstResponse.content } : {}),
+  };
+  messages.push(assistantToolCall);
+
+  const toolsByName = new Map(availableTools.map((tool) => [tool.name, tool]));
+  const usedTools: ToolSchema[] = [];
+  const toolResults: ToolResultMessage[] = [];
+
+  for (const [toolCallIndex, toolCall] of validatedToolCalls.entries()) {
+    const tool = toolsByName.get(toolCall.name);
+    if (!tool) {
+      throw new ProviderToolCallError(`Unknown tool call: ${toolCall.name}`, {
+        provider: options.provider,
+        model: options.model,
+        details: { toolName: toolCall.name, scenarioId: scenario.id },
+      });
+    }
+
+    if (!usedTools.some((usedTool) => usedTool.name === tool.name)) {
+      usedTools.push(tool);
+    }
+
+    const result = await toolResultProvider.getToolResult({
+      scenario,
+      persona,
+      toolCall,
+      tool,
+      trajectoryId,
+      turnIndex: toolCallIndex,
+    });
+    const resultMessage: ToolResultMessage = { kind: "tool_result", result };
+    toolResults.push(resultMessage);
+  }
+
+  if (mode === "tool_decision") {
+    return buildTrajectory(
+      scenario,
+      persona,
+      trajectoryId,
+      messages,
+      usedTools,
+      mode,
+      options,
+      "model-tool-decision",
+      toolResultProvider.source,
+    );
+  }
+
+  messages.push(...toolResults);
+
+  const finalResponse = await options.modelClient.invoke({
+    provider: options.provider,
+    model: options.model,
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    messages: [
+      ...toModelMessages(messages),
+      {
+        role: "user",
+        content: buildFinalSimulationPrompt(scenario, persona),
+      },
+    ],
+    metadata: {
+      scenarioId: scenario.id,
+      personaId: persona.id,
+      requestPath: "simulation-final",
+      exportMode: mode,
+    },
+  });
+
+  if (finalResponse.kind !== "text") {
+    throw new ProviderResponseError("Final assistant simulation response must be text.", {
+      provider: options.provider,
+      model: options.model,
+      details: { scenarioId: scenario.id, personaId: persona.id },
+    });
+  }
+
+  messages.push({
+    kind: "assistant_text",
+    content: assertNonEmptyAssistantText(finalResponse.content, options, "final assistant response"),
+  });
+
+  return buildTrajectory(
+    scenario,
+    persona,
+    trajectoryId,
+    messages,
+    usedTools,
+    mode,
+    options,
+    "model-tool-trajectory",
+    toolResultProvider.source,
+  );
+}
+
+function buildInitialMessages(scenario: ScenarioDefinition, persona: PersonaDefinition): ConversationMessage[] {
+  return [
+    {
+      kind: "system",
+      content: scenario.systemPrompt ?? `You are ${scenario.assistantRole} for ${scenario.business.name}.`,
+    },
+    {
+      kind: "user",
+      content: persona.goals[0] ?? `I need help from ${scenario.business.name}.`,
+    },
+  ];
+}
+
+function buildTrajectory(
+  scenario: ScenarioDefinition,
+  persona: PersonaDefinition,
+  trajectoryId: string,
+  messages: ConversationMessage[],
+  tools: ToolSchema[],
+  mode: ExportMode,
+  options: ModelBackedSimulationRunnerOptions,
+  simulationPath: string,
+  toolResultProviderSource: ToolResultProvider["source"] | "none",
+): ConversationTrajectory {
+  return {
+    id: trajectoryId,
+    business: scenario.business,
+    persona,
+    ...(tools.length > 0 ? { tools } : {}),
+    messages,
+    metadata: {
+      scenarioId: scenario.id,
+      personaId: persona.id,
+      locale: persona.locale ?? scenario.business.locale ?? "und",
+      generatedBy: "finetuning-simulation",
+      exportMode: mode,
+      simulationProvider: options.provider,
+      simulationModel: options.model,
+      simulationPath,
+      toolResultProvider: toolResultProviderSource,
+    },
+  };
+}
+
+function buildInitialSimulationPrompt(
+  scenario: ScenarioDefinition,
+  persona: PersonaDefinition,
+  mode: ExportMode,
+): string {
+  const toolInstruction =
+    mode === "plain_chat"
+      ? "Answer directly without using tools."
+      : "Answer directly when appropriate, or call one or more available tools when factual lookup or action is needed.";
+  return [
+    `Simulate the assistant's next response for scenario ${scenario.id}.`,
+    `Business: ${scenario.business.name}.`,
+    `Assistant role: ${scenario.assistantRole}.`,
+    `Persona: ${persona.label}.`,
+    `Persona goals: ${persona.goals.join(" | ")}`,
+    toolInstruction,
+  ].join("\n");
+}
+
+function buildFinalSimulationPrompt(scenario: ScenarioDefinition, persona: PersonaDefinition): string {
+  return [
+    `Write the final assistant response for scenario ${scenario.id} after the tool results.`,
+    `Business: ${scenario.business.name}.`,
+    `Persona: ${persona.label}.`,
+    "Use the tool result facts and keep the response concise.",
+  ].join("\n");
+}
+
+function validateProviderToolCall(
+  toolCall: ToolCall,
+  availableTools: ToolSchema[],
+  toolCallIndex: number,
+  options: ModelBackedSimulationRunnerOptions,
+): ToolCall {
+  if (!toolCall.id || typeof toolCall.id !== "string") {
+    throw new ProviderToolCallError(`toolCalls[${toolCallIndex}].id must be a non-empty string`, {
+      provider: options.provider,
+      model: options.model,
+    });
+  }
+
+  const tool = availableTools.find((candidate) => candidate.name === toolCall.name);
+  if (!tool) {
+    throw new ProviderToolCallError(`Unknown tool call: ${toolCall.name}`, {
+      provider: options.provider,
+      model: options.model,
+      details: { toolName: toolCall.name },
+    });
+  }
+
+  if (!isJsonObject(toolCall.arguments)) {
+    throw new ProviderToolCallError(`Tool call ${toolCall.name} arguments must be a JSON object`, {
+      provider: options.provider,
+      model: options.model,
+      details: { toolName: toolCall.name },
+    });
+  }
+
+  validateToolArgumentsAgainstSchema(toolCall.name, toolCall.arguments, tool.parameters, options);
+  return toolCall;
+}
+
+function validateToolArgumentsAgainstSchema(
+  toolName: string,
+  args: JsonObject,
+  schema: ToolSchema["parameters"],
+  options: ModelBackedSimulationRunnerOptions,
+): void {
+  for (const requiredKey of schema.required ?? []) {
+    if (!(requiredKey in args)) {
+      throw new ProviderToolCallError(`Tool call ${toolName} is missing required argument ${requiredKey}`, {
+        provider: options.provider,
+        model: options.model,
+        details: { toolName, requiredKey },
+      });
+    }
+  }
+
+  if (schema.additionalProperties === false) {
+    for (const key of Object.keys(args)) {
+      if (!(key in schema.properties)) {
+        throw new ProviderToolCallError(`Tool call ${toolName} included unknown argument ${key}`, {
+          provider: options.provider,
+          model: options.model,
+          details: { toolName, argument: key },
+        });
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(args)) {
+    const propertySchema = schema.properties[key];
+    if (!propertySchema) {
+      continue;
+    }
+
+    if (!matchesJsonSchemaValue(value, propertySchema)) {
+      throw new ProviderToolCallError(`Tool call ${toolName} argument ${key} did not match schema type`, {
+        provider: options.provider,
+        model: options.model,
+        details: { toolName, argument: key },
+      });
+    }
+  }
+}
+
+function matchesJsonSchemaValue(value: JsonValue, schema: JsonSchemaValue): boolean {
+  switch (schema.type) {
+    case "object":
+      return isJsonObject(value);
+    case "string":
+      return typeof value === "string" && (!schema.enum || schema.enum.includes(value));
+    case "number":
+      return typeof value === "number" && Number.isFinite(value);
+    case "integer":
+      return typeof value === "number" && Number.isInteger(value);
+    case "boolean":
+      return typeof value === "boolean";
+    case "array":
+      return Array.isArray(value) && (!schema.items || value.every((item) => matchesJsonSchemaValue(item, schema.items!)));
+    case "null":
+      return value === null;
+  }
+}
+
+function assertNonEmptyAssistantText(
+  content: string,
+  options: ModelBackedSimulationRunnerOptions,
+  label: string,
+): string {
+  if (content.trim() === "") {
+    throw new ProviderResponseError(`Empty ${label}.`, {
+      provider: options.provider,
+      model: options.model,
+    });
+  }
+
+  return content;
+}
+
+function toModelMessages(messages: ConversationMessage[]): ModelMessage[] {
+  return messages.flatMap((message): ModelMessage[] => {
+    switch (message.kind) {
+      case "system":
+        return [{ role: "system", content: message.content }];
+      case "user":
+        return [{ role: "user", content: message.content }];
+      case "assistant_text":
+        return [{ role: "assistant", content: message.content }];
+      case "assistant_tool_call":
+        return [
+          {
+            role: "assistant",
+            content:
+              message.content ??
+              `Called tools: ${message.toolCalls.map((toolCall) => toolCall.name).join(", ")}`,
+          },
+        ];
+      case "tool_result":
+        return [
+          {
+            role: "tool",
+            content: typeof message.result.result === "string" ? message.result.result : JSON.stringify(message.result.result),
+            toolCallId: message.result.toolCallId,
+            name: message.result.name,
+          },
+        ];
+    }
+  });
+}
+
+function sampleJsonValue(schema: JsonSchemaValue, key: string): JsonObject[string] {
+  if (schema.type === "object") {
+    return buildObjectFromSchema(schema.properties);
+  }
+
+  switch (schema.type) {
+    case "string":
+      return `sample ${key}`;
+    case "number":
+    case "integer":
+      return 1;
+    case "boolean":
+      return true;
+    case "array":
+      return [];
+    case "null":
+      return null;
+  }
+}
+
+function buildObjectFromSchema(properties: Record<string, JsonSchemaValue>): JsonObject {
+  return Object.fromEntries(
+    Object.entries(properties).map(([key, value]) => [key, sampleJsonValue(value, key)]),
+  ) as JsonObject;
 }
 
 export async function loadScenarioSource(

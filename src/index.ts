@@ -128,6 +128,7 @@ export type {
   DatasetWriter,
   FileSystemAdapter,
   ModelBackedPersonaGeneratorOptions,
+  ModelBackedSimulationRunnerOptions,
   PersonaGenerationRequest,
   PersonaGenerator,
   PersistenceAdapter,
@@ -136,12 +137,19 @@ export type {
   SimulationRequest,
   SimulationRunner,
   SimulationRuntimeAdapters,
+  ToolResultProvider,
+  ToolResultRequest,
 } from "./simulation/index.js";
 export {
+  buildDeterministicTrajectories,
   buildDeterministicPersonas,
+  buildToolArguments,
   createDeferredSimulationRunner,
   createDeterministicPersonaGenerator,
+  createDeterministicSimulationRunner,
+  createDeterministicToolResultProvider,
   createModelBackedPersonaGenerator,
+  createModelBackedSimulationRunner,
   loadScenarioSource,
 } from "./simulation/index.js";
 import { deferredLogConversionBoundary } from "./core/index.js";

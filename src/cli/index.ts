@@ -7,8 +7,10 @@ import {
   bundledScenarioProfiles,
   cliCommands,
   createDeterministicPersonaGenerator,
+  createDeterministicSimulationRunner,
   createDeferredLogConversionError,
   createModelBackedPersonaGenerator,
+  createModelBackedSimulationRunner,
   createModelClientFromConfig,
   deferredLogConversionBoundary,
   defaultApiKeyEnvForProvider,
@@ -19,18 +21,12 @@ import {
   summarizeOpenAIJsonlRows,
   translateOpenAIJsonl,
   validateOpenAIJsonl,
-  type ConversationMessage,
-  type ConversationTrajectory,
   type ExportMode,
-  type JsonObject,
-  type JsonSchemaValue,
   type OpenAIChatFineTuningRow,
   type PersonaGenerator,
-  type PersonaDefinition,
   type ProviderRuntimeConfig,
-  type ScenarioDefinition,
   type ScenarioSource,
-  type ToolSchema,
+  type SimulationRunner,
 } from "../index.js";
 
 interface ParsedArgs {
@@ -114,16 +110,8 @@ async function simulateDataset({ args }: CliContext): Promise<void> {
   const count = readOptionalIntegerFlag(args, "limit") ?? scenario.definition.personaSource.count;
   const provider = readDeterministicProviderChoice(args, "simulation-provider", "deterministic");
 
-  if (provider !== "deterministic") {
-    validateExplicitProviderRuntime(args, provider, "simulation");
-    throw new ProviderUnsupportedFeatureError(
-      `${provider} simulation is not implemented in this phase; use --simulation-provider deterministic.`,
-      { provider },
-    );
-  }
-
-  const personas = await createDeterministicPersonaGenerator().generate({ scenario, count });
-  const trajectories = buildDeterministicTrajectories(scenario.definition, personas, mode);
+  const runner = createCliSimulationRunner(args, provider);
+  const trajectories = await runner.run({ scenario, outputDirectory: dirname(outputPath), limit: count, mode });
   const rows = trajectories.map((trajectory) => buildOpenAIFineTuningRow(trajectory, { mode }));
   const contents = serializeOpenAIJsonlRows(rows);
 
@@ -227,116 +215,6 @@ async function readScenarioSource(args: ParsedArgs): Promise<ScenarioSource> {
   }
 
   return loadScenarioSource({ json: contents, metadata: { configPath } });
-}
-
-function buildDeterministicTrajectories(
-  scenario: ScenarioDefinition,
-  personas: PersonaDefinition[],
-  mode: ExportMode,
-): ConversationTrajectory[] {
-  return personas.map((persona, index) => {
-    const tool = mode === "plain_chat" ? undefined : scenario.toolInventory.tools[index % scenario.toolInventory.tools.length];
-    const messages: ConversationMessage[] = [
-      {
-        kind: "system",
-        content: scenario.systemPrompt ?? `You are ${scenario.assistantRole} for ${scenario.business.name}.`,
-      },
-      {
-        kind: "user",
-        content: persona.goals[0] ?? `I need help from ${scenario.business.name}.`,
-      },
-    ];
-
-    if (!tool) {
-      messages.push({
-        kind: "assistant_text",
-        content: `I can help with that. ${scenario.conversationGoals[0] ?? "Here is the next step."}`,
-      });
-    } else {
-      const callId = `call_${scenario.id.replaceAll("-", "_")}_${index + 1}`;
-      messages.push(
-        {
-          kind: "assistant_tool_call",
-          toolCalls: [
-            {
-              id: callId,
-              name: tool.name,
-              arguments: buildToolArguments(tool),
-            },
-          ],
-        },
-        {
-          kind: "tool_result",
-          result: {
-            toolCallId: callId,
-            name: tool.name,
-            payloadFormat: "normalized_json",
-            result: {
-              scenarioId: scenario.id,
-              personaId: persona.id,
-              answer: `Deterministic sample result for ${tool.name}.`,
-              source: "cli_sample_simulation",
-            },
-          },
-        },
-        {
-          kind: "assistant_text",
-          content: `I checked ${tool.name} and found the next step for ${persona.label}.`,
-        },
-      );
-    }
-
-    const trajectory: ConversationTrajectory = {
-      id: `${scenario.id}-trajectory-${index + 1}`,
-      business: scenario.business,
-      persona,
-      messages,
-      metadata: {
-        scenarioId: scenario.id,
-        personaId: persona.id,
-        locale: scenario.business.locale ?? "und",
-        generatedBy: "finetuning-cli",
-      },
-    };
-
-    if (tool) {
-      trajectory.tools = [tool];
-    }
-
-    return trajectory;
-  });
-}
-
-function buildToolArguments(tool: ToolSchema): JsonObject {
-  return Object.fromEntries(
-    Object.entries(tool.parameters.properties).map(([key, value]) => [key, sampleJsonValue(value, key)]),
-  ) as JsonObject;
-}
-
-function sampleJsonValue(schema: JsonSchemaValue, key: string): JsonObject[string] {
-  if (schema.type === "object") {
-    return buildObjectFromSchema(schema.properties);
-  }
-
-  switch (schema.type) {
-    case "string":
-      return `sample ${key}`;
-    case "number":
-    case "integer":
-      return 1;
-    case "boolean":
-      return true;
-    case "array":
-      return [];
-    case "null":
-      return null;
-  }
-}
-
-function buildObjectFromSchema(properties: Record<string, JsonSchemaValue>): JsonObject {
-  return Object.fromEntries(
-    Object.entries(properties).map(([key, value]) => [key, sampleJsonValue(value, key)]),
-  ) as JsonObject;
 }
 
 async function writeBatchFile(outputPath: string, contents: string, force: boolean): Promise<void> {
@@ -444,6 +322,20 @@ function createCliPersonaGenerator(args: ParsedArgs, provider: DeterministicProv
 
   const config = validateExplicitProviderRuntime(args, provider, "persona");
   return createModelBackedPersonaGenerator({
+    modelClient: createModelClientFromConfig(config),
+    provider,
+    model: config.model,
+    ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
+  });
+}
+
+function createCliSimulationRunner(args: ParsedArgs, provider: DeterministicProviderChoice): SimulationRunner {
+  if (provider === "deterministic") {
+    return createDeterministicSimulationRunner();
+  }
+
+  const config = validateExplicitProviderRuntime(args, provider, "simulation");
+  return createModelBackedSimulationRunner({
     modelClient: createModelClientFromConfig(config),
     provider,
     model: config.model,
