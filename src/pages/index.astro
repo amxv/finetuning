@@ -1,57 +1,34 @@
 ---
-import { getCollection } from "astro:content";
 import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
 import { primaryNav, siteConfig } from "../data/docs";
 
 const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
-const featuredDocs = docs.filter((entry) =>
-  ["quickstart", "full-tool-trajectories", "validation", "provider-config", "scenario-authoring", "translation"].includes(entry.id)
-);
 
-const highlights = [
+const proofPoints = [
   {
     title: "Offline-first workflows",
-    label: "Default path",
-    text:
-      "Start with deterministic persona generation, deterministic simulation, and local-pseudo translation without provider credentials."
+    body: "Generate personas, simulate datasets, and run local-pseudo translation without provider credentials."
   },
   {
     title: "Tool-calling dataset support",
-    label: "JSONL exports",
-    text:
-      "Export canonical OpenAI chat fine-tuning JSONL in plain-chat, tool-decision, or full-tool-trajectory mode."
+    body: "Export canonical OpenAI chat fine-tuning JSONL in plain-chat, tool-decision, or full-tool-trajectory mode."
+  },
+  {
+    title: "Validation before training",
+    body: "Check JSONL parsing, message roles, tool-call arguments, tool-result references, duplicate IDs, and summary counts."
   },
   {
     title: "Explicit provider paths",
-    label: "Provider control",
-    text:
-      "Switch to OpenAI or Anthropic adapters only when you choose a provider, model, and API key environment variable."
+    body: "Switch to OpenAI or Anthropic adapters only when you choose a provider, model, and API key environment variable."
   }
 ];
 
-const workflowSteps = [
-  {
-    title: "Author a scenario",
-    text: "Describe assistant behavior, business context, personas, tools, goals, and stopping rules in reusable JSON."
-  },
-  {
-    title: "Generate or simulate",
-    text: "Use deterministic defaults for fast local iteration, or opt into model-backed persona generation and simulation."
-  },
-  {
-    title: "Validate every export",
-    text: "Catch malformed JSONL, broken tool-call references, role issues, duplicate IDs, and translated row regressions."
-  },
-  {
-    title: "Train with confidence",
-    text: "Move forward with plain-chat, tool-decision, or full-tool-trajectory rows shaped for OpenAI fine-tuning."
-  }
-];
-
-const exportModes = [
-  ["plain_chat", "System, user, and assistant text for simple examples."],
-  ["tool_decision", "Stop after the assistant chooses the function call."],
-  ["full_tool_trajectory", "Preserve tool call, tool result, and final assistant response."]
+const workflows = [
+  "Model assistant domains in scenario JSON instead of hard-coding behavior in scripts.",
+  "Generate deterministic sample datasets from a clean checkout before adding provider credentials.",
+  "Preserve full tool-call loops when the model needs to learn tool choice, tool results, and final responses.",
+  "Translate generated datasets while keeping tool calls, tool definitions, metadata, and validation rules intact."
 ];
 ---
 
@@ -61,135 +38,114 @@ const exportModes = [
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
-  <section class="landing-hero">
-    <div class="shell landing-hero__inner">
-      <div class="landing-hero__copy">
-        <p class="section-label">Scenario-driven dataset docs</p>
-        <h1>Build, validate, and translate fine-tuning datasets from auditable scenarios.</h1>
-        <p class="landing-hero__lede">
-          {siteConfig.description} The docs start with a deterministic local path, then make provider-backed
-          persona generation, simulation, and translation explicit when your workflow needs model calls.
-        </p>
-        <div class="landing-hero__actions">
-          <a class="button button--solid" href="/docs/quickstart">Open quickstart</a>
-          <a class="button button--ghost" href="/docs">Browse docs</a>
-        </div>
-        <dl class="landing-hero__stats" aria-label="Core workflow constraints">
-          <div>
-            <dt>0</dt>
-            <dd>provider keys needed for the default path</dd>
-          </div>
-          <div>
-            <dt>3</dt>
-            <dd>OpenAI JSONL export modes</dd>
-          </div>
-          <div>
-            <dt>2</dt>
-            <dd>provider adapter families when enabled</dd>
-          </div>
-        </dl>
+  <section class="hero shell">
+    <div class="hero__copy">
+      <p class="section-label">Scenario-driven dataset toolkit</p>
+      <h1>
+        Build validated fine-tuning datasets from reusable assistant scenarios.
+      </h1>
+      <p class="hero__lede">
+        finetuning turns scenario definitions into deterministic or provider-backed OpenAI
+        chat fine-tuning JSONL. Start offline, validate every export, then opt into OpenAI
+        or Anthropic runs only when a workflow needs model calls.
+      </p>
+      <p class="hero__annotation">
+        Scenarios carry assistant role, tools, personas, goals, and stopping rules. Runtime
+        provider choices stay explicit in config files or command flags, with secrets kept in
+        environment variables.
+      </p>
+      <div class="hero__actions">
+        <a class="button button--solid" href="/docs/quickstart">Start with the quickstart</a>
+        <a class="button button--ghost" href="/docs">Browse the docs</a>
       </div>
-      <aside class="dataset-panel" aria-label="Example fine-tuning row shape">
-        <div class="dataset-panel__header">
-          <span>validated row shape</span>
-          <strong>full_tool_trajectory</strong>
-        </div>
-        <ol class="message-stack">
-          <li>
-            <span class="message-stack__role">system</span>
-            <p>assistant role, business context, and scenario rules</p>
-          </li>
-          <li>
-            <span class="message-stack__role">user</span>
-            <p>persona-driven customer request</p>
-          </li>
-          <li>
-            <span class="message-stack__role">assistant</span>
-            <p>tool call with JSON arguments</p>
-          </li>
-          <li>
-            <span class="message-stack__role">tool</span>
-            <p>matching tool_call_id result</p>
-          </li>
-          <li>
-            <span class="message-stack__role">assistant</span>
-            <p>final natural-language response</p>
-          </li>
-        </ol>
-        <div class="dataset-panel__command">
-          <span>$ node dist/cli/index.js simulate-dataset --mode full_tool_trajectory</span>
-          <span>$ node dist/cli/index.js validate-dataset outputs/sample.jsonl</span>
-        </div>
-      </aside>
     </div>
+    <aside class="hero__panel">
+      <p class="hero__panel-label">Core commands</p>
+      <ul class="hero__signal-list">
+        <li>Generate personas from scenario definitions.</li>
+        <li>Simulate OpenAI-format chat fine-tuning JSONL.</li>
+        <li>Validate and translate datasets before training.</li>
+      </ul>
+      <div class="hero__terminal">
+        <span>$ node dist/cli/index.js generate-personas --config examples/receptionist/scenario.json</span>
+        <span>$ node dist/cli/index.js simulate-dataset --mode full_tool_trajectory</span>
+        <span>$ node dist/cli/index.js validate-dataset outputs/receptionist-sample.jsonl</span>
+        <span>$ node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl --target-locale es-ES</span>
+      </div>
+    </aside>
   </section>
 
-  <section class="shell proof-section">
+  <section class="shell section-grid">
     <div class="section-heading">
-      <p class="section-label">What changes</p>
-      <h2>Move dataset design out of fragile scripts and into repeatable docs-backed workflows.</h2>
+      <p class="section-label">What it solves</p>
+      <h2>Fine-tuning examples that are generated, inspected, and validated from one source of truth.</h2>
       <p>
-        finetuning keeps the modeling surface concrete: scenarios define behavior, commands generate rows,
-        validators enforce structure, and provider selections stay separate from checked-in data.
+        Ad hoc scripts make training data hard to review. finetuning keeps domain behavior in
+        scenario JSON, turns those scenarios into canonical rows, and validates the output shape
+        before generated or translated JSONL reaches a training job.
       </p>
     </div>
-    <div class="proof-grid proof-grid--landing">
-      {highlights.map((highlight) => (
-        <article class="proof-card proof-card--landing">
-          <span>{highlight.label}</span>
-          <h3>{highlight.title}</h3>
-          <p>{highlight.text}</p>
+    <div class="proof-grid">
+      {proofPoints.map((item) => (
+        <article class="proof-card">
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
         </article>
       ))}
     </div>
   </section>
 
-  <section class="shell workflow-section">
-    <div class="workflow-section__intro">
-      <p class="section-label">Workflow</p>
-      <h2>One path from scenario JSON to training-ready rows.</h2>
-    </div>
-    <div class="workflow-steps">
-      {workflowSteps.map((step, index) => (
-        <article class="workflow-step">
-          <span>{String(index + 1).padStart(2, "0")}</span>
-          <h3>{step.title}</h3>
-          <p>{step.text}</p>
-        </article>
-      ))}
-    </div>
-  </section>
-
-  <section class="shell export-band">
+  <section class="shell split-section">
     <div>
-      <p class="section-label">Dataset modes</p>
-      <h2>Choose the smallest export shape that teaches the behavior you need.</h2>
-      <p>
-        The docs explain where each OpenAI-format export mode fits, from simple chat examples
-        to complete tool loops that include function calls, tool results, and final answers.
-      </p>
+      <p class="section-label">Built for</p>
+      <h2>Teams that need auditable assistant examples before they send JSONL to training.</h2>
     </div>
-    <div class="export-band__modes">
-      {exportModes.map(([mode, text]) => (
-        <article>
-          <code>{mode}</code>
-          <p>{text}</p>
+    <div class="stack-list">
+      {workflows.map((item) => (
+        <article class="stack-list__item">
+          <p>{item}</p>
         </article>
       ))}
     </div>
   </section>
 
-  <section class="shell docs-teaser docs-teaser--landing">
+  <section class="shell capability-band">
+    <div class="capability-band__intro">
+      <p class="section-label">Dataset model</p>
+      <h2>Scenarios, export modes, validation, and provider config stay separate.</h2>
+    </div>
+    <div class="capability-band__grid">
+      <div>
+        <p class="capability-title">scenario JSON</p>
+        <p>Defines assistant role, business context, persona source, tool inventory, goals, and stopping rules.</p>
+      </div>
+      <div>
+        <p class="capability-title">export modes</p>
+        <p>Choose plain chat, tool decision, or full tool trajectory depending on what the example should teach.</p>
+      </div>
+      <div>
+        <p class="capability-title">validation</p>
+        <p>Checks message shape, tool-call integrity, result references, duplicate IDs, and dataset summary counts.</p>
+      </div>
+      <div>
+        <p class="capability-title">provider config</p>
+        <p>Keeps OpenAI and Anthropic models, base URLs, and API key env vars outside scenario definitions.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell docs-teaser">
     <div class="section-heading">
       <p class="section-label">Docs map</p>
-      <h2>Start deterministic, then layer in provider-backed runs only where they belong.</h2>
+      <h2>Start offline, validate the row shape, then add provider-backed runs deliberately.</h2>
       <p>
-        These guides cover the operational path: install, generate, validate, translate, configure providers,
-        and author new assistant domains without mixing secrets into scenarios.
+        The docs cover setup, deterministic generation, full tool trajectories, validation,
+        translation, provider configuration, scenario authoring, examples, architecture, and
+        maintenance.
       </p>
     </div>
     <div class="docs-teaser__grid">
-      {featuredDocs.map((entry) => (
+      {docs.map((entry) => (
         <a class="docs-teaser__card" href={`/docs/${entry.id}`}>
           <span>{entry.data.category}</span>
           <h3>{entry.data.title}</h3>
@@ -198,445 +154,10 @@ const exportModes = [
       ))}
     </div>
   </section>
-
-  <section class="shell closing-note closing-note--landing">
+  <section class="shell closing-note">
     <p>
-      Use finetuning when you need scenario-authored examples, explicit provider boundaries,
-      and validation before any generated or translated JSONL reaches a training job.
+      Use finetuning when scenario-authored behavior, explicit provider boundaries, and
+      validator-backed JSONL matter more than one-off dataset scripts.
     </p>
   </section>
 </BaseLayout>
-
-<style>
-  :global(body) {
-    background:
-      linear-gradient(180deg, rgba(15, 17, 16, 0.04), transparent 22rem),
-      var(--bg);
-  }
-
-  .landing-hero {
-    position: relative;
-    border-bottom: 1px solid var(--line);
-    background:
-      linear-gradient(90deg, rgba(22, 101, 52, 0.12), transparent 38%),
-      linear-gradient(180deg, var(--surface-muted), var(--bg));
-  }
-
-  .landing-hero::before {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    content: "";
-    background-image:
-      linear-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: linear-gradient(180deg, black, transparent 82%);
-  }
-
-  :global(:root[data-theme="dark"]) .landing-hero {
-    background:
-      linear-gradient(90deg, rgba(34, 197, 94, 0.12), transparent 42%),
-      linear-gradient(180deg, #111411, var(--bg));
-  }
-
-  :global(:root[data-theme="dark"]) .landing-hero::before {
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  }
-
-  .landing-hero__inner {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1.04fr) minmax(21rem, 0.8fr);
-    gap: clamp(2rem, 6vw, 5rem);
-    align-items: center;
-    padding: clamp(4rem, 8vw, 7rem) 0 clamp(3rem, 7vw, 6rem);
-  }
-
-  .landing-hero__copy {
-    min-width: 0;
-  }
-
-  .landing-hero h1 {
-    max-width: 12.5ch;
-    margin-top: 0.85rem;
-    font-size: clamp(3rem, 7vw, 5.8rem);
-    line-height: 0.95;
-    letter-spacing: -0.055em;
-    text-wrap: balance;
-  }
-
-  .landing-hero__lede {
-    max-width: 45rem;
-    margin-top: 1.4rem;
-    color: var(--muted);
-    font-size: clamp(1.05rem, 1.8vw, 1.3rem);
-    line-height: 1.55;
-    text-wrap: pretty;
-  }
-
-  .landing-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-    margin-top: 2rem;
-  }
-
-  .landing-hero__actions .button {
-    min-height: 2.8rem;
-    border-radius: 999px;
-  }
-
-  .landing-hero__stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0;
-    width: min(100%, 42rem);
-    margin: 2.5rem 0 0;
-    border: 1px solid var(--line);
-    background: color-mix(in srgb, var(--surface) 84%, transparent);
-  }
-
-  .landing-hero__stats div {
-    min-width: 0;
-    padding: 1rem;
-  }
-
-  .landing-hero__stats div + div {
-    border-left: 1px solid var(--line);
-  }
-
-  .landing-hero__stats dt {
-    font-size: 1.8rem;
-    font-weight: 600;
-    line-height: 1;
-  }
-
-  .landing-hero__stats dd {
-    margin: 0.35rem 0 0;
-    color: var(--muted);
-    font-size: 0.82rem;
-    line-height: 1.35;
-  }
-
-  .dataset-panel {
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--line) 80%, var(--ink));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--surface) 92%, transparent);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.16);
-  }
-
-  .dataset-panel__header {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem 1.1rem;
-    border-bottom: 1px solid var(--line);
-    background: var(--surface-strong);
-  }
-
-  .dataset-panel__header span,
-  .proof-card--landing span,
-  .workflow-step span {
-    color: var(--muted);
-    font-size: 0.73rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .dataset-panel__header strong {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
-  .message-stack {
-    display: grid;
-    gap: 0.7rem;
-    margin: 0;
-    padding: 1.1rem;
-    list-style: none;
-    counter-reset: messages;
-  }
-
-  .message-stack li {
-    position: relative;
-    display: grid;
-    grid-template-columns: 6.7rem 1fr;
-    gap: 1rem;
-    align-items: center;
-    min-height: 4.2rem;
-    padding: 0.8rem 0.9rem;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: var(--surface);
-  }
-
-  .message-stack li::before {
-    position: absolute;
-    top: 0.7rem;
-    right: 0.8rem;
-    color: color-mix(in srgb, var(--muted) 55%, transparent);
-    content: "0" counter(messages);
-    counter-increment: messages;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-  }
-
-  .message-stack__role {
-    width: fit-content;
-    max-width: 100%;
-    padding: 0.35rem 0.5rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--surface-muted);
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-  }
-
-  .message-stack p {
-    padding-right: 1.8rem;
-    color: var(--muted);
-    font-size: 0.9rem;
-    line-height: 1.35;
-  }
-
-  .dataset-panel__command {
-    display: grid;
-    gap: 0.45rem;
-    padding: 1rem 1.1rem 1.1rem;
-    border-top: 1px solid var(--line);
-    background: var(--terminal-bg);
-    color: var(--terminal-ink);
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
-    line-height: 1.45;
-  }
-
-  .proof-section,
-  .workflow-section,
-  .export-band,
-  .docs-teaser--landing,
-  .closing-note--landing {
-    padding: clamp(4rem, 7vw, 6rem) 0;
-    border-top: 1px solid var(--line);
-  }
-
-  .proof-grid--landing {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  .proof-card--landing {
-    min-height: 15rem;
-    padding: 1.4rem;
-    border-radius: 8px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--surface-muted) 76%, transparent), var(--surface));
-  }
-
-  .proof-card--landing h3 {
-    margin-top: 3.5rem;
-    font-size: 1.35rem;
-    letter-spacing: -0.025em;
-  }
-
-  .proof-card--landing p {
-    margin-top: 0.75rem;
-    line-height: 1.55;
-  }
-
-  .workflow-section {
-    display: grid;
-    grid-template-columns: minmax(14rem, 0.42fr) minmax(0, 1fr);
-    gap: clamp(2rem, 5vw, 4rem);
-  }
-
-  .workflow-section__intro {
-    position: sticky;
-    top: 2rem;
-    align-self: start;
-  }
-
-  .workflow-section__intro h2,
-  .export-band h2 {
-    margin-top: 0.7rem;
-    font-size: clamp(2rem, 3.8vw, 3rem);
-    line-height: 1.02;
-    letter-spacing: -0.04em;
-    text-wrap: balance;
-  }
-
-  .workflow-steps {
-    display: grid;
-    border-top: 1px solid var(--line);
-  }
-
-  .workflow-step {
-    display: grid;
-    grid-template-columns: 4.5rem minmax(10rem, 0.45fr) minmax(0, 1fr);
-    gap: 1.5rem;
-    align-items: baseline;
-    padding: 1.45rem 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .workflow-step h3 {
-    font-size: 1.1rem;
-  }
-
-  .workflow-step p {
-    color: var(--muted);
-    line-height: 1.55;
-  }
-
-  .export-band {
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(20rem, 1fr);
-    gap: clamp(2rem, 6vw, 5rem);
-    align-items: start;
-    padding-right: clamp(0rem, 3vw, 2rem);
-    padding-left: clamp(0rem, 3vw, 2rem);
-    border: 1px solid var(--line);
-    border-right: 0;
-    border-left: 0;
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--surface-muted) 85%, transparent), transparent),
-      var(--surface);
-  }
-
-  .export-band > div > p:not(.section-label) {
-    max-width: 34rem;
-    margin-top: 1rem;
-    color: var(--muted);
-    font-size: 1.05rem;
-    line-height: 1.55;
-  }
-
-  .export-band__modes {
-    display: grid;
-    gap: 0.85rem;
-  }
-
-  .export-band__modes article {
-    display: grid;
-    grid-template-columns: minmax(10rem, 0.62fr) minmax(0, 1fr);
-    gap: 1.2rem;
-    align-items: start;
-    padding: 1rem;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--surface);
-  }
-
-  .export-band__modes code {
-    width: fit-content;
-    max-width: 100%;
-    padding: 0.28rem 0.45rem;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: var(--surface-hover);
-    font-size: 0.82rem;
-    overflow-wrap: anywhere;
-  }
-
-  .export-band__modes p {
-    color: var(--muted);
-    line-height: 1.45;
-  }
-
-  .docs-teaser--landing .docs-teaser__grid {
-    gap: 1rem;
-  }
-
-  .docs-teaser--landing .docs-teaser__card {
-    min-height: 13.5rem;
-    border-radius: 8px;
-  }
-
-  .closing-note--landing p {
-    max-width: 54rem;
-    font-size: clamp(1.45rem, 3vw, 2.35rem);
-    line-height: 1.18;
-    letter-spacing: -0.035em;
-    text-wrap: balance;
-  }
-
-  @media (max-width: 900px) {
-    .landing-hero__inner,
-    .workflow-section,
-    .export-band {
-      grid-template-columns: 1fr;
-    }
-
-    .landing-hero h1 {
-      max-width: 13.5ch;
-    }
-
-    .dataset-panel {
-      width: min(100%, 36rem);
-    }
-
-    .proof-grid--landing {
-      grid-template-columns: 1fr;
-    }
-
-    .proof-card--landing {
-      min-height: auto;
-    }
-
-    .proof-card--landing h3 {
-      margin-top: 2rem;
-    }
-
-    .workflow-section__intro {
-      position: static;
-    }
-  }
-
-  @media (max-width: 680px) {
-    .landing-hero__inner {
-      padding-top: 3.25rem;
-    }
-
-    .landing-hero h1 {
-      max-width: 100%;
-      font-size: clamp(2.5rem, 15vw, 4rem);
-    }
-
-    .landing-hero__stats,
-    .message-stack li,
-    .workflow-step,
-    .export-band__modes article {
-      grid-template-columns: 1fr;
-    }
-
-    .landing-hero__stats div + div {
-      border-top: 1px solid var(--line);
-      border-left: 0;
-    }
-
-    .dataset-panel__header {
-      display: grid;
-    }
-
-    .message-stack p {
-      padding-right: 0;
-    }
-
-    .workflow-step {
-      gap: 0.55rem;
-    }
-
-    .export-band {
-      padding-right: 0;
-      padding-left: 0;
-      border-right: 0;
-      border-left: 0;
-    }
-  }
-</style>
