@@ -9,6 +9,7 @@ export type {
   DatasetSummary,
   DatasetValidationIssue,
   DatasetValidationResult,
+  DeferredLogConversionBoundary,
   ExportMode,
   FineTuningToolkitConfig,
   JsonObject,
@@ -59,6 +60,8 @@ export {
   bundledScenarioProfiles,
   checkAvailabilityTool,
   checkAvailabilityToolTrajectoryFixture,
+  createDeferredLogConversionError,
+  deferredLogConversionBoundary,
   findBundledScenarioProfile,
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
@@ -111,6 +114,7 @@ export type {
   SimulationRuntimeAdapters,
 } from "./simulation/index.js";
 export { createDeferredSimulationRunner, loadScenarioSource } from "./simulation/index.js";
+import { deferredLogConversionBoundary } from "./core/index.js";
 import type { CliCommandDefinition, PublicWorkflow } from "./core/index.js";
 
 export const supportedWorkflows: PublicWorkflow[] = [
@@ -131,8 +135,9 @@ export const supportedWorkflows: PublicWorkflow[] = [
   },
   {
     id: "log-to-dataset-import",
-    status: "deferred",
-    description: "Convert redacted production logs into training rows.",
+    status: deferredLogConversionBoundary.status,
+    description:
+      "Deferred: no v1 real-log converter is shipped until a public source contract, redaction hooks, and privacy-safe fixture coverage exist.",
   },
 ];
 
@@ -158,8 +163,8 @@ export const cliCommands: CliCommandDefinition[] = [
     description: "Translate dataset content while preserving schema-bearing fields.",
   },
   {
-    name: "convert-logs",
-    status: "deferred",
-    description: "Convert redacted logs into OpenAI-format rows.",
+    name: deferredLogConversionBoundary.cliCommand,
+    status: deferredLogConversionBoundary.status,
+    description: "Deferred: no log-derived dataset converter is implemented in v1.",
   },
 ];

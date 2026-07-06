@@ -22,7 +22,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs"
+    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs && node scripts/verify-log-deferment.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

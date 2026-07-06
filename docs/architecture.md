@@ -15,7 +15,7 @@ V1 targets developers and teams building model-specific assistants that need syn
 
 Translation is experimental for v1. The repo exposes schema-preserving library transforms and an explicit `translate-dataset` CLI workflow using a local pseudo-translation request path. Real provider-backed translation is represented as an adapter boundary and is not silently routed through any ambiguous provider helper.
 
-Real-log conversion is deferred. It will not be part of v1 until the repo has a public source contract, redaction hooks, privacy guidance, and fixture-backed validation.
+Real-log conversion is explicitly deferred. It is not part of v1, no public log shape is accepted, and no converter is exported. The workflow will remain unavailable until the repo has a public source contract, redaction hooks, privacy guidance, and privacy-safe fixture-backed validation.
 
 ## Supported Workflows
 
@@ -25,7 +25,7 @@ Real-log conversion is deferred. It will not be part of v1 until the repo has a 
 | Persona generation | V1 | `generate-personas`, library workflow manifest |
 | Dataset validation | V1 | `validate-dataset`, library workflow manifest |
 | Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
-| Log-to-dataset import | Deferred | `convert-logs`, documented placeholder only |
+| Log-to-dataset import | Deferred | `convert-logs` exits with the shared deferred-boundary error; no converter is implemented |
 
 Every workflow in this table has a public manifest in `src/index.ts`. V1 CLI commands for persona generation, deterministic sample dataset generation, and dataset validation are implemented in `src/cli/index.ts`. The reusable model, OpenAI export row shape, JSONL validation surface, and representative fixtures live under `src/core`. Provider-backed simulation concerns live behind adapter interfaces in `src/providers` and `src/simulation`.
 
@@ -112,6 +112,7 @@ Initial exported surface:
 - `translateOpenAIFineTuningRow`, `translateOpenAIJsonl`, `TranslationTextAdapter`, and `experimentalTranslationRules`: experimental schema-preserving translation surface
 - `ModelClient`, `ProviderAdapter`, and provider adapter placeholder exports: provider integration boundary
 - `FileSystemAdapter`, `DatasetWriter`, `PersistenceAdapter`, and `SimulationRunner`: runtime and IO boundaries for simulation workflows
+- `deferredLogConversionBoundary` and `createDeferredLogConversionError`: explicit v1 boundary proving real-log conversion is not implemented and listing the privacy/redaction prerequisites for any future converter
 - `supportedWorkflows`: discoverable workflow manifest
 - `cliCommands`: discoverable CLI manifest
 
@@ -133,7 +134,7 @@ Planned commands:
 - `finetuning simulate-dataset --config <path> --out <path>`
 - `finetuning validate-dataset <path>`
 - `finetuning translate-dataset <path> --target-locale <locale> --out <path>` (experimental)
-- `finetuning convert-logs --config <path> --out <path>` (deferred)
+- `finetuning convert-logs` (deferred; exits with an error and does not accept input/output files)
 
 Implemented commands:
 
@@ -144,7 +145,7 @@ Implemented commands:
 
 `generate-personas` writes persona JSON in one batch to the requested output path. `simulate-dataset` writes OpenAI JSONL in one batch and refuses to overwrite an existing file unless `--force` is passed. Its current behavior is deterministic sample generation from the scenario profile and provider-neutral tool schemas, not model-provider simulation. `validate-dataset` validates JSONL rows and reports row counts, valid/invalid row counts, message counts, tool-call counts, tool-result counts, average messages per row, and language counts when row metadata includes a locale.
 
-`translate-dataset` is experimental. It validates input JSONL, translates natural-language message content through `local-pseudo`, preserves tool schema and tool-call structure, validates the translated output, and writes only to the requested output path. `convert-logs` is still deferred.
+`translate-dataset` is experimental. It validates input JSONL, translates natural-language message content through `local-pseudo`, preserves tool schema and tool-call structure, validates the translated output, and writes only to the requested output path. `convert-logs` is still deferred and must not be used for production logs; it exits before reading any log source.
 
 ## Non-Goals
 

@@ -6,6 +6,8 @@ import {
   buildOpenAIFineTuningRow,
   bundledScenarioProfiles,
   cliCommands,
+  createDeferredLogConversionError,
+  deferredLogConversionBoundary,
   loadScenarioSource,
   serializeOpenAIJsonlRows,
   summarizeOpenAIJsonlRows,
@@ -71,7 +73,7 @@ async function main(): Promise<void> {
       await translateDataset(context);
       return;
     case "convert-logs":
-      console.error("convert-logs is deferred until a public log source contract and redaction workflow exist.");
+      console.error(createDeferredLogConversionError().message);
       process.exit(2);
   }
 }
@@ -484,8 +486,13 @@ function printCommandHelp(commandName: string): void {
       console.log("Status: experimental; provider-backed translation is available only through the library adapter boundary.");
       return;
     case "convert-logs":
-      console.log("Usage: finetuning convert-logs --config <path> --out <path>");
-      console.log("Status: deferred.");
+      console.log("Usage: finetuning convert-logs");
+      console.log("Status: deferred; no v1 log-derived dataset converter is implemented.");
+      console.log(`Reason: ${deferredLogConversionBoundary.reason}`);
+      console.log("Required before release:");
+      for (const requirement of deferredLogConversionBoundary.requiredBeforeRelease) {
+        console.log(`  - ${requirement}`);
+      }
       return;
     default:
       printHelp();

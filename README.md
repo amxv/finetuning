@@ -14,7 +14,7 @@ This repository is being bootstrapped from an implementation plan.
 
 The first public release is scoped to synthetic scenario-driven dataset generation for chat and tool-calling assistants. The v1 target includes persona generation, OpenAI chat fine-tuning JSONL export, full tool-trajectory rows, dataset validation, and one receptionist example profile.
 
-Translation is experimental. The standalone package includes schema-preserving translation transforms, explicit provider/request-path metadata, and a local pseudo-translation path for validation and integration testing. Real provider-backed translation remains behind a library adapter boundary. Real-log conversion is deferred until there is a public log contract, redaction story, and privacy-safe fixture coverage.
+Translation is experimental. The standalone package includes schema-preserving translation transforms, explicit provider/request-path metadata, and a local pseudo-translation path for validation and integration testing. Real provider-backed translation remains behind a library adapter boundary. Real-log conversion is explicitly deferred for v1: the package does not define or accept any production log shape and does not ship a log-derived dataset converter until there is a public log contract, redaction hooks, privacy guidance, and privacy-safe fixture coverage.
 
 Receptionist backend concerns are explicitly out of scope for this package. The OSS toolkit should not depend on Cloudflare Workers bindings, queue handlers, D1 persistence, Hono routes, receptionist dashboard storage, or production appointment-booking infrastructure.
 
@@ -107,6 +107,22 @@ node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
 
 Translation uses BCP 47 locale codes such as `es-ES`, `fr-CA`, or `hi-IN`, not language names. The experimental CLI path translates system, user, and assistant text content. It preserves assistant tool calls, tool-call IDs, function names, function arguments, tool result messages, tool definitions, and existing schema-bearing metadata. The output is validated after translation and records `targetLocale`, `translationStatus`, `translationProvider`, and `translationRequestPath` in row metadata.
 
-Provider-backed translation is exposed as a library adapter boundary, not hidden behind the CLI. `convert-logs` remains deferred.
+Provider-backed translation is exposed as a library adapter boundary, not hidden behind the CLI.
+
+## Log-derived datasets
+
+Real-log conversion is not included in v1. The `convert-logs` CLI command is a deferred boundary that exits with an error; it is present only so scripts and documentation can discover that the workflow is unavailable, not to imply a supported converter.
+
+Before this repository accepts public log-derived datasets, it needs:
+
+- an accepted public log record shape
+- assistant content extraction rules
+- assistant tool-call and tool-result extraction rules
+- caller-supplied redaction hooks for messages, tool arguments, tool results, and metadata
+- privacy guidance for removing personal data, secrets, internal identifiers, and unsafe free-form payloads before conversion
+- privacy-safe redacted fixtures and validation coverage
+- a converter implementation that is independent of Cloudflare gateway, queue, Worker, D1, or other backend runtime assumptions
+
+Until those pieces exist, use synthetic scenario generation and validation only. Do not pass production logs to this package expecting them to be converted or redacted.
 
 Later extraction phases will implement provider-backed simulation, provider adapters, localization, and production-ready dataset IO behind these boundaries.

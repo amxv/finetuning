@@ -61,6 +61,11 @@ export {
   type ValidationSummary,
 } from "./validation.js";
 export {
+  createDeferredLogConversionError,
+  deferredLogConversionBoundary,
+  type DeferredLogConversionBoundary,
+} from "./logs.js";
+export {
   bookAppointmentTool,
   bookAppointmentToolTrajectoryFixture,
   checkAvailabilityTool,
