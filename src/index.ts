@@ -19,6 +19,10 @@ export type {
   OpenAIToolDefinition,
   PersonaDefinition,
   PublicWorkflow,
+  ScenarioDefinition,
+  ScenarioPersonaSource,
+  ScenarioStoppingRules,
+  ScenarioToolInventory,
   SimulatedAssistantTurn,
   SupportedProvider,
   SystemMessage,
@@ -38,11 +42,17 @@ export {
   bookAppointmentToolTrajectoryFixture,
   buildOpenAIFineTuningRow,
   buildOpenAIFineTuningRows,
+  bundledScenarioProfiles,
   checkAvailabilityTool,
   checkAvailabilityToolTrajectoryFixture,
+  findBundledScenarioProfile,
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
+  parseScenarioDefinition,
+  parseScenarioDefinitionJson,
+  receptionistScenarioProfile,
   representativeTrajectories,
+  retailSupportScenarioProfile,
   searchTool,
   searchToolTrajectoryFixture,
   toolDecisionConversationFixture,
@@ -71,11 +81,12 @@ export type {
   FileSystemAdapter,
   PersistenceAdapter,
   ScenarioSource,
+  ScenarioSourceInput,
   SimulationRequest,
   SimulationRunner,
   SimulationRuntimeAdapters,
 } from "./simulation/index.js";
-export { createDeferredSimulationRunner } from "./simulation/index.js";
+export { createDeferredSimulationRunner, loadScenarioSource } from "./simulation/index.js";
 import type { CliCommandDefinition, PublicWorkflow } from "./core/index.js";
 
 export const supportedWorkflows: PublicWorkflow[] = [

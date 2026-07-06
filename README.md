@@ -27,8 +27,38 @@ Receptionist backend concerns are explicitly out of scope for this package. The 
 - CLI binary: `finetuning`
 - Architecture and API note: `docs/architecture.md`
 
-The current scaffold declares the public workflow and CLI names with status labels, plus the canonical internal trajectory model for later extraction phases. It includes provider-neutral types for business context, personas, tool schemas, tool calls, tool results, conversation messages, trajectories, and OpenAI fine-tuning rows.
+The current scaffold declares the public workflow and CLI names with status labels, plus the canonical internal trajectory model for later extraction phases. It includes provider-neutral types for scenario definitions, business context, personas, tool schemas, tool calls, tool results, conversation messages, trajectories, and OpenAI fine-tuning rows.
 
 The core builder surface treats full tool trajectories as the canonical tool-calling dataset shape: an assistant tool-call message is followed by the matching tool result and a final assistant response. A `tool_decision` export mode is still available for datasets that intentionally stop at the model's tool choice. Provider and simulation modules define adapter interfaces for model invocation, filesystem IO, optional persistence, and user-selected output directories without binding reusable core code to backend runtime concerns.
+
+## Scenario profiles
+
+The framework core is domain-neutral. Domain behavior is described by scenario profiles that include:
+
+- `assistantRole`
+- `business` or domain context
+- `personaSource`, including a target `count`, optional generator prompt, optional bundled personas, and optional source label
+- `toolInventory`, including public tool schemas and an optional source label
+- `conversationGoals`
+- `stoppingRules`
+- optional `systemPrompt` and `metadata`
+
+Receptionist behavior is provided as the bundled `sample-receptionist` profile, not as the framework default. A second bundled `sample-retail-support` profile demonstrates the same surface for a retail support assistant.
+
+Library callers can import bundled profiles or supply their own JSON-compatible scenario object:
+
+```ts
+import {
+  loadScenarioSource,
+  receptionistScenarioProfile,
+  retailSupportScenarioProfile,
+} from "@amxv/finetuning";
+
+const receptionist = await loadScenarioSource(receptionistScenarioProfile);
+const retail = await loadScenarioSource({ bundledProfileId: retailSupportScenarioProfile.id });
+const custom = await loadScenarioSource({ json: await fs.readText("scenario.json") });
+```
+
+The CLI help lists bundled scenario profile ids. Future runnable commands are expected to accept `--config <path>` or equivalent inputs so users can point the toolkit at their own scenario JSON without editing code.
 
 Later extraction phases will implement concrete simulation, provider adapters, CLI workflows, localization, and production-ready dataset IO behind these boundaries.

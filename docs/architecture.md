@@ -138,3 +138,21 @@ The OSS toolkit does not own receptionist production runtime concerns:
 - no generated private datasets committed as source
 
 Receptionist behavior may appear only as an example profile showing how a domain-specific assistant can be modeled with public scenario configuration.
+
+## Scenario Configuration
+
+Scenario definitions are the public way to describe domain behavior. They are data objects, not framework defaults. A scenario definition contains:
+
+- assistant role
+- business or domain context
+- persona source settings, including requested count, optional generator prompt, optional bundled personas, and source metadata
+- tool inventory, including provider-neutral tool schemas
+- conversation goals
+- stopping rules, including turn limits, stop conditions, and escalation criteria
+- optional system prompt and metadata
+
+`src/core/scenarios.ts` contains bundled sample profiles and scenario JSON parsing helpers. `sample-receptionist` recreates the extracted receptionist domain as example content. `sample-retail-support` proves the same model works for a non-receptionist assistant. Fixtures may use these profiles as sample data, but core builders and validators must continue to operate on generic `ConversationTrajectory` and `ScenarioDefinition` objects.
+
+`src/simulation` exposes `loadScenarioSource`, which accepts a `ScenarioDefinition`, bundled profile id, JSON string, or path loaded through a `FileSystemAdapter`. This keeps user-supplied scenario files at the adapter boundary and avoids requiring source edits for new assistant domains.
+
+The framework should not introduce new receptionist assumptions in core APIs. Domain-specific counts, personas, company/business details, tools, prompt text, and stopping behavior belong in scenario profiles or user-provided config.

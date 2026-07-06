@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { cliCommands } from "../index.js";
+import process from "node:process";
+import { bundledScenarioProfiles, cliCommands } from "../index.js";
 
 const commandName = process.argv[2];
 
@@ -10,6 +11,12 @@ if (!commandName || commandName === "--help" || commandName === "-h") {
 
   for (const command of cliCommands) {
     console.log(`  ${command.name.padEnd(18)} ${command.status.padEnd(12)} ${command.description}`);
+  }
+
+  console.log("");
+  console.log("Bundled scenario profiles:");
+  for (const profile of bundledScenarioProfiles) {
+    console.log(`  ${profile.id.padEnd(24)} ${profile.business.domain.padEnd(12)} ${profile.name}`);
   }
 
   process.exit(0);

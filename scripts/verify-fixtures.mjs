@@ -3,12 +3,17 @@ import {
   bookAppointmentToolTrajectoryFixture,
   buildOpenAIFineTuningRow,
   checkAvailabilityToolTrajectoryFixture,
+  findBundledScenarioProfile,
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
+  parseScenarioDefinitionJson,
+  receptionistScenarioProfile,
+  retailSupportScenarioProfile,
   searchToolTrajectoryFixture,
   toolDecisionConversationFixture,
   toolTrajectoryFixtures,
 } from "../dist/core/index.js";
+import { loadScenarioSource as loadScenarioSourceFromSimulation } from "../dist/simulation/index.js";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -92,6 +97,58 @@ for (const fixtureCase of namedToolCases) {
 }
 
 console.log(`Verified full and decision-only exports for ${namedToolCases.length} named tool fixtures.`);
+
+const bundledProfiles = [receptionistScenarioProfile, retailSupportScenarioProfile];
+
+for (const profile of bundledProfiles) {
+  const parsed = parseScenarioDefinitionJson(JSON.stringify(profile));
+  if (parsed.id !== profile.id) {
+    throw new Error(`Scenario parser changed profile id ${profile.id} to ${parsed.id}`);
+  }
+
+  const loaded = await loadScenarioSourceFromSimulation(profile);
+  if (loaded.definition.id !== profile.id) {
+    throw new Error(`Scenario loader changed profile id ${profile.id} to ${loaded.definition.id}`);
+  }
+
+  if (loaded.personas?.length !== profile.personaSource.personas?.length) {
+    throw new Error(`Scenario loader did not expose bundled personas for ${profile.id}`);
+  }
+
+  if (profile.personaSource.count < 1 || profile.toolInventory.tools.length < 1) {
+    throw new Error(`Scenario profile ${profile.id} is missing persona count or tools`);
+  }
+}
+
+if (findBundledScenarioProfile("sample-receptionist")?.business.domain !== "healthcare") {
+  throw new Error("Bundled receptionist profile lookup failed.");
+}
+
+if (findBundledScenarioProfile("sample-retail-support")?.business.domain !== "retail") {
+  throw new Error("Bundled retail support profile lookup failed.");
+}
+
+if (noToolConversationFixture.business.id !== receptionistScenarioProfile.business.id) {
+  throw new Error("Receptionist fixture is not using the receptionist scenario business context.");
+}
+
+const memoryFilesystem = {
+  async readText(path) {
+    if (path !== "scenario.json") {
+      throw new Error(`Unexpected scenario path ${path}`);
+    }
+    return JSON.stringify(retailSupportScenarioProfile);
+  },
+  async writeText() {},
+  async ensureDirectory() {},
+};
+
+const loadedFromPath = await loadScenarioSourceFromSimulation({ path: "scenario.json" }, memoryFilesystem);
+if (loadedFromPath.definition.id !== retailSupportScenarioProfile.id) {
+  throw new Error("Scenario path loading did not parse the supplied scenario file.");
+}
+
+console.log(`Verified ${bundledProfiles.length} bundled scenario profiles and custom scenario loading.`);
 
 const forbiddenCoreTerms = ["Cloudflare", "Bindings", "Hono", "D1", "Worker", "queue"];
 const coreFiles = await listTypeScriptFiles(new URL("../src/core", import.meta.url));

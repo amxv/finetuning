@@ -14,6 +14,10 @@ export type {
   JsonValue,
   PersonaDefinition,
   PublicWorkflow,
+  ScenarioDefinition,
+  ScenarioPersonaSource,
+  ScenarioStoppingRules,
+  ScenarioToolInventory,
   SimulatedAssistantTurn,
   SupportedProvider,
   SystemMessage,
@@ -24,6 +28,14 @@ export type {
   UserMessage,
   WorkflowStatus,
 } from "./model.js";
+export {
+  bundledScenarioProfiles,
+  findBundledScenarioProfile,
+  parseScenarioDefinition,
+  parseScenarioDefinitionJson,
+  receptionistScenarioProfile,
+  retailSupportScenarioProfile,
+} from "./scenarios.js";
 export type {
   BuildOpenAIRowOptions,
   OpenAIChatFineTuningMessage,

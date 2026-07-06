@@ -49,6 +49,37 @@ export interface ToolSchema {
   parameters: JsonSchemaObject;
 }
 
+export interface ScenarioToolInventory {
+  tools: ToolSchema[];
+  source?: string;
+}
+
+export interface ScenarioPersonaSource {
+  count: number;
+  generatorPrompt?: string;
+  personas?: PersonaDefinition[];
+  source?: string;
+}
+
+export interface ScenarioStoppingRules {
+  maxTurns?: number;
+  stopWhen?: string[];
+  escalationCriteria?: string[];
+}
+
+export interface ScenarioDefinition {
+  id: string;
+  name: string;
+  assistantRole: string;
+  business: BusinessContext;
+  personaSource: ScenarioPersonaSource;
+  toolInventory: ScenarioToolInventory;
+  conversationGoals: string[];
+  stoppingRules: ScenarioStoppingRules;
+  systemPrompt?: string;
+  metadata?: JsonObject;
+}
+
 export interface ToolCall {
   id: string;
   name: string;
@@ -120,11 +151,7 @@ export interface ConversationTrajectory {
 export type ExportMode = "plain_chat" | "tool_decision" | "full_tool_trajectory";
 
 export interface FineTuningToolkitConfig {
-  scenario: {
-    name: string;
-    assistantRole: string;
-    locale?: string;
-  };
+  scenario: ScenarioDefinition | { name: string; assistantRole: string; locale?: string };
   providers: {
     simulation?: SupportedProvider;
     export: "openai";

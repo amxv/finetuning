@@ -1,64 +1,20 @@
 import type { ConversationTrajectory, ToolSchema } from "./model.js";
+import { receptionistScenarioProfile } from "./scenarios.js";
 
-const demoBusiness = {
-  id: "business-demo-clinic",
-  name: "Demo Clinic",
-  domain: "healthcare",
-  locale: "en-US",
-};
+const receptionistPersonas = receptionistScenarioProfile.personaSource.personas ?? [];
 
-export const searchTool: ToolSchema = {
-  name: "search",
-  description: "Search public business knowledge for a concise answer.",
-  parameters: {
-    type: "object",
-    properties: {
-      query: { type: "string", description: "Search query." },
-    },
-    required: ["query"],
-    additionalProperties: false,
-  },
-};
+export const searchTool = getScenarioTool("search");
 
-export const bookAppointmentTool: ToolSchema = {
-  name: "book_appointment",
-  description: "Book an appointment slot for a visitor.",
-  parameters: {
-    type: "object",
-    properties: {
-      service: { type: "string", description: "Requested service name." },
-      slotId: { type: "string", description: "Chosen appointment slot identifier." },
-      visitorName: { type: "string", description: "Visitor name." },
-    },
-    required: ["service", "slotId", "visitorName"],
-    additionalProperties: false,
-  },
-};
+export const bookAppointmentTool = getScenarioTool("book_appointment");
 
-export const checkAvailabilityTool: ToolSchema = {
-  name: "check_availability",
-  description: "Check available appointment slots for a requested service.",
-  parameters: {
-    type: "object",
-    properties: {
-      service: { type: "string", description: "Requested service name." },
-      preferredDate: { type: "string", description: "Preferred appointment date." },
-    },
-    required: ["service", "preferredDate"],
-    additionalProperties: false,
-  },
-};
+export const checkAvailabilityTool = getScenarioTool("check_availability");
 
 export const noToolConversationFixture: ConversationTrajectory = {
   id: "fixture-no-tool",
-  business: demoBusiness,
-  persona: {
-    id: "persona-general-question",
-    label: "General information seeker",
-    goals: ["Ask whether the clinic accepts new patients."],
-  },
+  business: receptionistScenarioProfile.business,
+  persona: getScenarioPersona("persona-general-question"),
   messages: [
-    { kind: "system", content: "You are a helpful front-desk assistant for Demo Clinic." },
+    { kind: "system", content: receptionistScenarioProfile.systemPrompt ?? "" },
     { kind: "user", content: "Are you accepting new patients?" },
     { kind: "assistant_text", content: "Yes, Demo Clinic is accepting new patients this month." },
   ],
@@ -66,12 +22,8 @@ export const noToolConversationFixture: ConversationTrajectory = {
 
 export const searchToolTrajectoryFixture: ConversationTrajectory = {
   id: "fixture-tool-search",
-  business: demoBusiness,
-  persona: {
-    id: "persona-hours-question",
-    label: "Hours checker",
-    goals: ["Find the Saturday business hours."],
-  },
+  business: receptionistScenarioProfile.business,
+  persona: getScenarioPersona("persona-hours-question"),
   tools: [searchTool],
   messages: [
     { kind: "system", content: "Use search when answering factual business questions." },
@@ -110,12 +62,8 @@ export const searchToolTrajectoryFixture: ConversationTrajectory = {
 
 export const checkAvailabilityToolTrajectoryFixture: ConversationTrajectory = {
   id: "fixture-tool-check-availability",
-  business: demoBusiness,
-  persona: {
-    id: "persona-scheduler",
-    label: "Appointment scheduler",
-    goals: ["Find an appointment for a cleaning."],
-  },
+  business: receptionistScenarioProfile.business,
+  persona: getScenarioPersona("persona-scheduler"),
   tools: [checkAvailabilityTool],
   messages: [
     { kind: "system", content: "Use tools when appointment availability is needed." },
@@ -163,12 +111,8 @@ export const checkAvailabilityToolTrajectoryFixture: ConversationTrajectory = {
 
 export const bookAppointmentToolTrajectoryFixture: ConversationTrajectory = {
   id: "fixture-tool-book-appointment",
-  business: demoBusiness,
-  persona: {
-    id: "persona-booker",
-    label: "Ready-to-book visitor",
-    goals: ["Book the selected cleaning slot."],
-  },
+  business: receptionistScenarioProfile.business,
+  persona: getScenarioPersona("persona-booker"),
   tools: [bookAppointmentTool],
   messages: [
     { kind: "system", content: "Use tools to book confirmed appointment requests." },
@@ -228,3 +172,21 @@ export const representativeTrajectories = [
   toolDecisionConversationFixture,
   ...toolTrajectoryFixtures,
 ];
+
+function getScenarioTool(name: string): ToolSchema {
+  const tool = receptionistScenarioProfile.toolInventory.tools.find((candidate) => candidate.name === name);
+  if (!tool) {
+    throw new Error(`Missing receptionist sample tool: ${name}`);
+  }
+
+  return tool;
+}
+
+function getScenarioPersona(id: string) {
+  const persona = receptionistPersonas.find((candidate) => candidate.id === id);
+  if (!persona) {
+    throw new Error(`Missing receptionist sample persona: ${id}`);
+  }
+
+  return persona;
+}
