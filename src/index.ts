@@ -1,6 +1,7 @@
 export type {
   AssistantTextMessage,
   AssistantToolCallMessage,
+  BuildOpenAIRowOptions,
   BusinessContext,
   CliCommandDefinition,
   ConversationMessage,
@@ -12,6 +13,10 @@ export type {
   JsonSchemaObject,
   JsonSchemaValue,
   JsonValue,
+  OpenAIChatFineTuningMessage,
+  OpenAIChatFineTuningRow,
+  OpenAIToolCall,
+  OpenAIToolDefinition,
   PersonaDefinition,
   PublicWorkflow,
   SupportedProvider,
@@ -21,33 +26,49 @@ export type {
   ToolResultMessage,
   ToolSchema,
   UserMessage,
+  ValidationIssue,
+  ValidationResult,
+  ValidationSummary,
   WorkflowStatus,
-} from "./model.js";
-export type {
-  BuildOpenAIRowOptions,
-  OpenAIChatFineTuningMessage,
-  OpenAIChatFineTuningRow,
-  OpenAIToolCall,
-  OpenAIToolDefinition,
-} from "./openai.js";
-export {
-  buildOpenAIFineTuningRow,
-  buildOpenAIFineTuningRows,
-} from "./openai.js";
+} from "./core/index.js";
 export {
   assertValidOpenAIFineTuningRow,
-  validateOpenAIFineTuningRow,
-  type ValidationIssue,
-  type ValidationResult,
-  type ValidationSummary,
-} from "./validation.js";
-export {
+  buildOpenAIFineTuningRow,
+  buildOpenAIFineTuningRows,
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
   representativeTrajectories,
   toolDecisionConversationFixture,
-} from "./fixtures.js";
-import type { CliCommandDefinition, PublicWorkflow } from "./model.js";
+  validateOpenAIFineTuningRow,
+} from "./core/index.js";
+export type {
+  AnthropicProviderAdapter,
+  CustomProviderAdapter,
+  ModelClient,
+  ModelInvocationRequest,
+  ModelInvocationResponse,
+  ModelMessage,
+  ModelProviderKind,
+  OpenAIProviderAdapter,
+  ProviderAdapter,
+  ProviderClientOptions,
+} from "./providers/index.js";
+export {
+  anthropicProviderAdapter,
+  createUnconfiguredProviderAdapter,
+  openAIProviderAdapter,
+} from "./providers/index.js";
+export type {
+  DatasetWriter,
+  FileSystemAdapter,
+  PersistenceAdapter,
+  ScenarioSource,
+  SimulationRequest,
+  SimulationRunner,
+  SimulationRuntimeAdapters,
+} from "./simulation/index.js";
+export { createDeferredSimulationRunner } from "./simulation/index.js";
+import type { CliCommandDefinition, PublicWorkflow } from "./core/index.js";
 
 export const supportedWorkflows: PublicWorkflow[] = [
   {

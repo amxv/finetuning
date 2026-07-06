@@ -21,9 +21,14 @@ Receptionist backend concerns are explicitly out of scope for this package. The 
 ## Public surface
 
 - Library entrypoint: `@amxv/finetuning`
+- Core entrypoint: `@amxv/finetuning/core`
+- Provider adapter entrypoint: `@amxv/finetuning/providers`
+- Simulation boundary entrypoint: `@amxv/finetuning/simulation`
 - CLI binary: `finetuning`
 - Architecture and API note: `docs/architecture.md`
 
 The current scaffold declares the public workflow and CLI names with status labels, plus the canonical internal trajectory model for later extraction phases. It includes provider-neutral types for business context, personas, tool schemas, tool calls, tool results, conversation messages, trajectories, and OpenAI fine-tuning rows.
 
-The Phase 2 builder surface can serialize representative fixtures for plain chat, tool-decision, and full tool-trajectory examples into OpenAI chat fine-tuning row shapes, then validate those rows at runtime. Later extraction phases will implement simulation, provider adapters, CLI workflows, localization, and production-ready dataset IO behind this surface.
+The core builder surface can serialize representative fixtures for plain chat, tool-decision, and full tool-trajectory examples into OpenAI chat fine-tuning row shapes, then validate those rows at runtime. Provider and simulation modules define adapter interfaces for model invocation, filesystem IO, optional persistence, and user-selected output directories without binding reusable core code to backend runtime concerns.
+
+Later extraction phases will implement concrete simulation, provider adapters, CLI workflows, localization, and production-ready dataset IO behind these boundaries.

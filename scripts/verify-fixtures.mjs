@@ -4,7 +4,9 @@ import {
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
   toolDecisionConversationFixture,
-} from "../dist/index.js";
+} from "../dist/core/index.js";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const cases = [
   {
@@ -52,3 +54,34 @@ for (const fixtureCase of cases) {
 }
 
 console.log(`Verified ${cases.length} representative trajectory fixtures.`);
+
+const forbiddenCoreTerms = ["Cloudflare", "Bindings", "Hono", "D1", "Worker", "queue"];
+const coreFiles = await listTypeScriptFiles(new URL("../src/core", import.meta.url));
+
+for (const file of coreFiles) {
+  const contents = await readFile(file, "utf8");
+  for (const term of forbiddenCoreTerms) {
+    if (contents.includes(term)) {
+      throw new Error(`Core boundary violation: found ${term} in ${file}`);
+    }
+  }
+}
+
+console.log(`Verified ${coreFiles.length} core files have no backend runtime references.`);
+
+async function listTypeScriptFiles(directoryUrl) {
+  const directory = directoryUrl.pathname;
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listTypeScriptFiles(new URL(`${entry.name}/`, directoryUrl))));
+    } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+      files.push(path);
+    }
+  }
+
+  return files;
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cliCommands } from "./index.js";
+import { cliCommands } from "../index.js";
 
 const commandName = process.argv[2];
 

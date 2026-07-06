@@ -5,10 +5,13 @@
   "description": "Standalone toolkit for generating, validating, and localizing chat fine-tuning datasets.",
   "type": "module",
   "bin": {
-    "finetuning": "./dist/cli.js"
+    "finetuning": "./dist/cli/index.js"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./core": "./dist/core/index.js",
+    "./providers": "./dist/providers/index.js",
+    "./simulation": "./dist/simulation/index.js"
   },
   "files": [
     "dist",

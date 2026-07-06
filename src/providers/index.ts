@@ -1,0 +1,82 @@
+import type { JsonObject, ToolCall, ToolSchema } from "../core/index.js";
+
+export type ModelProviderKind = "openai" | "anthropic" | "custom";
+
+export interface ModelMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  toolCallId?: string;
+  name?: string;
+}
+
+export interface ModelInvocationRequest {
+  provider: ModelProviderKind;
+  model: string;
+  messages: ModelMessage[];
+  tools?: ToolSchema[];
+  temperature?: number;
+  metadata?: JsonObject;
+}
+
+export type ModelInvocationResponse =
+  | {
+      kind: "text";
+      content: string;
+      metadata?: JsonObject;
+    }
+  | {
+      kind: "tool_calls";
+      toolCalls: ToolCall[];
+      content?: string;
+      metadata?: JsonObject;
+    };
+
+export interface ModelClient {
+  invoke(request: ModelInvocationRequest): Promise<ModelInvocationResponse>;
+}
+
+export interface ProviderAdapter {
+  kind: ModelProviderKind;
+  createClient(options: ProviderClientOptions): ModelClient;
+}
+
+export interface ProviderClientOptions {
+  model: string;
+  apiKey?: string;
+  baseUrl?: string;
+  headers?: Record<string, string>;
+  metadata?: JsonObject;
+}
+
+export interface OpenAIProviderAdapter extends ProviderAdapter {
+  kind: "openai";
+}
+
+export interface AnthropicProviderAdapter extends ProviderAdapter {
+  kind: "anthropic";
+}
+
+export interface CustomProviderAdapter extends ProviderAdapter {
+  kind: "custom";
+}
+
+export function createUnconfiguredProviderAdapter(kind: ModelProviderKind): ProviderAdapter {
+  return {
+    kind,
+    createClient() {
+      return {
+        async invoke(): Promise<ModelInvocationResponse> {
+          throw new Error(`${kind} provider adapter is not configured in this phase`);
+        },
+      };
+    },
+  };
+}
+
+export const openAIProviderAdapter: OpenAIProviderAdapter = createUnconfiguredProviderAdapter(
+  "openai",
+) as OpenAIProviderAdapter;
+
+export const anthropicProviderAdapter: AnthropicProviderAdapter = createUnconfiguredProviderAdapter(
+  "anthropic",
+) as AnthropicProviderAdapter;

@@ -27,7 +27,7 @@ Real-log conversion is deferred. It will not be part of v1 until the repo has a 
 | Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
 | Log-to-dataset import | Deferred | `convert-logs`, documented placeholder only |
 
-Every workflow in this table has a code scaffold in `src/index.ts` and, for CLI discoverability, `src/cli.ts`. Phase 2 also defines the canonical internal trajectory model, OpenAI export row shape, runtime validation surface, and representative fixtures used by later generation phases.
+Every workflow in this table has a code scaffold in `src/index.ts` and, for CLI discoverability, `src/cli/index.ts`. The reusable model, OpenAI export row shape, runtime validation surface, and representative fixtures live under `src/core`. Provider and simulation concerns live behind adapter interfaces in `src/providers` and `src/simulation`.
 
 ## Supported Providers
 
@@ -42,6 +42,20 @@ Provider status for v1:
 | Translation model calls | OpenAI, Anthropic, custom adapters | Experimental |
 | Cloudflare bindings, queues, D1, Hono | None | Non-goal |
 
+Provider integrations are represented by `ModelClient`, `ProviderAdapter`, and provider-specific adapter marker types in `src/providers`. The exported OpenAI and Anthropic adapters are intentionally unconfigured placeholders in this phase; concrete HTTP SDK wiring belongs outside `src/core`.
+
+## Repository Boundaries
+
+Current source boundaries:
+
+- `src/core`: provider-neutral data model, OpenAI JSONL row formatter, validators, and fixtures
+- `src/providers`: model invocation contracts and OpenAI/Anthropic/custom adapter scaffolding
+- `src/simulation`: simulation runtime contracts, filesystem IO contract, optional persistence contract, and output-directory-aware request shape
+- `src/cli`: CLI entrypoint and command discovery
+- `src/index.ts`: public package aggregator
+
+The core layer must not import provider clients, CLI code, filesystem implementations, persistence implementations, Cloudflare bindings, Hono routes, D1 storage, queues, or generated output files.
+
 ## Output Guarantees
 
 V1 output should be deterministic at the file-format boundary even when model-generated content is variable:
@@ -51,6 +65,8 @@ V1 output should be deterministic at the file-format boundary even when model-ge
 - tool-trajectory examples preserve assistant tool calls, tool result messages, and final assistant responses
 - validation reports malformed JSONL, missing messages, unsupported roles, malformed tool calls, and summary counts
 - generated files are written to user-selected output directories, not source directories
+
+Dataset writing is represented as a `DatasetWriter`/`FileSystemAdapter` boundary in `src/simulation`. Concrete writers must receive an output directory from config or CLI input and should treat `outputs/` as an ignored local default, not as source.
 
 Translation, when enabled experimentally, must preserve schema-bearing fields such as tool names, tool-call IDs, arguments, and tool-result structure. Only natural-language content should be translated unless a config explicitly opts into another behavior.
 
@@ -77,13 +93,15 @@ Initial exported surface:
 - `ExportMode`: `plain_chat`, `tool_decision`, or `full_tool_trajectory`
 - `buildOpenAIFineTuningRow` and `buildOpenAIFineTuningRows`: trajectory-oriented OpenAI export builders
 - `validateOpenAIFineTuningRow` and `assertValidOpenAIFineTuningRow`: runtime validation for exported examples
+- `ModelClient`, `ProviderAdapter`, and provider adapter placeholder exports: provider integration boundary
+- `FileSystemAdapter`, `DatasetWriter`, `PersistenceAdapter`, and `SimulationRunner`: runtime and IO boundaries for simulation workflows
 - `supportedWorkflows`: discoverable workflow manifest
 - `cliCommands`: discoverable CLI manifest
 
 The following implementation APIs are intentionally not exported yet because their adapter boundaries are later plan deliverables:
 
 - simulator runners
-- provider clients
+- concrete provider clients
 - translation transforms
 - log converters
 
@@ -101,7 +119,7 @@ Planned commands:
 - `finetuning translate-dataset <path> --target-locale <locale> --out <path>` (experimental)
 - `finetuning convert-logs --config <path> --out <path>` (deferred)
 
-Phase 1 only provides command discovery and status output. Later phases must replace the placeholders with functional implementations and tests before these commands are described as runnable workflows in user docs.
+The CLI currently provides command discovery and status output. Later phases must replace the placeholders with functional implementations and tests before these commands are described as runnable workflows in user docs.
 
 ## Non-Goals
 
