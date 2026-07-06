@@ -44,6 +44,8 @@ export interface ProviderClientOptions {
   model: string;
   apiKey?: string;
   baseUrl?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
   headers?: Record<string, string>;
   metadata?: JsonObject;
 }
@@ -80,3 +82,20 @@ export const openAIProviderAdapter: OpenAIProviderAdapter = createUnconfiguredPr
 export const anthropicProviderAdapter: AnthropicProviderAdapter = createUnconfiguredProviderAdapter(
   "anthropic",
 ) as AnthropicProviderAdapter;
+
+export type { ProviderEnvironment, ProviderRuntimeConfig } from "./config.js";
+export {
+  assertSupportedModelProviderKind,
+  defaultApiKeyEnvForProvider,
+  resolveProviderClientOptions,
+} from "./config.js";
+export {
+  ProviderAuthenticationError,
+  ProviderConfigurationError,
+  ProviderError,
+  ProviderRateLimitError,
+  ProviderResponseError,
+  ProviderToolCallError,
+  ProviderUnsupportedFeatureError,
+} from "./errors.js";
+export type { ProviderErrorOptions } from "./errors.js";

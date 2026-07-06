@@ -97,11 +97,24 @@ export type {
   OpenAIProviderAdapter,
   ProviderAdapter,
   ProviderClientOptions,
+  ProviderEnvironment,
+  ProviderErrorOptions,
+  ProviderRuntimeConfig,
 } from "./providers/index.js";
 export {
   anthropicProviderAdapter,
+  assertSupportedModelProviderKind,
   createUnconfiguredProviderAdapter,
+  defaultApiKeyEnvForProvider,
   openAIProviderAdapter,
+  ProviderAuthenticationError,
+  ProviderConfigurationError,
+  ProviderError,
+  ProviderRateLimitError,
+  ProviderResponseError,
+  ProviderToolCallError,
+  ProviderUnsupportedFeatureError,
+  resolveProviderClientOptions,
 } from "./providers/index.js";
 export type {
   DatasetWriter,

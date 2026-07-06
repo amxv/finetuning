@@ -8,7 +8,10 @@ import {
   cliCommands,
   createDeferredLogConversionError,
   deferredLogConversionBoundary,
+  defaultApiKeyEnvForProvider,
   loadScenarioSource,
+  ProviderUnsupportedFeatureError,
+  resolveProviderClientOptions,
   serializeOpenAIJsonlRows,
   summarizeOpenAIJsonlRows,
   translateOpenAIJsonl,
@@ -20,6 +23,7 @@ import {
   type JsonSchemaValue,
   type OpenAIChatFineTuningRow,
   type PersonaDefinition,
+  type ProviderRuntimeConfig,
   type ScenarioDefinition,
   type ScenarioSource,
   type ToolSchema,
@@ -33,6 +37,10 @@ interface ParsedArgs {
 interface CliContext {
   args: ParsedArgs;
 }
+
+type CliProviderKind = "openai" | "anthropic";
+type DeterministicProviderChoice = CliProviderKind | "deterministic";
+type TranslationStrategyChoice = "local-pseudo" | "openai" | "anthropic";
 
 void main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
@@ -83,6 +91,16 @@ async function generatePersonas({ args }: CliContext): Promise<void> {
   const outputPath = readRequiredStringFlag(args, "out");
   const force = readBooleanFlag(args, "force");
   const count = readOptionalIntegerFlag(args, "count") ?? scenario.definition.personaSource.count;
+  const provider = readDeterministicProviderChoice(args, "persona-provider", "deterministic");
+
+  if (provider !== "deterministic") {
+    validateExplicitProviderRuntime(args, provider, "persona");
+    throw new ProviderUnsupportedFeatureError(
+      `${provider} persona generation is not implemented in this phase; use --persona-provider deterministic.`,
+      { provider },
+    );
+  }
+
   const personas = buildPersonas(scenario, count);
 
   await writeBatchFile(outputPath, `${JSON.stringify(personas, null, 2)}\n`, force);
@@ -97,6 +115,16 @@ async function simulateDataset({ args }: CliContext): Promise<void> {
   const mode = readExportMode(args) ?? "full_tool_trajectory";
   const force = readBooleanFlag(args, "force");
   const count = readOptionalIntegerFlag(args, "limit") ?? scenario.definition.personaSource.count;
+  const provider = readDeterministicProviderChoice(args, "simulation-provider", "deterministic");
+
+  if (provider !== "deterministic") {
+    validateExplicitProviderRuntime(args, provider, "simulation");
+    throw new ProviderUnsupportedFeatureError(
+      `${provider} simulation is not implemented in this phase; use --simulation-provider deterministic.`,
+      { provider },
+    );
+  }
+
   const personas = buildPersonas(scenario, count);
   const trajectories = buildDeterministicTrajectories(scenario.definition, personas, mode);
   const rows = trajectories.map((trajectory) => buildOpenAIFineTuningRow(trajectory, { mode }));
@@ -144,12 +172,14 @@ async function translateDataset({ args }: CliContext): Promise<void> {
   const outputPath = readRequiredStringFlag(args, "out");
   const targetLocale = readRequiredStringFlag(args, "target-locale");
   const sourceLocale = readOptionalStringFlag(args, "source-locale");
-  const strategy = readOptionalStringFlag(args, "strategy") ?? "local-pseudo";
+  const strategy = readTranslationStrategyChoice(args, "strategy", "local-pseudo");
   const force = readBooleanFlag(args, "force");
 
   if (strategy !== "local-pseudo") {
-    throw new Error(
-      "translate-dataset is experimental and currently supports only --strategy local-pseudo. Provider-backed translation is exposed as a library adapter boundary.",
+    validateExplicitProviderRuntime(args, strategy, "translation");
+    throw new ProviderUnsupportedFeatureError(
+      `${strategy} translation is not implemented in this phase; use --strategy local-pseudo.`,
+      { provider: strategy },
     );
   }
 
@@ -414,6 +444,57 @@ function readExportMode(args: ParsedArgs): ExportMode | undefined {
   return value;
 }
 
+function readDeterministicProviderChoice(
+  args: ParsedArgs,
+  name: string,
+  fallback: DeterministicProviderChoice,
+): DeterministicProviderChoice {
+  const value = readOptionalStringFlag(args, name) ?? fallback;
+  if (value !== "deterministic" && value !== "openai" && value !== "anthropic") {
+    throw new Error(`--${name} must be openai, anthropic, or deterministic.`);
+  }
+
+  return value;
+}
+
+function readTranslationStrategyChoice(
+  args: ParsedArgs,
+  name: string,
+  fallback: TranslationStrategyChoice,
+): TranslationStrategyChoice {
+  const value = readOptionalStringFlag(args, name) ?? fallback;
+  if (value !== "local-pseudo" && value !== "openai" && value !== "anthropic") {
+    throw new Error(`--${name} must be local-pseudo, openai, or anthropic.`);
+  }
+
+  return value;
+}
+
+function validateExplicitProviderRuntime(
+  args: ParsedArgs,
+  provider: CliProviderKind,
+  prefix: "persona" | "simulation" | "translation",
+): ProviderRuntimeConfig {
+  const model = readOptionalStringFlag(args, `${prefix}-model`);
+  if (!model) {
+    throw new Error(`Missing required --${prefix}-model <model> for ${provider} provider.`);
+  }
+
+  const apiKeyEnv = readOptionalStringFlag(args, `${prefix}-api-key-env`) ?? defaultApiKeyEnvForProvider(provider);
+  if (!apiKeyEnv) {
+    throw new Error(`Missing required --${prefix}-api-key-env <ENV_NAME> for ${provider} provider.`);
+  }
+
+  const config: ProviderRuntimeConfig = {
+    provider,
+    model,
+    apiKeyEnv,
+  };
+
+  resolveProviderClientOptions(config);
+  return config;
+}
+
 function readRequiredStringFlag(args: ParsedArgs, name: string): string {
   const value = readOptionalStringFlag(args, name);
   if (!value) {
@@ -468,11 +549,13 @@ function printHelp(): void {
 function printCommandHelp(commandName: string): void {
   switch (commandName) {
     case "generate-personas":
-      console.log("Usage: finetuning generate-personas (--profile <id> | --config <path>) --out <path> [--count <n>] [--force]");
+      console.log(
+        "Usage: finetuning generate-personas (--profile <id> | --config <path>) --out <path> [--count <n>] [--persona-provider deterministic|openai|anthropic] [--persona-model <model>] [--persona-api-key-env <ENV_NAME>] [--force]",
+      );
       return;
     case "simulate-dataset":
       console.log(
-        "Usage: finetuning simulate-dataset (--profile <id> | --config <path>) --out <path> [--limit <n>] [--mode <mode>] [--force]",
+        "Usage: finetuning simulate-dataset (--profile <id> | --config <path>) --out <path> [--limit <n>] [--mode <mode>] [--simulation-provider deterministic|openai|anthropic] [--simulation-model <model>] [--simulation-api-key-env <ENV_NAME>] [--force]",
       );
       console.log("Modes: plain_chat, tool_decision, full_tool_trajectory");
       return;
@@ -481,9 +564,9 @@ function printCommandHelp(commandName: string): void {
       return;
     case "translate-dataset":
       console.log(
-        "Usage: finetuning translate-dataset <path> --target-locale <bcp47> --out <path> [--source-locale <bcp47>] [--strategy local-pseudo] [--force]",
+        "Usage: finetuning translate-dataset <path> --target-locale <bcp47> --out <path> [--source-locale <bcp47>] [--strategy local-pseudo|openai|anthropic] [--translation-model <model>] [--translation-api-key-env <ENV_NAME>] [--force]",
       );
-      console.log("Status: experimental; provider-backed translation is available only through the library adapter boundary.");
+      console.log("Status: experimental; provider-backed translation flags validate config before later adapter phases.");
       return;
     case "convert-logs":
       console.log("Usage: finetuning convert-logs");
