@@ -24,6 +24,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
+    "docs:dev": "astro dev",
+    "docs:check": "astro check --tsconfig tsconfig.astro.json",
+    "docs:build": "astro build",
+    "docs:preview": "astro preview",
     "verify:provider-config": "npm run build && node scripts/verify-provider-config.mjs",
     "verify:provider-adapters": "npm run build && node scripts/verify-provider-adapters.mjs",
     "verify:persona-generation": "npm run build && node scripts/verify-persona-generation.mjs",
@@ -35,7 +39,11 @@
     "openai": "^6.45.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.4",
     "@types/node": "^26.1.0",
+    "astro": "^7.0.3",
     "typescript": "^5.5.0"
+    ,
+    "zuedocs": "^0.1.21"
   }
 }

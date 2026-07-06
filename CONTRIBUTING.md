@@ -6,7 +6,7 @@ This repository is a standalone fine-tuning dataset toolkit. Keep changes aligne
 
 - `src/core` owns provider-neutral types, scenario parsing, fixtures, OpenAI row formatting, dataset validation, and explicit deferred feature boundaries. It must not import CLI code, filesystem implementations, provider SDKs, persistence clients, Cloudflare bindings, Hono, D1, queues, or generated output files.
 - `src/cli` owns argument parsing, local filesystem reads/writes, and user-facing command output. CLI commands should write only to user-selected paths and should refuse accidental overwrites unless `--force` is passed.
-- `src/providers` owns model invocation contracts and provider adapter placeholders. Concrete SDK wiring should be implemented behind these contracts, not inside `src/core`.
+- `src/providers` owns model invocation contracts, provider runtime config/env resolution, and concrete OpenAI/Anthropic adapter wiring. Provider-specific SDK integration stays behind these contracts, not inside `src/core`.
 - `src/simulation` owns runtime adapter contracts, scenario loading, filesystem interfaces, persistence interfaces, and future simulation runners.
 - `src/translation` owns experimental row-preserving translation transforms and translation adapter contracts.
 - `examples` contains checked-in scenario configs only. Generated personas, datasets, translated datasets, and scratch outputs belong in ignored directories such as `outputs/` or `tmp/`.
@@ -56,4 +56,4 @@ Real-log conversion is deferred. Do not add partial log import behavior unless t
 - privacy-safe redacted fixture coverage
 - a converter independent of Cloudflare gateway, queue, Worker, D1, or other backend runtime assumptions
 
-Provider-backed simulation and provider-backed translation are adapter-boundary work until concrete clients and tests are added.
+Provider-backed persona generation, simulation, and translation already exist behind explicit adapter/config boundaries. Keep new provider work inside those seams and extend verification when behavior changes.

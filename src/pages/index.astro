@@ -1,0 +1,73 @@
+---
+import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
+import { primaryNav, siteConfig } from "../data/docs";
+
+const highlights = [
+  {
+    title: "Offline-first workflows",
+    text:
+      "Start with deterministic persona generation, deterministic simulation, and local-pseudo translation without provider credentials."
+  },
+  {
+    title: "Tool-calling dataset support",
+    text:
+      "Export canonical OpenAI chat fine-tuning JSONL in plain-chat, tool-decision, or full-tool-trajectory mode."
+  },
+  {
+    title: "Explicit provider paths",
+    text:
+      "Switch to OpenAI or Anthropic adapters only when you choose a provider, model, and API key environment variable."
+  }
+];
+---
+
+<BaseLayout
+  title={`${siteConfig.name} | ${siteConfig.strapline}`}
+  description={siteConfig.description}
+  siteConfig={siteConfig}
+  primaryNav={primaryNav}
+>
+  <section class="shell hero">
+    <div class="hero__copy">
+      <p class="section-label">Toolkit docs</p>
+      <h1>Build and verify fine-tuning datasets from scenario definitions.</h1>
+      <p>
+        {siteConfig.description} Start offline, validate every JSONL export, and
+        move into provider-backed persona generation, simulation, or translation
+        only when you need it.
+      </p>
+      <div class="hero__actions">
+        <a class="hero__action hero__action--primary" href="/docs/quickstart">Open quickstart</a>
+        <a class="hero__action" href="/docs">Browse docs</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell feature-grid">
+    {highlights.map((highlight) => (
+      <article class="feature-card">
+        <p class="section-label">Why it matters</p>
+        <h2>{highlight.title}</h2>
+        <p>{highlight.text}</p>
+      </article>
+    ))}
+  </section>
+
+  <section class="shell workflow-grid">
+    <a class="workflow-card" href="/docs/full-tool-trajectories">
+      <p class="section-label">Dataset workflows</p>
+      <h2>Understand the exported row shape</h2>
+      <p>See the canonical system, user, assistant, tool, assistant sequence and when each export mode is appropriate.</p>
+    </a>
+    <a class="workflow-card" href="/docs/provider-config">
+      <p class="section-label">Provider workflows</p>
+      <h2>Configure OpenAI and Anthropic runs explicitly</h2>
+      <p>Use provider config files or per-command flags while keeping secrets in environment variables.</p>
+    </a>
+    <a class="workflow-card" href="/docs/scenario-authoring">
+      <p class="section-label">Authoring</p>
+      <h2>Model a new assistant domain</h2>
+      <p>Define assistant role, tools, personas, goals, and stopping rules in scenario JSON instead of hard-coding behavior.</p>
+    </a>
+  </section>
+</BaseLayout>

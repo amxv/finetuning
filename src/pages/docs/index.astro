@@ -1,0 +1,56 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
+import DocsPageActions from "zuedocs/components/DocsPageActions.astro";
+import { docCategories, primaryNav, siteConfig } from "../../data/docs";
+
+const entries = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
+const grouped = docCategories.map((category) => ({
+  category,
+  entries: entries.filter((entry) => entry.data.category === category)
+}));
+---
+
+<BaseLayout
+  title={`${siteConfig.name} Docs`}
+  description="Read the finetuning guides for setup, deterministic workflows, provider-backed runs, validation, translation, architecture, and maintenance."
+  siteConfig={siteConfig}
+  primaryNav={primaryNav}
+>
+  <section class="shell docs-index-hero">
+    <div class="docs-index-hero__head">
+      <div>
+        <p class="section-label">Documentation</p>
+        <h1>Use the docs to move from a clean checkout to validated fine-tuning datasets.</h1>
+      </div>
+      <DocsPageActions />
+    </div>
+    <p>
+      The first path stays offline and deterministic. Provider-backed generation,
+      simulation, and translation are documented separately so advanced runs stay
+      explicit and auditable.
+    </p>
+  </section>
+  <section class="shell docs-index">
+    {grouped.map((group) => (
+      <section class="docs-index__group">
+        <div class="docs-index__group-head">
+          <p class="section-label">{group.category}</p>
+        </div>
+        <div class="docs-index__cards">
+          {group.entries.map((entry) => (
+            <a class="docs-index__card" href={`/docs/${entry.id}`}>
+              <h2>{entry.data.title}</h2>
+              <p>{entry.data.description}</p>
+              <span>Open guide</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    ))}
+  </section>
+</BaseLayout>
+
+<script>
+  import "zuedocs/docsEnhancements";
+</script>

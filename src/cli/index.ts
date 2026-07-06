@@ -24,7 +24,6 @@ import {
   validateOpenAIJsonl,
   type ExportMode,
   type JsonObject,
-  type OpenAIChatFineTuningRow,
   type PersonaGenerator,
   type ProviderRuntimeConfig,
   type ScenarioSource,
@@ -241,12 +240,12 @@ async function readScenarioSource(args: ParsedArgs, config: CliWorkflowConfig): 
   }
 
   if (config.scenario !== undefined) {
-    const metadata = configPath ? { configPath } : {};
+    const metadata = configPath ? { metadata: { configPath } satisfies JsonObject } : {};
     if (typeof config.scenario === "string") {
-      return loadScenarioSource({ bundledProfileId: config.scenario, metadata });
+      return loadScenarioSource({ bundledProfileId: config.scenario, ...metadata });
     }
 
-    return loadScenarioSource({ json: JSON.stringify(config.scenario), metadata });
+    return loadScenarioSource({ json: JSON.stringify(config.scenario), ...metadata });
   }
 
   if (!configPath) {
