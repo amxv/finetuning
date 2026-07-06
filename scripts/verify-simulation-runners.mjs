@@ -4,6 +4,7 @@ import {
   createDeterministicSimulationRunner,
   createModelBackedSimulationRunner,
   loadScenarioSource,
+  mapModelRequestToAnthropicMessagesRequest,
   ProviderResponseError,
   ProviderToolCallError,
   retailSupportScenarioProfile,
@@ -194,6 +195,8 @@ async function assertFakeModelMultipleToolCallFlow() {
     limit: 1,
     mode: "full_tool_trajectory",
   });
+
+  assertFinalAnthropicRequestGroupsParallelToolResults(calls[1]);
 
   const row = buildOpenAIFineTuningRow(trajectory, { mode: "full_tool_trajectory" });
   assertValidOpenAIFineTuningRow(row);
@@ -447,5 +450,40 @@ function assertFinalRequestIncludesAssistantToolHistory(request) {
     toolMessage.toolCallId !== "tool_call_1"
   ) {
     throw new Error(`Final model request tool history was malformed: ${JSON.stringify(request.messages)}`);
+  }
+}
+
+function assertFinalAnthropicRequestGroupsParallelToolResults(request) {
+  const mapped = mapModelRequestToAnthropicMessagesRequest(request);
+  const assistantIndex = mapped.messages.findIndex(
+    (message) =>
+      message.role === "assistant" &&
+      Array.isArray(message.content) &&
+      message.content.filter((block) => block.type === "tool_use").length === 2,
+  );
+  const toolResultMessages = mapped.messages.filter(
+    (message) => message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
+  );
+  const toolResultMessage = toolResultMessages[0];
+
+  if (
+    assistantIndex < 0 ||
+    toolResultMessages.length !== 1 ||
+    mapped.messages[assistantIndex + 1] !== toolResultMessage ||
+    !Array.isArray(toolResultMessage.content) ||
+    toolResultMessage.content[0]?.type !== "tool_result" ||
+    toolResultMessage.content[0]?.tool_use_id !== "tool_call_product" ||
+    toolResultMessage.content[1]?.type !== "tool_result" ||
+    toolResultMessage.content[1]?.tool_use_id !== "tool_call_order"
+  ) {
+    throw new Error(`Anthropic final request did not group parallel tool results: ${JSON.stringify(mapped.messages)}`);
+  }
+
+  const finalPromptBlock = toolResultMessage.content[2];
+  if (
+    finalPromptBlock?.type !== "text" ||
+    !finalPromptBlock.text.includes("Write the final assistant response")
+  ) {
+    throw new Error(`Anthropic final request did not keep final user text after tool results: ${JSON.stringify(mapped.messages)}`);
   }
 }

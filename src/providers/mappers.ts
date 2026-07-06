@@ -108,7 +108,7 @@ export function mapModelRequestToAnthropicMessagesRequest(
   const mapped: AnthropicMessageRequest = {
     model: request.model,
     max_tokens: maxOutputTokens ?? 1024,
-    messages: conversationMessages.map(mapMessageToAnthropicMessage),
+    messages: mapMessagesToAnthropicMessages(conversationMessages),
   };
 
   if (systemMessages.length > 0) {
@@ -253,24 +253,54 @@ function mapToolToOpenAIResponseTool(tool: ToolSchema): OpenAIResponseTool {
   };
 }
 
-function mapMessageToAnthropicMessage(message: ModelMessage): Anthropic.MessageParam {
-  if (message.role === "tool") {
-    if (!message.toolCallId) {
-      throw new ProviderUnsupportedFeatureError("Anthropic tool result messages require toolCallId", {
-        provider: "anthropic",
-        details: { role: message.role },
-      });
+function mapMessagesToAnthropicMessages(messages: ModelMessage[]): Anthropic.MessageParam[] {
+  const mapped: Anthropic.MessageParam[] = [];
+
+  for (let index = 0; index < messages.length; ) {
+    const message = messages[index]!;
+    if (message.role !== "tool") {
+      mapped.push(mapMessageToAnthropicMessage(message));
+      index += 1;
+      continue;
     }
 
+    const toolResultBlocks: Anthropic.ContentBlockParam[] = [];
+    while (index < messages.length) {
+      const toolMessage = messages[index]!;
+      if (toolMessage.role !== "tool") {
+        break;
+      }
+
+      toolResultBlocks.push(mapToolResultToAnthropicBlock(toolMessage));
+      index += 1;
+    }
+
+    if (toolResultBlocks.length > 1) {
+      while (index < messages.length) {
+        const userMessage = messages[index]!;
+        if (userMessage.role !== "user") {
+          break;
+        }
+
+        toolResultBlocks.push({ type: "text", text: userMessage.content });
+        index += 1;
+      }
+    }
+
+    mapped.push({
+      role: "user",
+      content: toolResultBlocks,
+    });
+  }
+
+  return mapped;
+}
+
+function mapMessageToAnthropicMessage(message: ModelMessage): Anthropic.MessageParam {
+  if (message.role === "tool") {
     return {
       role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: message.toolCallId,
-          content: message.content,
-        },
-      ],
+      content: [mapToolResultToAnthropicBlock(message)],
     };
   }
 
@@ -303,6 +333,21 @@ function mapMessageToAnthropicMessage(message: ModelMessage): Anthropic.MessageP
 
   return {
     role: message.role,
+    content: message.content,
+  };
+}
+
+function mapToolResultToAnthropicBlock(message: ModelMessage): Anthropic.ContentBlockParam {
+  if (!message.toolCallId) {
+    throw new ProviderUnsupportedFeatureError("Anthropic tool result messages require toolCallId", {
+      provider: "anthropic",
+      details: { role: message.role },
+    });
+  }
+
+  return {
+    type: "tool_result",
+    tool_use_id: message.toolCallId,
     content: message.content,
   };
 }

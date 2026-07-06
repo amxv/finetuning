@@ -29,6 +29,7 @@ assertOpenAIToolResponseMapper();
 assertOpenAIMalformedToolArguments();
 assertAnthropicRequestMapper();
 assertAnthropicHistoricalToolCallRequestMapper();
+assertAnthropicParallelToolResultRequestMapper();
 assertAnthropicTextResponseMapper();
 assertAnthropicToolResponseMapper();
 assertAnthropicMalformedToolUseInput();
@@ -250,6 +251,57 @@ function assertAnthropicHistoricalToolCallRequestMapper() {
     toolResult.content[0]?.tool_use_id !== "toolu_1"
   ) {
     throw new Error(`Anthropic historical tool-call request mapping was invalid: ${JSON.stringify(mapped.messages)}`);
+  }
+}
+
+function assertAnthropicParallelToolResultRequestMapper() {
+  const mapped = mapModelRequestToAnthropicMessagesRequest({
+    provider: "anthropic",
+    model: "provider-test-model",
+    messages: [
+      { role: "user", content: "Check the product and order." },
+      {
+        role: "assistant",
+        content: "I'll check both.",
+        toolCalls: [
+          {
+            id: "toolu_product",
+            name: "lookup_product",
+            arguments: { productName: "day pack" },
+          },
+          {
+            id: "toolu_order",
+            name: "lookup_order",
+            arguments: { orderId: "order_123" },
+          },
+        ],
+      },
+      { role: "tool", toolCallId: "toolu_product", name: "lookup_product", content: "{\"inStock\":true}" },
+      { role: "tool", toolCallId: "toolu_order", name: "lookup_order", content: "{\"returnEligible\":true}" },
+    ],
+  });
+
+  const assistantIndex = mapped.messages.findIndex((message) => message.role === "assistant");
+  const toolResultMessages = mapped.messages.filter(
+    (message) => message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
+  );
+  const assistant = mapped.messages[assistantIndex];
+  const toolResult = toolResultMessages[0];
+
+  if (
+    assistantIndex < 0 ||
+    toolResultMessages.length !== 1 ||
+    mapped.messages[assistantIndex + 1] !== toolResult ||
+    !Array.isArray(assistant.content) ||
+    assistant.content.filter((block) => block.type === "tool_use").length !== 2 ||
+    !Array.isArray(toolResult.content) ||
+    toolResult.content.length !== 2 ||
+    toolResult.content[0]?.type !== "tool_result" ||
+    toolResult.content[0]?.tool_use_id !== "toolu_product" ||
+    toolResult.content[1]?.type !== "tool_result" ||
+    toolResult.content[1]?.tool_use_id !== "toolu_order"
+  ) {
+    throw new Error(`Anthropic parallel tool-result request mapping was invalid: ${JSON.stringify(mapped.messages)}`);
   }
 }
 
