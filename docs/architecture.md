@@ -27,7 +27,7 @@ Real-log conversion is deferred. It will not be part of v1 until the repo has a 
 | Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
 | Log-to-dataset import | Deferred | `convert-logs`, documented placeholder only |
 
-Every workflow in this table has a code scaffold in `src/index.ts` and, for CLI discoverability, `src/cli/index.ts`. The reusable model, OpenAI export row shape, runtime validation surface, and representative fixtures live under `src/core`. Provider and simulation concerns live behind adapter interfaces in `src/providers` and `src/simulation`.
+Every workflow in this table has a public manifest in `src/index.ts`. V1 CLI commands for persona generation, deterministic sample dataset generation, and dataset validation are implemented in `src/cli/index.ts`. The reusable model, OpenAI export row shape, JSONL validation surface, and representative fixtures live under `src/core`. Provider-backed simulation concerns live behind adapter interfaces in `src/providers` and `src/simulation`.
 
 ## Supported Providers
 
@@ -96,6 +96,7 @@ Initial exported surface:
 - `ExportMode`: `plain_chat`, `tool_decision`, or `full_tool_trajectory`
 - `buildOpenAIFineTuningRow` and `buildOpenAIFineTuningRows`: trajectory-oriented OpenAI export builders
 - `validateOpenAIFineTuningRow` and `assertValidOpenAIFineTuningRow`: runtime validation for exported examples
+- `serializeOpenAIJsonlRows`, `validateOpenAIJsonl`, and `summarizeOpenAIJsonlRows`: JSONL serialization, dataset-level validation, and summary reporting
 - `ModelClient`, `ProviderAdapter`, and provider adapter placeholder exports: provider integration boundary
 - `FileSystemAdapter`, `DatasetWriter`, `PersistenceAdapter`, and `SimulationRunner`: runtime and IO boundaries for simulation workflows
 - `supportedWorkflows`: discoverable workflow manifest
@@ -122,7 +123,15 @@ Planned commands:
 - `finetuning translate-dataset <path> --target-locale <locale> --out <path>` (experimental)
 - `finetuning convert-logs --config <path> --out <path>` (deferred)
 
-The CLI currently provides command discovery and status output. Later phases must replace the placeholders with functional implementations and tests before these commands are described as runnable workflows in user docs.
+Implemented commands:
+
+- `finetuning generate-personas (--profile <id> | --config <path>) --out <path> [--count <n>] [--force]`
+- `finetuning simulate-dataset (--profile <id> | --config <path>) --out <path> [--limit <n>] [--mode <mode>] [--force]`
+- `finetuning validate-dataset <path>`
+
+`generate-personas` writes persona JSON in one batch to the requested output path. `simulate-dataset` writes OpenAI JSONL in one batch and refuses to overwrite an existing file unless `--force` is passed. Its current behavior is deterministic sample generation from the scenario profile and provider-neutral tool schemas, not model-provider simulation. `validate-dataset` validates JSONL rows and reports row counts, valid/invalid row counts, message counts, tool-call counts, tool-result counts, average messages per row, and language counts when row metadata includes a locale.
+
+`translate-dataset` is still experimental and exits without writing output until provider-backed translation is implemented. `convert-logs` is still deferred.
 
 ## Non-Goals
 

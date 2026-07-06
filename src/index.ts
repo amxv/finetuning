@@ -6,6 +6,9 @@ export type {
   CliCommandDefinition,
   ConversationMessage,
   ConversationTrajectory,
+  DatasetSummary,
+  DatasetValidationIssue,
+  DatasetValidationResult,
   ExportMode,
   FineTuningToolkitConfig,
   JsonObject,
@@ -55,8 +58,11 @@ export {
   retailSupportScenarioProfile,
   searchTool,
   searchToolTrajectoryFixture,
+  serializeOpenAIJsonlRows,
+  summarizeOpenAIJsonlRows,
   toolDecisionConversationFixture,
   toolTrajectoryFixtures,
+  validateOpenAIJsonl,
   validateOpenAIFineTuningRow,
 } from "./core/index.js";
 export type {

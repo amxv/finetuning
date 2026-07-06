@@ -29,6 +29,12 @@ export type {
   WorkflowStatus,
 } from "./model.js";
 export {
+  serializeOpenAIJsonlRows,
+  summarizeOpenAIJsonlRows,
+  validateOpenAIJsonl,
+} from "./dataset.js";
+export type { DatasetSummary, DatasetValidationIssue, DatasetValidationResult } from "./dataset.js";
+export {
   bundledScenarioProfiles,
   findBundledScenarioProfile,
   parseScenarioDefinition,

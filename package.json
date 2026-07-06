@@ -21,7 +21,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "verify": "npm run build && node scripts/verify-fixtures.mjs"
+    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

@@ -59,6 +59,44 @@ const retail = await loadScenarioSource({ bundledProfileId: retailSupportScenari
 const custom = await loadScenarioSource({ json: await fs.readText("scenario.json") });
 ```
 
-The CLI help lists bundled scenario profile ids. Future runnable commands are expected to accept `--config <path>` or equivalent inputs so users can point the toolkit at their own scenario JSON without editing code.
+The CLI help lists bundled scenario profile ids. Runnable v1 commands accept `--profile <id>` for bundled profiles or `--config <path>` for user-supplied scenario JSON, so users can point the toolkit at their own scenario without editing code.
 
-Later extraction phases will implement concrete simulation, provider adapters, CLI workflows, localization, and production-ready dataset IO behind these boundaries.
+## CLI usage
+
+Build the package before invoking the local CLI directly:
+
+```bash
+npm run build
+node dist/cli/index.js --help
+```
+
+Generate personas from a bundled profile:
+
+```bash
+node dist/cli/index.js generate-personas \
+  --profile sample-retail-support \
+  --out outputs/retail-personas.json \
+  --count 2
+```
+
+Generate a tiny deterministic OpenAI JSONL dataset:
+
+```bash
+node dist/cli/index.js simulate-dataset \
+  --profile sample-receptionist \
+  --out outputs/receptionist-sample.jsonl \
+  --limit 3 \
+  --mode full_tool_trajectory
+```
+
+Validate a dataset and print a summary:
+
+```bash
+node dist/cli/index.js validate-dataset outputs/receptionist-sample.jsonl
+```
+
+`simulate-dataset` writes the requested JSONL file in one batch and refuses to overwrite an existing output unless `--force` is passed. The current simulation command is deterministic and scaffold-aligned: it creates small sample trajectories from the scenario profile and tool schemas. Provider-backed model simulation remains behind the simulation adapter boundary for later phases.
+
+`translate-dataset` remains experimental and exits without writing output until provider-backed translation is implemented. `convert-logs` remains deferred.
+
+Later extraction phases will implement provider-backed simulation, provider adapters, localization, and production-ready dataset IO behind these boundaries.
