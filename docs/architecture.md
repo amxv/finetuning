@@ -13,6 +13,8 @@ V1 targets developers and teams building model-specific assistants that need syn
 - JSONL validation and dataset summaries
 - one receptionist example profile as a sample scenario, not as the core domain
 
+Provider-backed workflows are explicit and config-driven. The CLI defaults stay offline: deterministic persona generation, deterministic sample dataset simulation, and local pseudo-translation run without API keys. Provider-backed persona generation, simulation, and translation require provider/model/env-var configuration from flags or `--provider-config`.
+
 Translation is experimental for v1. The repo exposes schema-preserving library transforms and an explicit `translate-dataset` CLI workflow. The default local pseudo-translation request path stays offline, and provider-backed OpenAI/Anthropic translation is available only through explicit strategy, model, and API-key-env configuration.
 
 Real-log conversion is explicitly deferred. It is not part of v1, no public log shape is accepted, and no converter is exported. The workflow will remain unavailable until the repo has a public source contract, redaction hooks, privacy guidance, and privacy-safe fixture-backed validation.
@@ -27,7 +29,7 @@ Real-log conversion is explicitly deferred. It is not part of v1, no public log 
 | Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
 | Log-to-dataset import | Deferred | `convert-logs` exits with the shared deferred-boundary error; no converter is implemented |
 
-Every workflow in this table has a public manifest in `src/index.ts`. V1 CLI commands for persona generation, deterministic sample dataset generation, and dataset validation are implemented in `src/cli/index.ts`. The reusable model, OpenAI export row shape, JSONL validation surface, and representative fixtures live under `src/core`. Provider-backed simulation concerns live behind adapter interfaces in `src/providers` and `src/simulation`.
+Every workflow in this table has a public manifest in `src/index.ts`. V1 CLI commands for persona generation, dataset generation, validation, and translation are implemented in `src/cli/index.ts`, with command code limited to argument parsing, file reading/writing, config resolution, and workflow orchestration. Persona and simulation behavior lives in `src/simulation`, provider construction lives in `src/providers`, and schema-preserving translation lives in `src/translation`.
 
 ## Supported Providers
 
@@ -42,18 +44,21 @@ Provider status for v1:
 | Translation model calls | local-pseudo, OpenAI, Anthropic, custom adapters | Experimental; OpenAI and Anthropic are wired through `ModelClient` |
 | Cloudflare bindings, queues, D1, Hono | None | Non-goal |
 
-Provider integrations are represented by `ModelClient`, `ProviderAdapter`, and provider-specific adapter marker types in `src/providers`. The exported OpenAI and Anthropic adapters are intentionally unconfigured placeholders in this phase; concrete HTTP SDK wiring belongs outside `src/core`.
+Provider integrations are represented by `ModelClient`, `ProviderAdapter`, provider-specific adapter marker types, and `ProviderRuntimeConfig` in `src/providers`. OpenAI and Anthropic SDK imports are confined to `src/providers`; `src/core` remains provider-neutral.
 
 Translation provider identity is explicit. The library-level `TranslationTextAdapter` reports a provider (`local-pseudo`, `openai`, `anthropic`, or `custom`), request path (`local-pseudo` or `provider-adapter`), and provider model when applicable. The bundled CLI supports `local-pseudo`, `openai`, and `anthropic`; provider-backed strategies require `--translation-model` and resolve API keys from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `--translation-api-key-env`.
+
+Provider runtime selections can be supplied through `--provider-config <path>` without changing scenario JSON. The config object may contain `providers.persona`, `providers.simulation`, and `providers.translation` entries with `provider`, `model`, `apiKeyEnv`, and optional runtime fields such as `baseUrl`, `temperature`, `maxOutputTokens`, `headers`, and `metadata`. Config files store environment variable names, not secrets. CLI flags override config-file values for the current command.
 
 ## Repository Boundaries
 
 Current source boundaries:
 
 - `src/core`: provider-neutral data model, OpenAI JSONL row formatter, validators, and fixtures
-- `src/providers`: model invocation contracts and OpenAI/Anthropic/custom adapter scaffolding
-- `src/simulation`: simulation runtime contracts, filesystem IO contract, optional persistence contract, and output-directory-aware request shape
-- `src/cli`: CLI entrypoint and command discovery
+- `src/providers`: model invocation contracts, provider runtime config/env resolution, and OpenAI/Anthropic/custom adapters
+- `src/simulation`: persona generators, simulation runners, filesystem IO contract, optional persistence contract, and output-directory-aware request shape
+- `src/translation`: local-pseudo and provider-backed schema-preserving translation adapters
+- `src/cli`: CLI entrypoint, argument parsing, config-file reading, output writing, and command discovery
 - `src/index.ts`: public package aggregator
 
 The core layer must not import provider clients, CLI code, filesystem implementations, persistence implementations, Cloudflare bindings, Hono routes, D1 storage, queues, or generated output files.
@@ -140,12 +145,12 @@ Planned commands:
 
 Implemented commands:
 
-- `finetuning generate-personas (--profile <id> | --config <path>) --out <path> [--count <n>] [--force]`
-- `finetuning simulate-dataset (--profile <id> | --config <path>) --out <path> [--limit <n>] [--mode <mode>] [--force]`
+- `finetuning generate-personas (--profile <id> | --config <path>) --out <path> [--count <n>] [--provider-config <path>] [--persona-provider deterministic|openai|anthropic] [--persona-model <model>] [--persona-api-key-env <ENV_NAME>] [--force]`
+- `finetuning simulate-dataset (--profile <id> | --config <path>) --out <path> [--limit <n>] [--mode <mode>] [--provider-config <path>] [--simulation-provider deterministic|openai|anthropic] [--simulation-model <model>] [--simulation-api-key-env <ENV_NAME>] [--force]`
 - `finetuning validate-dataset <path>`
-- `finetuning translate-dataset <path> --target-locale <bcp47> --out <path> [--source-locale <bcp47>] [--strategy local-pseudo|openai|anthropic] [--translation-model <model>] [--translation-api-key-env <ENV_NAME>] [--force]` (experimental)
+- `finetuning translate-dataset <path> --target-locale <bcp47> --out <path> [--source-locale <bcp47>] [--provider-config <path>] [--strategy local-pseudo|openai|anthropic] [--translation-model <model>] [--translation-api-key-env <ENV_NAME>] [--force]` (experimental)
 
-`generate-personas` writes persona JSON in one batch to the requested output path. `simulate-dataset` writes OpenAI JSONL in one batch and refuses to overwrite an existing file unless `--force` is passed. Its current behavior is deterministic sample generation from the scenario profile and provider-neutral tool schemas, not model-provider simulation. `validate-dataset` validates JSONL rows and reports row counts, valid/invalid row counts, message counts, tool-call counts, tool-result counts, average messages per row, and language counts when row metadata includes a locale.
+`generate-personas` writes persona JSON in one batch to the requested output path. `simulate-dataset` writes OpenAI JSONL in one batch and refuses to overwrite an existing file unless `--force` is passed. Both default to deterministic sample behavior and switch to provider-backed behavior only when flags or provider config select OpenAI or Anthropic. `validate-dataset` validates JSONL rows and reports row counts, valid/invalid row counts, message counts, tool-call counts, tool-result counts, average messages per row, and language counts when row metadata includes a locale.
 
 `translate-dataset` is experimental. It validates input JSONL, translates natural-language message content through `local-pseudo` or an explicit OpenAI/Anthropic provider-backed adapter, preserves tool schema and tool-call structure, validates the translated output, and writes only to the requested output path. Provider-backed translation operates one text field at a time through `TranslationTextRequest` and rejects empty or wrapper-style provider output instead of trying broad cleanup. `convert-logs` is still deferred and must not be used for production logs; it exits before reading any log source.
 

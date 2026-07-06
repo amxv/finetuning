@@ -34,6 +34,8 @@ node dist/cli/index.js --help
 
 The local CLI binary is `dist/cli/index.js` after `npm run build`. Generated outputs should go under `outputs/` or another ignored local directory.
 
+CLI defaults are offline: deterministic persona/dataset generation and `local-pseudo` translation do not require provider credentials. Provider-backed workflows require an explicit provider selection, model, and API key environment variable name. API keys are read from the environment at runtime and should not be stored in scenario or provider config files.
+
 ## Generate A Receptionist Sample
 
 The bundled `sample-receptionist` profile recreates the extracted receptionist use case as public sample data. You can use the bundled profile id directly:
@@ -138,7 +140,41 @@ Always validate generated JSONL before using it for training:
 node dist/cli/index.js validate-dataset outputs/tutorial-receptionist.jsonl
 ```
 
-The current CLI simulation is deterministic and sample-oriented. Provider-backed model simulation belongs behind the adapter interfaces in `src/providers` and `src/simulation` and is not implemented as a concrete HTTP client in v1.
+The default CLI simulation is deterministic and sample-oriented. Provider-backed simulation is available with explicit provider flags:
+
+```bash
+OPENAI_API_KEY=... node dist/cli/index.js simulate-dataset \
+  --config examples/receptionist/scenario.json \
+  --out outputs/receptionist-openai.jsonl \
+  --limit 1 \
+  --simulation-provider openai \
+  --simulation-model <model>
+```
+
+Use `--simulation-api-key-env <ENV_NAME>` when the key lives in a non-default environment variable. The default env vars are `OPENAI_API_KEY` for OpenAI and `ANTHROPIC_API_KEY` for Anthropic.
+
+## Provider Config Files
+
+Use `--provider-config <path>` to keep provider runtime selections in a separate JSON file while leaving scenario JSON provider-neutral. The checked-in example at `examples/provider-config.example.json` stores env var names only:
+
+```json
+{
+  "providers": {
+    "simulation": {
+      "provider": "openai",
+      "model": "replace-with-simulation-model",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    },
+    "translation": {
+      "provider": "anthropic",
+      "model": "replace-with-translation-model",
+      "apiKeyEnv": "ANTHROPIC_API_KEY"
+    }
+  }
+}
+```
+
+Provider config can include `persona`, `simulation`, and `translation` entries. CLI flags such as `--simulation-provider`, `--simulation-model`, and `--simulation-api-key-env` override config-file values for that run.
 
 ## Translation
 
@@ -210,7 +246,7 @@ Entrypoints:
 
 - `@amxv/finetuning`: package aggregator and workflow manifests
 - `@amxv/finetuning/core`: provider-neutral data model, scenarios, OpenAI row builder, validation, fixtures
-- `@amxv/finetuning/providers`: provider adapter contracts and unconfigured provider placeholders
+- `@amxv/finetuning/providers`: provider adapter contracts, config/env resolution, and OpenAI/Anthropic model clients
 - `@amxv/finetuning/simulation`: scenario loading and runtime adapter contracts
 - `@amxv/finetuning/translation`: experimental translation transform and adapter contract
 
@@ -223,4 +259,4 @@ npm run typecheck
 npm run verify
 ```
 
-`npm run verify` builds the package, checks canonical fixtures, runs CLI workflows, verifies translation preservation, verifies log-conversion deferment, and runs the documented sample workflow from the checked-in example configs.
+`npm run verify` builds the package, checks canonical fixtures, runs CLI workflows, verifies provider config parsing, verifies translation preservation, verifies log-conversion deferment, and runs the documented deterministic sample workflow from the checked-in example configs.

@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "persona": {
+      "provider": "openai",
+      "model": "replace-with-persona-model",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    },
+    "simulation": {
+      "provider": "anthropic",
+      "model": "replace-with-simulation-model",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "temperature": 0.2,
+      "maxOutputTokens": 1024
+    },
+    "translation": {
+      "provider": "openai",
+      "model": "replace-with-translation-model",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    }
+  }
+}
