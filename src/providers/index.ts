@@ -1,4 +1,8 @@
 import type { JsonObject, ToolCall, ToolSchema } from "../core/index.js";
+import { anthropicProviderAdapter } from "./anthropic.js";
+import { resolveProviderClientOptions, type ProviderEnvironment, type ProviderRuntimeConfig } from "./config.js";
+import { ProviderUnsupportedFeatureError } from "./errors.js";
+import { openAIProviderAdapter } from "./openai.js";
 
 export type ModelProviderKind = "openai" | "anthropic" | "custom";
 
@@ -75,14 +79,29 @@ export function createUnconfiguredProviderAdapter(kind: ModelProviderKind): Prov
   };
 }
 
-export const openAIProviderAdapter: OpenAIProviderAdapter = createUnconfiguredProviderAdapter(
-  "openai",
-) as OpenAIProviderAdapter;
+export function createProviderAdapter(kind: ModelProviderKind): ProviderAdapter {
+  switch (kind) {
+    case "openai":
+      return openAIProviderAdapter;
+    case "anthropic":
+      return anthropicProviderAdapter;
+    case "custom":
+      throw new ProviderUnsupportedFeatureError("custom provider adapters must be supplied by the caller", {
+        provider: kind,
+      });
+  }
+}
 
-export const anthropicProviderAdapter: AnthropicProviderAdapter = createUnconfiguredProviderAdapter(
-  "anthropic",
-) as AnthropicProviderAdapter;
+export function createModelClientFromConfig(
+  config: ProviderRuntimeConfig,
+  env?: ProviderEnvironment,
+): ModelClient {
+  const adapter = createProviderAdapter(config.provider);
+  return adapter.createClient(resolveProviderClientOptions(config, env));
+}
 
+export { anthropicProviderAdapter } from "./anthropic.js";
+export { openAIProviderAdapter } from "./openai.js";
 export type { ProviderEnvironment, ProviderRuntimeConfig } from "./config.js";
 export {
   assertSupportedModelProviderKind,
@@ -99,3 +118,10 @@ export {
   ProviderUnsupportedFeatureError,
 } from "./errors.js";
 export type { ProviderErrorOptions } from "./errors.js";
+export {
+  mapAnthropicMessagesResponse,
+  mapModelRequestToAnthropicMessagesRequest,
+  mapModelRequestToOpenAIResponsesRequest,
+  mapOpenAIResponsesResponse,
+} from "./mappers.js";
+export type { AnthropicMessageRequest, OpenAIResponseRequest } from "./mappers.js";
