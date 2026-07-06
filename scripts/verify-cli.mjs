@@ -15,6 +15,7 @@ const configPath = join(workspace.pathname, "retail-scenario.json");
 const personasPath = join(workspace.pathname, "personas.json");
 const datasetPath = join(workspace.pathname, "dataset.jsonl");
 const malformedPath = join(workspace.pathname, "malformed.jsonl");
+const unsupportedRolePath = join(workspace.pathname, "unsupported-role.jsonl");
 
 await writeFile(configPath, `${JSON.stringify(retailSupportScenarioProfile, null, 2)}\n`);
 
@@ -67,8 +68,17 @@ if (!malformedRun.stderr.includes("Validation errors")) {
   throw new Error(`validate-dataset did not report malformed row errors:\n${malformedRun.stderr}`);
 }
 
+await writeFile(unsupportedRolePath, "{\"messages\":[{\"role\":\"developer\",\"content\":\"x\"}]}\n");
+const unsupportedRoleRun = await expectCliFailure(["validate-dataset", unsupportedRolePath]);
+if (
+  !unsupportedRoleRun.stderr.includes("messages[0].role") ||
+  !unsupportedRoleRun.stderr.includes("message role must be one of system, user, assistant, or tool")
+) {
+  throw new Error(`validate-dataset did not report unsupported role errors:\n${unsupportedRoleRun.stderr}`);
+}
+
 await rm(workspace, { recursive: true, force: true });
-console.log("Verified CLI generate-personas, simulate-dataset, validate-dataset, overwrite safety, and malformed validation.");
+console.log("Verified CLI generate-personas, simulate-dataset, validate-dataset, overwrite safety, and invalid validation.");
 
 async function runCli(args) {
   return execFileAsync(process.execPath, [cliPath, ...args], {

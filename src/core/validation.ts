@@ -140,5 +140,9 @@ function validateMessage(
     if (typeof message.content !== "string" || message.content.length === 0) {
       errors.push({ path: `${path}.content`, message: "tool result content must be a non-empty string" });
     }
+
+    return;
   }
+
+  errors.push({ path: `${path}.role`, message: "message role must be one of system, user, assistant, or tool" });
 }
