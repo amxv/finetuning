@@ -413,6 +413,7 @@ async function simulateModelBackedTrajectory(
   const validatedToolCalls = firstResponse.toolCalls.map((toolCall, toolCallIndex) =>
     validateProviderToolCall(toolCall, availableTools, toolCallIndex, options),
   );
+  assertUniqueProviderToolCallIds(validatedToolCalls, options);
   const assistantToolCall: AssistantToolCallMessage = {
     kind: "assistant_tool_call",
     toolCalls: validatedToolCalls,
@@ -446,6 +447,7 @@ async function simulateModelBackedTrajectory(
       trajectoryId,
       turnIndex: toolCallIndex,
     });
+    validateToolResultForCall(result, toolCall, options);
     const resultMessage: ToolResultMessage = { kind: "tool_result", result };
     toolResults.push(resultMessage);
   }
@@ -615,6 +617,45 @@ function validateProviderToolCall(
 
   validateToolArgumentsAgainstSchema(toolCall.name, toolCall.arguments, tool.parameters, options);
   return toolCall;
+}
+
+function assertUniqueProviderToolCallIds(
+  toolCalls: ToolCall[],
+  options: ModelBackedSimulationRunnerOptions,
+): void {
+  const seen = new Set<string>();
+  for (const toolCall of toolCalls) {
+    if (seen.has(toolCall.id)) {
+      throw new ProviderToolCallError(`Duplicate tool call id: ${toolCall.id}`, {
+        provider: options.provider,
+        model: options.model,
+        details: { toolCallId: toolCall.id },
+      });
+    }
+    seen.add(toolCall.id);
+  }
+}
+
+function validateToolResultForCall(
+  result: ToolResult,
+  toolCall: ToolCall,
+  options: ModelBackedSimulationRunnerOptions,
+): void {
+  if (result.toolCallId !== toolCall.id) {
+    throw new ProviderToolCallError(`Tool result id ${result.toolCallId} did not match tool call ${toolCall.id}`, {
+      provider: options.provider,
+      model: options.model,
+      details: { toolCallId: toolCall.id, toolResultId: result.toolCallId },
+    });
+  }
+
+  if (result.name !== toolCall.name) {
+    throw new ProviderToolCallError(`Tool result name ${result.name} did not match tool call ${toolCall.name}`, {
+      provider: options.provider,
+      model: options.model,
+      details: { toolCallId: toolCall.id, toolName: toolCall.name, resultName: result.name },
+    });
+  }
 }
 
 function validateToolArgumentsAgainstSchema(

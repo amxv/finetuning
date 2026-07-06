@@ -261,7 +261,7 @@ async function assertProviderSdkImportBoundary() {
   for (const file of files) {
     const contents = await readFile(file, "utf8");
     const isProviderFile = file.includes("/src/providers/");
-    if (!isProviderFile && (contents.includes("from \"openai\"") || contents.includes("from \"@anthropic-ai/sdk\""))) {
+    if (!isProviderFile && /\bfrom\s+["'](?:openai(?:\/|["'])|@anthropic-ai\/sdk)/.test(contents)) {
       throw new Error(`Provider SDK import escaped src/providers: ${file}`);
     }
   }

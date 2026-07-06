@@ -14,10 +14,13 @@ const scenario = await loadScenarioSource(retailSupportScenarioProfile);
 await assertDeterministicRunnerParity();
 await assertFakeModelTextOnly();
 await assertFakeModelToolCallFlow();
+await assertFakeModelMultipleToolCallFlow();
 await assertToolDecisionStopsAtAssistantToolCall();
 await assertUnknownToolRejected();
 await assertMalformedArgumentsRejected();
 await assertMissingRequiredArgumentRejected();
+await assertDuplicateToolCallIdRejected();
+await assertMismatchedToolResultRejected();
 await assertEmptyFinalAssistantRejected();
 
 console.log("Verified deterministic and model-backed simulation runners, tool flow, mode behavior, and provider validation.");
@@ -152,6 +155,53 @@ async function assertFakeModelToolCallFlow() {
   }
 }
 
+async function assertFakeModelMultipleToolCallFlow() {
+  const calls = [];
+  const runner = createModelBackedSimulationRunner({
+    provider: "anthropic",
+    model: "fake-multi-tool-model",
+    modelClient: {
+      async invoke(request) {
+        calls.push(request);
+        if (calls.length === 1) {
+          return {
+            kind: "tool_calls",
+            toolCalls: [
+              {
+                id: "tool_call_product",
+                name: "lookup_product",
+                arguments: { productName: "day pack" },
+              },
+              {
+                id: "tool_call_order",
+                name: "lookup_order",
+                arguments: { orderId: "order_123" },
+              },
+            ],
+          };
+        }
+
+        return { kind: "text", content: "I checked the product and order details." };
+      },
+    },
+  });
+
+  const [trajectory] = await runner.run({
+    scenario,
+    outputDirectory: "unused",
+    limit: 1,
+    mode: "full_tool_trajectory",
+  });
+
+  const row = buildOpenAIFineTuningRow(trajectory, { mode: "full_tool_trajectory" });
+  assertValidOpenAIFineTuningRow(row);
+  assertRoles(row, "system,user,assistant,tool,tool,assistant");
+
+  if (row.messages[2].tool_calls?.length !== 2 || row.messages.filter((message) => message.role === "tool").length !== 2) {
+    throw new Error(`Multi-tool provider flow did not preserve two calls and two results: ${JSON.stringify(row)}`);
+  }
+}
+
 async function assertToolDecisionStopsAtAssistantToolCall() {
   const calls = [];
   const runner = createModelBackedSimulationRunner({
@@ -233,6 +283,76 @@ async function assertMissingRequiredArgumentRejected() {
     () => runner.run({ scenario, outputDirectory: "unused", limit: 1, mode: "full_tool_trajectory" }),
     ProviderToolCallError,
     "missing required argument orderId",
+  );
+}
+
+async function assertDuplicateToolCallIdRejected() {
+  const runner = createModelBackedSimulationRunner({
+    provider: "openai",
+    model: "fake-duplicate-tool-id-model",
+    modelClient: {
+      async invoke() {
+        return {
+          kind: "tool_calls",
+          toolCalls: [
+            {
+              id: "tool_call_duplicate",
+              name: "lookup_product",
+              arguments: { productName: "day pack" },
+            },
+            {
+              id: "tool_call_duplicate",
+              name: "lookup_order",
+              arguments: { orderId: "order_123" },
+            },
+          ],
+        };
+      },
+    },
+  });
+
+  await expectFailure(
+    () => runner.run({ scenario, outputDirectory: "unused", limit: 1, mode: "full_tool_trajectory" }),
+    ProviderToolCallError,
+    "Duplicate tool call id: tool_call_duplicate",
+  );
+}
+
+async function assertMismatchedToolResultRejected() {
+  const runner = createModelBackedSimulationRunner({
+    provider: "openai",
+    model: "fake-mismatched-tool-result-model",
+    modelClient: {
+      async invoke() {
+        return {
+          kind: "tool_calls",
+          toolCalls: [
+            {
+              id: "tool_call_result_mismatch",
+              name: "lookup_product",
+              arguments: { productName: "day pack" },
+            },
+          ],
+        };
+      },
+    },
+    toolResultProvider: {
+      source: "caller",
+      async getToolResult() {
+        return {
+          toolCallId: "different_call_id",
+          name: "lookup_product",
+          payloadFormat: "normalized_json",
+          result: {},
+        };
+      },
+    },
+  });
+
+  await expectFailure(
+    () => runner.run({ scenario, outputDirectory: "unused", limit: 1, mode: "full_tool_trajectory" }),
+    ProviderToolCallError,
+    "did not match tool call",
   );
 }
 

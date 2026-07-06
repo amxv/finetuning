@@ -1,7 +1,9 @@
 import {
   assertValidOpenAIFineTuningRow,
+  bookAppointmentTool,
   bookAppointmentToolTrajectoryFixture,
   buildOpenAIFineTuningRow,
+  checkAvailabilityTool,
   checkAvailabilityToolTrajectoryFixture,
   findBundledScenarioProfile,
   fullToolTrajectoryConversationFixture,
@@ -98,6 +100,9 @@ for (const fixtureCase of namedToolCases) {
 
 console.log(`Verified full and decision-only exports for ${namedToolCases.length} named tool fixtures.`);
 
+assertProviderBackedValidationCases();
+console.log("Verified provider-backed row validation hardening for schemas, duplicate ids, and multi-tool results.");
+
 const bundledProfiles = [receptionistScenarioProfile, retailSupportScenarioProfile];
 
 for (const profile of bundledProfiles) {
@@ -160,9 +165,17 @@ for (const file of coreFiles) {
       throw new Error(`Core boundary violation: found ${term} in ${file}`);
     }
   }
+
+  if (contents.includes("process.env")) {
+    throw new Error(`Core boundary violation: found process.env in ${file}`);
+  }
+
+  if (/\bfrom\s+["'](?:openai(?:\/|["'])|@anthropic-ai\/sdk)/.test(contents)) {
+    throw new Error(`Core boundary violation: found provider SDK import in ${file}`);
+  }
 }
 
-console.log(`Verified ${coreFiles.length} core files have no backend runtime references.`);
+console.log(`Verified ${coreFiles.length} core files have no provider SDK, process.env, or backend runtime references.`);
 
 async function listTypeScriptFiles(directoryUrl) {
   const directory = directoryUrl.pathname;
@@ -227,4 +240,174 @@ function assertDecisionOnlyShape(row, toolName, callId) {
   if (assistantToolCall.tool_calls[0].function.name !== toolName) {
     throw new Error(`${toolName} decision-only export used ${assistantToolCall.tool_calls[0].function.name}`);
   }
+}
+
+function assertProviderBackedValidationCases() {
+  const validMultiToolRow = {
+    messages: [
+      { role: "system", content: "Use tools when needed." },
+      { role: "user", content: "Can you check availability and save the appointment?" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_multi_availability",
+            type: "function",
+            function: {
+              name: "check_availability",
+              arguments: JSON.stringify({ preferredDate: "tomorrow", service: "cleaning" }),
+            },
+          },
+          {
+            id: "call_multi_booking",
+            type: "function",
+            function: {
+              name: "book_appointment",
+              arguments: JSON.stringify({
+                service: "cleaning",
+                slotId: "slot_2026_07_07_1500",
+                visitorName: "Jordan Lee",
+              }),
+            },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_multi_availability",
+        name: "check_availability",
+        content: JSON.stringify({ available: true }),
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_multi_booking",
+        name: "book_appointment",
+        content: JSON.stringify({ confirmed: true }),
+      },
+      {
+        role: "assistant",
+        content: "I found availability and booked the appointment for Jordan Lee.",
+      },
+    ],
+    tools: [checkAvailabilityTool, bookAppointmentTool].map((tool) => ({
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      },
+    })),
+  };
+
+  assertValidOpenAIFineTuningRow(validMultiToolRow);
+
+  assertValidationError(
+    {
+      ...validMultiToolRow,
+      messages: [
+        ...validMultiToolRow.messages.slice(0, 2),
+        {
+          ...validMultiToolRow.messages[2],
+          tool_calls: [
+            validMultiToolRow.messages[2].tool_calls[0],
+            {
+              ...validMultiToolRow.messages[2].tool_calls[1],
+              id: "call_multi_availability",
+            },
+          ],
+        },
+        ...validMultiToolRow.messages.slice(3),
+      ],
+    },
+    "tool call id must be unique within a row",
+  );
+
+  assertValidationError(
+    {
+      ...validMultiToolRow,
+      messages: [
+        ...validMultiToolRow.messages.slice(0, 4),
+        {
+          ...validMultiToolRow.messages[4],
+          tool_call_id: "call_multi_availability",
+          name: "check_availability",
+        },
+        validMultiToolRow.messages[5],
+      ],
+    },
+    "tool result must reference each assistant tool call at most once",
+  );
+
+  assertValidationError(
+    {
+      ...validMultiToolRow,
+      messages: [
+        ...validMultiToolRow.messages.slice(0, 2),
+        {
+          ...validMultiToolRow.messages[2],
+          tool_calls: [
+            {
+              ...validMultiToolRow.messages[2].tool_calls[0],
+              function: {
+                ...validMultiToolRow.messages[2].tool_calls[0].function,
+                arguments: JSON.stringify({ preferredDate: "tomorrow", service: 42 }),
+              },
+            },
+          ],
+        },
+      ],
+    },
+    "value must be a string",
+  );
+
+  assertValidationError(
+    {
+      ...validMultiToolRow,
+      messages: [
+        ...validMultiToolRow.messages.slice(0, 2),
+        {
+          ...validMultiToolRow.messages[2],
+          tool_calls: [
+            {
+              ...validMultiToolRow.messages[2].tool_calls[0],
+              function: {
+                ...validMultiToolRow.messages[2].tool_calls[0].function,
+                arguments: JSON.stringify({ preferredDate: "tomorrow", service: "cleaning", extra: true }),
+              },
+            },
+          ],
+        },
+      ],
+    },
+    "additional property is not allowed by schema",
+  );
+
+  assertValidationError(
+    {
+      ...validMultiToolRow,
+      messages: [
+        ...validMultiToolRow.messages.slice(0, 2),
+        {
+          role: "assistant",
+          content: "",
+        },
+      ],
+    },
+    "assistant content must be non-empty when no tool calls are present",
+  );
+}
+
+function assertValidationError(row, messageFragment) {
+  try {
+    assertValidOpenAIFineTuningRow(row);
+  } catch (error) {
+    if (error.message.includes(messageFragment)) {
+      return;
+    }
+
+    throw error;
+  }
+
+  throw new Error(`Expected validation error containing "${messageFragment}".`);
 }
