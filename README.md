@@ -24,4 +24,6 @@ Receptionist backend concerns are explicitly out of scope for this package. The 
 - CLI binary: `finetuning`
 - Architecture and API note: `docs/architecture.md`
 
-Phase 1 provides a minimal TypeScript scaffold that declares the public workflow and CLI names with status labels. Later extraction phases will implement the data model, providers, simulation, validation, and output workflows behind this surface.
+The current scaffold declares the public workflow and CLI names with status labels, plus the canonical internal trajectory model for later extraction phases. It includes provider-neutral types for business context, personas, tool schemas, tool calls, tool results, conversation messages, trajectories, and OpenAI fine-tuning rows.
+
+The Phase 2 builder surface can serialize representative fixtures for plain chat, tool-decision, and full tool-trajectory examples into OpenAI chat fine-tuning row shapes, then validate those rows at runtime. Later extraction phases will implement simulation, provider adapters, CLI workflows, localization, and production-ready dataset IO behind this surface.

@@ -27,7 +27,7 @@ Real-log conversion is deferred. It will not be part of v1 until the repo has a 
 | Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
 | Log-to-dataset import | Deferred | `convert-logs`, documented placeholder only |
 
-Every workflow in this table has a code scaffold in `src/index.ts` and, for CLI discoverability, `src/cli.ts`. The scaffold declares the public names and status only; implementation of generation, validation, translation, and import behavior belongs to later phases in the extraction plan.
+Every workflow in this table has a code scaffold in `src/index.ts` and, for CLI discoverability, `src/cli.ts`. Phase 2 also defines the canonical internal trajectory model, OpenAI export row shape, runtime validation surface, and representative fixtures used by later generation phases.
 
 ## Supported Providers
 
@@ -71,18 +71,23 @@ Initial exported surface:
 - `FineTuningToolkitConfig`: config shape for scenario, provider, and output selection
 - `SupportedProvider`: provider identifiers for adapter configuration
 - `WorkflowStatus`: status labels for `v1`, `experimental`, and `deferred` features
+- `BusinessContext`, `PersonaDefinition`, `ToolSchema`, `ToolCall`, `ToolResult`: provider-neutral scenario and tool primitives
+- `ConversationMessage`: discriminated union for system, user, assistant text, assistant tool-call, and tool-result messages
+- `ConversationTrajectory`: canonical internal conversation container
+- `ExportMode`: `plain_chat`, `tool_decision`, or `full_tool_trajectory`
+- `buildOpenAIFineTuningRow` and `buildOpenAIFineTuningRows`: trajectory-oriented OpenAI export builders
+- `validateOpenAIFineTuningRow` and `assertValidOpenAIFineTuningRow`: runtime validation for exported examples
 - `supportedWorkflows`: discoverable workflow manifest
 - `cliCommands`: discoverable CLI manifest
 
-The following implementation APIs are intentionally not exported in Phase 1 because their data model and adapter boundaries are later plan deliverables:
+The following implementation APIs are intentionally not exported yet because their adapter boundaries are later plan deliverables:
 
-- trajectory builders
-- OpenAI row serializers
-- validators
 - simulator runners
 - provider clients
 - translation transforms
 - log converters
+
+Tool definitions are included in exported rows only when the selected export mode contains assistant tool calls and the trajectory has tool schemas. Plain chat rows omit tools by default.
 
 ## Initial CLI Surface
 

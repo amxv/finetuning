@@ -1,35 +1,53 @@
-export type WorkflowStatus = "v1" | "experimental" | "deferred";
-
-export type SupportedProvider = "openai" | "anthropic" | "custom";
-
-export interface FineTuningToolkitConfig {
-  scenario: {
-    name: string;
-    assistantRole: string;
-    locale?: string;
-  };
-  providers: {
-    simulation?: SupportedProvider;
-    export: "openai";
-    translation?: SupportedProvider;
-  };
-  output: {
-    format: "openai-chat-jsonl";
-    directory: string;
-  };
-}
-
-export interface PublicWorkflow {
-  id: string;
-  status: WorkflowStatus;
-  description: string;
-}
-
-export interface CliCommandDefinition {
-  name: string;
-  status: WorkflowStatus;
-  description: string;
-}
+export type {
+  AssistantTextMessage,
+  AssistantToolCallMessage,
+  BusinessContext,
+  CliCommandDefinition,
+  ConversationMessage,
+  ConversationTrajectory,
+  ExportMode,
+  FineTuningToolkitConfig,
+  JsonObject,
+  JsonPrimitive,
+  JsonSchemaObject,
+  JsonSchemaValue,
+  JsonValue,
+  PersonaDefinition,
+  PublicWorkflow,
+  SupportedProvider,
+  SystemMessage,
+  ToolCall,
+  ToolResult,
+  ToolResultMessage,
+  ToolSchema,
+  UserMessage,
+  WorkflowStatus,
+} from "./model.js";
+export type {
+  BuildOpenAIRowOptions,
+  OpenAIChatFineTuningMessage,
+  OpenAIChatFineTuningRow,
+  OpenAIToolCall,
+  OpenAIToolDefinition,
+} from "./openai.js";
+export {
+  buildOpenAIFineTuningRow,
+  buildOpenAIFineTuningRows,
+} from "./openai.js";
+export {
+  assertValidOpenAIFineTuningRow,
+  validateOpenAIFineTuningRow,
+  type ValidationIssue,
+  type ValidationResult,
+  type ValidationSummary,
+} from "./validation.js";
+export {
+  fullToolTrajectoryConversationFixture,
+  noToolConversationFixture,
+  representativeTrajectories,
+  toolDecisionConversationFixture,
+} from "./fixtures.js";
+import type { CliCommandDefinition, PublicWorkflow } from "./model.js";
 
 export const supportedWorkflows: PublicWorkflow[] = [
   {
