@@ -749,9 +749,8 @@ function toModelMessages(messages: ConversationMessage[]): ModelMessage[] {
         return [
           {
             role: "assistant",
-            content:
-              message.content ??
-              `Called tools: ${message.toolCalls.map((toolCall) => toolCall.name).join(", ")}`,
+            content: message.content ?? "",
+            toolCalls: message.toolCalls,
           },
         ];
       case "tool_result":

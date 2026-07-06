@@ -18,7 +18,7 @@ export function mapModelRequestToOpenAIResponsesRequest(
 ): OpenAIResponseRequest {
   const mapped: OpenAIResponseRequest = {
     model: request.model,
-    input: request.messages.map(mapMessageToOpenAIInputItem),
+    input: request.messages.flatMap(mapMessageToOpenAIInputItems),
   };
 
   if (request.tools?.length) {
@@ -196,7 +196,7 @@ export function mapAnthropicMessagesResponse(
   };
 }
 
-function mapMessageToOpenAIInputItem(message: ModelMessage): ResponseInputItem {
+function mapMessageToOpenAIInputItems(message: ModelMessage): ResponseInputItem[] {
   if (message.role === "tool") {
     if (!message.toolCallId) {
       throw new ProviderUnsupportedFeatureError("OpenAI tool result messages require toolCallId", {
@@ -205,17 +205,42 @@ function mapMessageToOpenAIInputItem(message: ModelMessage): ResponseInputItem {
       });
     }
 
-    return {
-      type: "function_call_output",
-      call_id: message.toolCallId,
-      output: message.content,
-    };
+    return [
+      {
+        type: "function_call_output",
+        call_id: message.toolCallId,
+        output: message.content,
+      },
+    ];
   }
 
-  return {
-    role: message.role,
-    content: message.content,
-  };
+  if (message.role === "assistant" && message.toolCalls?.length) {
+    const inputItems: ResponseInputItem[] = [];
+    if (message.content) {
+      inputItems.push({
+        role: message.role,
+        content: message.content,
+      });
+    }
+
+    inputItems.push(
+      ...message.toolCalls.map((toolCall) => ({
+        type: "function_call" as const,
+        call_id: toolCall.id,
+        name: toolCall.name,
+        arguments: JSON.stringify(toolCall.arguments),
+      })),
+    );
+
+    return inputItems;
+  }
+
+  return [
+    {
+      role: message.role,
+      content: message.content,
+    },
+  ];
 }
 
 function mapToolToOpenAIResponseTool(tool: ToolSchema): OpenAIResponseTool {
@@ -253,6 +278,27 @@ function mapMessageToAnthropicMessage(message: ModelMessage): Anthropic.MessageP
     throw new ProviderUnsupportedFeatureError("Anthropic system messages must be mapped to the system parameter", {
       provider: "anthropic",
     });
+  }
+
+  if (message.role === "assistant" && message.toolCalls?.length) {
+    const content: Anthropic.ContentBlockParam[] = [];
+    if (message.content) {
+      content.push({ type: "text", text: message.content });
+    }
+
+    content.push(
+      ...message.toolCalls.map((toolCall) => ({
+        type: "tool_use" as const,
+        id: toolCall.id,
+        name: toolCall.name,
+        input: toolCall.arguments,
+      })),
+    );
+
+    return {
+      role: "assistant",
+      content,
+    };
   }
 
   return {

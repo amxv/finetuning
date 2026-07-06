@@ -10,6 +10,7 @@ export interface ModelMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   toolCallId?: string;
+  toolCalls?: ToolCall[];
   name?: string;
 }
 

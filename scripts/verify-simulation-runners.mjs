@@ -141,6 +141,8 @@ async function assertFakeModelToolCallFlow() {
     throw new Error(`Tool-call simulation should call initial and final model requests: ${JSON.stringify(calls)}`);
   }
 
+  assertFinalRequestIncludesAssistantToolHistory(calls[1]);
+
   const row = buildOpenAIFineTuningRow(trajectory, { mode: "full_tool_trajectory" });
   assertValidOpenAIFineTuningRow(row);
   assertRoles(row, "system,user,assistant,tool,assistant");
@@ -422,5 +424,28 @@ function assertRoles(row, expected) {
   const roles = row.messages.map((message) => message.role).join(",");
   if (roles !== expected) {
     throw new Error(`Expected roles ${expected}, saw ${roles}`);
+  }
+}
+
+function assertFinalRequestIncludesAssistantToolHistory(request) {
+  const assistantToolCallIndex = request.messages.findIndex(
+    (message) => message.role === "assistant" && message.toolCalls?.length > 0,
+  );
+  const toolResultIndex = request.messages.findIndex((message) => message.role === "tool");
+
+  if (assistantToolCallIndex < 0 || toolResultIndex < 0 || assistantToolCallIndex > toolResultIndex) {
+    throw new Error(`Final model request did not preserve assistant tool-call history before tool results: ${JSON.stringify(request.messages)}`);
+  }
+
+  const assistantMessage = request.messages[assistantToolCallIndex];
+  const toolMessage = request.messages[toolResultIndex];
+  if (
+    assistantMessage.content !== "I'll look up the order." ||
+    assistantMessage.toolCalls[0]?.id !== "tool_call_1" ||
+    assistantMessage.toolCalls[0]?.name !== "lookup_order" ||
+    assistantMessage.toolCalls[0]?.arguments.orderId !== "order_123" ||
+    toolMessage.toolCallId !== "tool_call_1"
+  ) {
+    throw new Error(`Final model request tool history was malformed: ${JSON.stringify(request.messages)}`);
   }
 }

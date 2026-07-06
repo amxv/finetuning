@@ -23,10 +23,12 @@ const request = {
 };
 
 assertOpenAIRequestMapper();
+assertOpenAIHistoricalToolCallRequestMapper();
 assertOpenAITextResponseMapper();
 assertOpenAIToolResponseMapper();
 assertOpenAIMalformedToolArguments();
 assertAnthropicRequestMapper();
+assertAnthropicHistoricalToolCallRequestMapper();
 assertAnthropicTextResponseMapper();
 assertAnthropicToolResponseMapper();
 assertAnthropicMalformedToolUseInput();
@@ -50,6 +52,47 @@ function assertOpenAIRequestMapper() {
     tool.parameters.required?.[0] !== checkAvailabilityTool.parameters.required?.[0]
   ) {
     throw new Error(`OpenAI tool mapping lost schema details: ${JSON.stringify(tool)}`);
+  }
+}
+
+function assertOpenAIHistoricalToolCallRequestMapper() {
+  const mapped = mapModelRequestToOpenAIResponsesRequest({
+    provider: "openai",
+    model: "provider-test-model",
+    messages: [
+      { role: "user", content: "Can I book a cleaning tomorrow?" },
+      {
+        role: "assistant",
+        content: "I'll check availability.",
+        toolCalls: [
+          {
+            id: "call_1",
+            name: "check_availability",
+            arguments: { preferredDate: "tomorrow", service: "cleaning" },
+          },
+        ],
+      },
+      { role: "tool", toolCallId: "call_1", name: "check_availability", content: "{\"available\":true}" },
+    ],
+  });
+
+  const functionCallIndex = mapped.input.findIndex((item) => item.type === "function_call");
+  const outputIndex = mapped.input.findIndex((item) => item.type === "function_call_output");
+  const functionCall = mapped.input[functionCallIndex];
+  const output = mapped.input[outputIndex];
+
+  if (
+    functionCallIndex < 0 ||
+    outputIndex < 0 ||
+    functionCallIndex > outputIndex ||
+    functionCall.type !== "function_call" ||
+    functionCall.call_id !== "call_1" ||
+    functionCall.name !== "check_availability" ||
+    functionCall.arguments !== "{\"preferredDate\":\"tomorrow\",\"service\":\"cleaning\"}" ||
+    output.type !== "function_call_output" ||
+    output.call_id !== "call_1"
+  ) {
+    throw new Error(`OpenAI historical tool-call request mapping was invalid: ${JSON.stringify(mapped.input)}`);
   }
 }
 
@@ -159,6 +202,54 @@ function assertAnthropicRequestMapper() {
     tool.input_schema.required?.[0] !== checkAvailabilityTool.parameters.required?.[0]
   ) {
     throw new Error(`Anthropic tool mapping lost schema details: ${JSON.stringify(tool)}`);
+  }
+}
+
+function assertAnthropicHistoricalToolCallRequestMapper() {
+  const mapped = mapModelRequestToAnthropicMessagesRequest({
+    provider: "anthropic",
+    model: "provider-test-model",
+    messages: [
+      { role: "system", content: "Use tools when needed." },
+      { role: "user", content: "Can I book a cleaning tomorrow?" },
+      {
+        role: "assistant",
+        content: "I'll check availability.",
+        toolCalls: [
+          {
+            id: "toolu_1",
+            name: "check_availability",
+            arguments: { preferredDate: "tomorrow", service: "cleaning" },
+          },
+        ],
+      },
+      { role: "tool", toolCallId: "toolu_1", name: "check_availability", content: "{\"available\":true}" },
+    ],
+  });
+
+  const assistantIndex = mapped.messages.findIndex((message) => message.role === "assistant");
+  const toolResultIndex = mapped.messages.findIndex(
+    (message) => message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
+  );
+  const assistant = mapped.messages[assistantIndex];
+  const toolResult = mapped.messages[toolResultIndex];
+
+  if (
+    assistantIndex < 0 ||
+    toolResultIndex < 0 ||
+    assistantIndex > toolResultIndex ||
+    !Array.isArray(assistant.content) ||
+    assistant.content[0]?.type !== "text" ||
+    assistant.content[0]?.text !== "I'll check availability." ||
+    assistant.content[1]?.type !== "tool_use" ||
+    assistant.content[1]?.id !== "toolu_1" ||
+    assistant.content[1]?.name !== "check_availability" ||
+    assistant.content[1]?.input?.preferredDate !== "tomorrow" ||
+    !Array.isArray(toolResult.content) ||
+    toolResult.content[0]?.type !== "tool_result" ||
+    toolResult.content[0]?.tool_use_id !== "toolu_1"
+  ) {
+    throw new Error(`Anthropic historical tool-call request mapping was invalid: ${JSON.stringify(mapped.messages)}`);
   }
 }
 
