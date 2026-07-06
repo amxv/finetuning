@@ -14,6 +14,7 @@ export type {
   JsonValue,
   PersonaDefinition,
   PublicWorkflow,
+  SimulatedAssistantTurn,
   SupportedProvider,
   SystemMessage,
   ToolCall,
@@ -42,8 +43,15 @@ export {
   type ValidationSummary,
 } from "./validation.js";
 export {
+  bookAppointmentTool,
+  bookAppointmentToolTrajectoryFixture,
+  checkAvailabilityTool,
+  checkAvailabilityToolTrajectoryFixture,
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
   representativeTrajectories,
+  searchTool,
+  searchToolTrajectoryFixture,
   toolDecisionConversationFixture,
+  toolTrajectoryFixtures,
 } from "./fixtures.js";

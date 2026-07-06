@@ -111,7 +111,7 @@ function toOpenAIMessage(message: ConversationMessage): OpenAIChatFineTuningMess
           type: "function",
           function: {
             name: toolCall.name,
-            arguments: JSON.stringify(toolCall.arguments),
+            arguments: stableStringify(toolCall.arguments),
           },
         })),
       };
@@ -157,5 +157,25 @@ function isAssistantToolCall(message: ConversationMessage): message is Assistant
 }
 
 function stringifyToolResult(result: unknown): string {
-  return typeof result === "string" ? result : JSON.stringify(result);
+  return typeof result === "string" ? result : stableStringify(result);
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortJsonValue(value));
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJsonValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nestedValue]) => [key, sortJsonValue(nestedValue)]),
+    );
+  }
+
+  return value;
 }

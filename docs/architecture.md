@@ -62,7 +62,9 @@ V1 output should be deterministic at the file-format boundary even when model-ge
 
 - output rows are JSONL records compatible with OpenAI chat fine-tuning input expectations
 - chat-only examples contain ordered system, user, and assistant messages
-- tool-trajectory examples preserve assistant tool calls, tool result messages, and final assistant responses
+- full tool-trajectory examples preserve assistant tool calls, tool result messages, and final assistant responses
+- decision-only examples are available through `tool_decision` mode and stop immediately after the assistant tool-call message
+- tool result payloads are normalized deterministic JSON objects unless a result is explicitly represented as text
 - validation reports malformed JSONL, missing messages, unsupported roles, malformed tool calls, and summary counts
 - generated files are written to user-selected output directories, not source directories
 
@@ -90,6 +92,7 @@ Initial exported surface:
 - `BusinessContext`, `PersonaDefinition`, `ToolSchema`, `ToolCall`, `ToolResult`: provider-neutral scenario and tool primitives
 - `ConversationMessage`: discriminated union for system, user, assistant text, assistant tool-call, and tool-result messages
 - `ConversationTrajectory`: canonical internal conversation container
+- `SimulatedAssistantTurn`: structured simulation turn result that can contain assistant text, tool calls, tool results, and final assistant responses
 - `ExportMode`: `plain_chat`, `tool_decision`, or `full_tool_trajectory`
 - `buildOpenAIFineTuningRow` and `buildOpenAIFineTuningRows`: trajectory-oriented OpenAI export builders
 - `validateOpenAIFineTuningRow` and `assertValidOpenAIFineTuningRow`: runtime validation for exported examples
@@ -105,7 +108,7 @@ The following implementation APIs are intentionally not exported yet because the
 - translation transforms
 - log converters
 
-Tool definitions are included in exported rows only when the selected export mode contains assistant tool calls and the trajectory has tool schemas. Plain chat rows omit tools by default.
+Tool definitions are included in exported rows only when the selected export mode contains assistant tool calls and the trajectory has tool schemas. Plain chat rows omit tools by default. Full tool trajectories are the canonical tool-calling export behavior; `tool_decision` remains available for users who only want tool-choice examples.
 
 ## Initial CLI Surface
 

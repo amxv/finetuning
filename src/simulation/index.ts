@@ -3,6 +3,7 @@ import type {
   FineTuningToolkitConfig,
   JsonObject,
   PersonaDefinition,
+  SimulatedAssistantTurn,
 } from "../core/index.js";
 import type { ModelClient } from "../providers/index.js";
 
@@ -41,6 +42,13 @@ export interface SimulationRequest {
 
 export interface SimulationRunner {
   run(request: SimulationRequest, adapters: SimulationRuntimeAdapters): Promise<ConversationTrajectory[]>;
+}
+
+export interface AssistantTurnSimulator {
+  simulateTurn(
+    trajectory: ConversationTrajectory,
+    adapters: SimulationRuntimeAdapters,
+  ): Promise<SimulatedAssistantTurn>;
 }
 
 export function createDeferredSimulationRunner(): SimulationRunner {

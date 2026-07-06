@@ -58,6 +58,7 @@ export interface ToolCall {
 export interface ToolResult {
   toolCallId: string;
   name: string;
+  payloadFormat?: "normalized_json" | "text";
   result: JsonValue;
 }
 
@@ -99,6 +100,13 @@ export type ConversationMessage =
   | AssistantTextMessage
   | AssistantToolCallMessage
   | ToolResultMessage;
+
+export interface SimulatedAssistantTurn {
+  assistantText?: AssistantTextMessage;
+  toolCall?: AssistantToolCallMessage;
+  toolResults?: ToolResultMessage[];
+  finalAssistantResponse?: AssistantTextMessage;
+}
 
 export interface ConversationTrajectory {
   id: string;

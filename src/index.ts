@@ -19,6 +19,7 @@ export type {
   OpenAIToolDefinition,
   PersonaDefinition,
   PublicWorkflow,
+  SimulatedAssistantTurn,
   SupportedProvider,
   SystemMessage,
   ToolCall,
@@ -33,12 +34,19 @@ export type {
 } from "./core/index.js";
 export {
   assertValidOpenAIFineTuningRow,
+  bookAppointmentTool,
+  bookAppointmentToolTrajectoryFixture,
   buildOpenAIFineTuningRow,
   buildOpenAIFineTuningRows,
+  checkAvailabilityTool,
+  checkAvailabilityToolTrajectoryFixture,
   fullToolTrajectoryConversationFixture,
   noToolConversationFixture,
   representativeTrajectories,
+  searchTool,
+  searchToolTrajectoryFixture,
   toolDecisionConversationFixture,
+  toolTrajectoryFixtures,
   validateOpenAIFineTuningRow,
 } from "./core/index.js";
 export type {

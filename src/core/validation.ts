@@ -31,10 +31,11 @@ export function validateOpenAIFineTuningRow(row: OpenAIChatFineTuningRow): Valid
   }
 
   const toolCallIds = new Set<string>();
+  const toolCallNamesById = new Map<string, string>();
   const toolNames = new Set(row.tools?.map((tool) => tool.function.name) ?? []);
 
   row.messages.forEach((message, index) => {
-    validateMessage(message, index, errors, toolCallIds, toolNames, summary);
+    validateMessage(message, index, errors, toolCallIds, toolCallNamesById, toolNames, summary);
   });
 
   return {
@@ -58,6 +59,7 @@ function validateMessage(
   index: number,
   errors: ValidationIssue[],
   toolCallIds: Set<string>,
+  toolCallNamesById: Map<string, string>,
   toolNames: Set<string>,
   summary: ValidationSummary,
 ): void {
@@ -83,6 +85,7 @@ function validateMessage(
         errors.push({ path: `${toolCallPath}.id`, message: "tool call id is required" });
       } else {
         toolCallIds.add(toolCall.id);
+        toolCallNamesById.set(toolCall.id, toolCall.function.name);
       }
 
       if (toolCall.type !== "function") {
@@ -127,6 +130,11 @@ function validateMessage(
 
     if (!message.name) {
       errors.push({ path: `${path}.name`, message: "tool result name is required" });
+    } else if (message.tool_call_id && toolCallNamesById.get(message.tool_call_id) !== message.name) {
+      errors.push({
+        path: `${path}.name`,
+        message: "tool result name must match the referenced assistant tool call",
+      });
     }
 
     if (typeof message.content !== "string" || message.content.length === 0) {
