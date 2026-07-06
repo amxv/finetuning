@@ -40,11 +40,11 @@ Provider status for v1:
 | Provider role | Supported providers | Status |
 | --- | --- | --- |
 | Dataset export | OpenAI chat fine-tuning JSONL | V1 target |
-| Simulation model calls | OpenAI, Anthropic, custom adapters | V1 target, implementation deferred to provider phase |
+| Simulation model calls | deterministic, OpenAI, Anthropic | V1; OpenAI and Anthropic run through model-backed simulation adapters |
 | Translation model calls | local-pseudo, OpenAI, Anthropic, custom adapters | Experimental; OpenAI and Anthropic are wired through `ModelClient` |
 | Cloudflare bindings, queues, D1, Hono | None | Non-goal |
 
-Provider integrations are represented by `ModelClient`, `ProviderAdapter`, provider-specific adapter marker types, and `ProviderRuntimeConfig` in `src/providers`. OpenAI and Anthropic SDK imports are confined to `src/providers`; `src/core` remains provider-neutral.
+Provider integrations are represented by `ModelClient`, `ProviderAdapter`, concrete OpenAI/Anthropic adapters, provider-specific adapter marker types, and `ProviderRuntimeConfig` in `src/providers`. OpenAI and Anthropic SDK imports are confined to `src/providers`; `src/core` remains provider-neutral.
 
 Translation provider identity is explicit. The library-level `TranslationTextAdapter` reports a provider (`local-pseudo`, `openai`, `anthropic`, or `custom`), request path (`local-pseudo` or `provider-adapter`), and provider model when applicable. The bundled CLI supports `local-pseudo`, `openai`, and `anthropic`; provider-backed strategies require `--translation-model` and resolve API keys from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `--translation-api-key-env`.
 
@@ -91,7 +91,7 @@ Translation is enabled experimentally with strict preservation rules:
 
 Only BCP 47 locale codes are accepted in public API and CLI fields, for example `es-ES`, `fr-CA`, or `hi-IN`; language names are intentionally not accepted as target identifiers.
 
-## Initial Library API Surface
+## Library API Surface
 
 The public library entrypoint is the package root:
 
@@ -117,31 +117,22 @@ Initial exported surface:
 - `validateOpenAIFineTuningRow` and `assertValidOpenAIFineTuningRow`: runtime validation for exported examples
 - `serializeOpenAIJsonlRows`, `validateOpenAIJsonl`, and `summarizeOpenAIJsonlRows`: JSONL serialization, dataset-level validation, and summary reporting
 - `translateOpenAIFineTuningRow`, `translateOpenAIJsonl`, `TranslationTextAdapter`, `createOpenAITranslationAdapter`, `createAnthropicTranslationAdapter`, `createProviderTranslationAdapter`, and `experimentalTranslationRules`: experimental schema-preserving translation surface
-- `ModelClient`, `ProviderAdapter`, and provider adapter placeholder exports: provider integration boundary
+- `ModelClient`, `ProviderAdapter`, `openAIProviderAdapter`, `anthropicProviderAdapter`, `createProviderAdapter`, `createModelClientFromConfig`, provider request/response mappers, and provider error types: provider integration boundary
 - `FileSystemAdapter`, `DatasetWriter`, `PersistenceAdapter`, and `SimulationRunner`: runtime and IO boundaries for simulation workflows
 - `deferredLogConversionBoundary` and `createDeferredLogConversionError`: explicit v1 boundary proving real-log conversion is not implemented and listing the privacy/redaction prerequisites for any future converter
 - `supportedWorkflows`: discoverable workflow manifest
 - `cliCommands`: discoverable CLI manifest
 
-The following implementation APIs are intentionally not exported yet because their adapter boundaries are later plan deliverables:
+The following implementation APIs are intentionally not exported:
 
-- simulator runners
-- concrete provider clients
 - log converters
+- concrete SDK client classes from `src/providers/openai.ts` and `src/providers/anthropic.ts`
 
 Tool definitions are included in exported rows only when the selected export mode contains assistant tool calls and the trajectory has tool schemas. Plain chat rows omit tools by default. Full tool trajectories are the canonical tool-calling export behavior; `tool_decision` remains available for users who only want tool-choice examples.
 
-## Initial CLI Surface
+## CLI Surface
 
 The CLI binary name is `finetuning`.
-
-Planned commands:
-
-- `finetuning generate-personas --config <path> --out <path>`
-- `finetuning simulate-dataset --config <path> --out <path>`
-- `finetuning validate-dataset <path>`
-- `finetuning translate-dataset <path> --target-locale <locale> --out <path>` (experimental)
-- `finetuning convert-logs` (deferred; exits with an error and does not accept input/output files)
 
 Implemented commands:
 
