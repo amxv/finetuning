@@ -1,85 +1,42 @@
 # finetuning
 
-Toolkit for generating, validating, and localizing fine-tuning datasets for OpenAI chat models, extracted from a receptionist-oriented internal backend and generalized into a standalone repository.
+Standalone toolkit for generating, validating, and optionally localizing OpenAI chat fine-tuning datasets from scenario definitions.
 
-## Current status
+The current v1 surface is intentionally narrow and OSS-focused: define an assistant scenario, generate synthetic personas or deterministic sample conversations, export OpenAI JSONL, and validate the result. The repository was extracted from a receptionist-oriented backend, but the package is not a receptionist runtime and does not depend on Cloudflare Workers, queues, D1, Hono, dashboard storage, or appointment-booking infrastructure.
 
-This repository is being bootstrapped from an implementation plan.
+## What Works In V1
 
-- Implementation plan: `gg/agent-outputs/fine-tuning-oss-extraction-plan-2026-07-06.md`
-- Default branch: `main`
-- Initial implementation mode: RPI-fast on `main` without managed worktrees, per lead override
+| Workflow | Status | CLI |
+| --- | --- | --- |
+| Synthetic persona generation | V1 | `generate-personas` |
+| Synthetic dataset generation | V1 | `simulate-dataset` |
+| OpenAI JSONL validation | V1 | `validate-dataset` |
+| Schema-preserving pseudo-translation | Experimental | `translate-dataset` |
+| Log-derived dataset conversion | Deferred | `convert-logs` exits with a deferred error |
 
-## Recommended v1 scope
+Full tool trajectories are the canonical tool-calling dataset shape. Each generated tool example includes:
 
-The first public release is scoped to synthetic scenario-driven dataset generation for chat and tool-calling assistants. The v1 target includes persona generation, OpenAI chat fine-tuning JSONL export, full tool-trajectory rows, dataset validation, and one receptionist example profile.
+1. system message
+2. user message
+3. assistant tool-call message
+4. matching tool result message
+5. final assistant message after the tool result
 
-Translation is experimental. The standalone package includes schema-preserving translation transforms, explicit provider/request-path metadata, and a local pseudo-translation path for validation and integration testing. Real provider-backed translation remains behind a library adapter boundary. Real-log conversion is explicitly deferred for v1: the package does not define or accept any production log shape and does not ship a log-derived dataset converter until there is a public log contract, redaction hooks, privacy guidance, and privacy-safe fixture coverage.
+The `tool_decision` export mode is still available for datasets that intentionally stop at the assistant tool choice, and `plain_chat` omits tool calls.
 
-Receptionist backend concerns are explicitly out of scope for this package. The OSS toolkit should not depend on Cloudflare Workers bindings, queue handlers, D1 persistence, Hono routes, receptionist dashboard storage, or production appointment-booking infrastructure.
-
-## Public surface
-
-- Library entrypoint: `@amxv/finetuning`
-- Core entrypoint: `@amxv/finetuning/core`
-- Provider adapter entrypoint: `@amxv/finetuning/providers`
-- Simulation boundary entrypoint: `@amxv/finetuning/simulation`
-- CLI binary: `finetuning`
-- Architecture and API note: `docs/architecture.md`
-
-The current scaffold declares the public workflow and CLI names with status labels, plus the canonical internal trajectory model for later extraction phases. It includes provider-neutral types for scenario definitions, business context, personas, tool schemas, tool calls, tool results, conversation messages, trajectories, and OpenAI fine-tuning rows.
-
-The core builder surface treats full tool trajectories as the canonical tool-calling dataset shape: an assistant tool-call message is followed by the matching tool result and a final assistant response. A `tool_decision` export mode is still available for datasets that intentionally stop at the model's tool choice. Provider and simulation modules define adapter interfaces for model invocation, filesystem IO, optional persistence, and user-selected output directories without binding reusable core code to backend runtime concerns.
-
-## Scenario profiles
-
-The framework core is domain-neutral. Domain behavior is described by scenario profiles that include:
-
-- `assistantRole`
-- `business` or domain context
-- `personaSource`, including a target `count`, optional generator prompt, optional bundled personas, and optional source label
-- `toolInventory`, including public tool schemas and an optional source label
-- `conversationGoals`
-- `stoppingRules`
-- optional `systemPrompt` and `metadata`
-
-Receptionist behavior is provided as the bundled `sample-receptionist` profile, not as the framework default. A second bundled `sample-retail-support` profile demonstrates the same surface for a retail support assistant.
-
-Library callers can import bundled profiles or supply their own JSON-compatible scenario object:
-
-```ts
-import {
-  loadScenarioSource,
-  receptionistScenarioProfile,
-  retailSupportScenarioProfile,
-} from "@amxv/finetuning";
-
-const receptionist = await loadScenarioSource(receptionistScenarioProfile);
-const retail = await loadScenarioSource({ bundledProfileId: retailSupportScenarioProfile.id });
-const custom = await loadScenarioSource({ json: await fs.readText("scenario.json") });
-```
-
-The CLI help lists bundled scenario profile ids. Runnable v1 commands accept `--profile <id>` for bundled profiles or `--config <path>` for user-supplied scenario JSON, so users can point the toolkit at their own scenario without editing code.
-
-## CLI usage
-
-Build the package before invoking the local CLI directly:
+## Install And Build
 
 ```bash
+npm install
 npm run build
 node dist/cli/index.js --help
 ```
 
-Generate personas from a bundled profile:
+The local CLI binary is `dist/cli/index.js` after `npm run build`. Generated outputs should go under `outputs/` or another ignored local directory.
 
-```bash
-node dist/cli/index.js generate-personas \
-  --profile sample-retail-support \
-  --out outputs/retail-personas.json \
-  --count 2
-```
+## Generate A Receptionist Sample
 
-Generate a tiny deterministic OpenAI JSONL dataset:
+The bundled `sample-receptionist` profile recreates the extracted receptionist use case as public sample data. You can use the bundled profile id directly:
 
 ```bash
 node dist/cli/index.js simulate-dataset \
@@ -87,17 +44,105 @@ node dist/cli/index.js simulate-dataset \
   --out outputs/receptionist-sample.jsonl \
   --limit 3 \
   --mode full_tool_trajectory
-```
 
-Validate a dataset and print a summary:
-
-```bash
 node dist/cli/index.js validate-dataset outputs/receptionist-sample.jsonl
 ```
 
-`simulate-dataset` writes the requested JSONL file in one batch and refuses to overwrite an existing output unless `--force` is passed. The current simulation command is deterministic and scaffold-aligned: it creates small sample trajectories from the scenario profile and tool schemas. Provider-backed model simulation remains behind the simulation adapter boundary for later phases.
+Or use the checked-in example scenario config:
 
-Translate a dataset with the experimental local pseudo-translation path:
+```bash
+node dist/cli/index.js generate-personas \
+  --config examples/receptionist/scenario.json \
+  --out outputs/receptionist-personas.json \
+  --count 2
+
+node dist/cli/index.js simulate-dataset \
+  --config examples/receptionist/scenario.json \
+  --out outputs/receptionist-from-config.jsonl \
+  --limit 3 \
+  --mode full_tool_trajectory
+
+node dist/cli/index.js validate-dataset outputs/receptionist-from-config.jsonl
+```
+
+Expected validation summary for the three-row receptionist sample:
+
+- `Rows: 3`
+- `Tool calls: 3`
+- `Tool results: 3`
+- `Rows with tools: 3`
+- `Dataset is valid.`
+
+## Try A Second Domain
+
+`examples/retail-support/scenario.json` demonstrates the same scenario shape for a retail support assistant:
+
+```bash
+node dist/cli/index.js simulate-dataset \
+  --config examples/retail-support/scenario.json \
+  --out outputs/retail-support-sample.jsonl \
+  --limit 2 \
+  --mode full_tool_trajectory
+
+node dist/cli/index.js validate-dataset outputs/retail-support-sample.jsonl
+```
+
+This proves the core model is domain-neutral. Receptionist behavior is sample configuration, not framework behavior.
+
+## Full Tool-Trajectory Walkthrough
+
+A scenario config defines:
+
+- `assistantRole`
+- `business`
+- `personaSource`
+- `toolInventory`
+- `conversationGoals`
+- `stoppingRules`
+- optional `systemPrompt` and `metadata`
+
+Run `simulate-dataset` with `--mode full_tool_trajectory` to produce OpenAI-format JSONL:
+
+```bash
+node dist/cli/index.js simulate-dataset \
+  --config examples/receptionist/scenario.json \
+  --out outputs/tutorial-receptionist.jsonl \
+  --limit 1 \
+  --mode full_tool_trajectory
+```
+
+The first row will have this shape:
+
+```json
+{
+  "messages": [
+    { "role": "system", "content": "..." },
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": null, "tool_calls": [{ "id": "call_sample_receptionist_1", "type": "function", "function": { "name": "search", "arguments": "{\"query\":\"sample query\"}" } }] },
+    { "role": "tool", "tool_call_id": "call_sample_receptionist_1", "name": "search", "content": "{\"answer\":\"...\"}" },
+    { "role": "assistant", "content": "..." }
+  ],
+  "tools": [
+    { "type": "function", "function": { "name": "search", "description": "...", "parameters": { "type": "object", "properties": { "query": { "type": "string" } } } } }
+  ],
+  "metadata": {
+    "scenarioId": "sample-receptionist",
+    "generatedBy": "finetuning-cli"
+  }
+}
+```
+
+Always validate generated JSONL before using it for training:
+
+```bash
+node dist/cli/index.js validate-dataset outputs/tutorial-receptionist.jsonl
+```
+
+The current CLI simulation is deterministic and sample-oriented. Provider-backed model simulation belongs behind the adapter interfaces in `src/providers` and `src/simulation` and is not implemented as a concrete HTTP client in v1.
+
+## Translation
+
+Translation is experimental. The CLI supports only the local pseudo-translation strategy, which prefixes translatable message text and preserves schema-bearing fields:
 
 ```bash
 node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
@@ -105,13 +150,20 @@ node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
   --out outputs/receptionist-sample.es-ES.jsonl
 ```
 
-Translation uses BCP 47 locale codes such as `es-ES`, `fr-CA`, or `hi-IN`, not language names. The experimental CLI path translates system, user, and assistant text content. It preserves assistant tool calls, tool-call IDs, function names, function arguments, tool result messages, tool definitions, and existing schema-bearing metadata. The output is validated after translation and records `targetLocale`, `translationStatus`, `translationProvider`, and `translationRequestPath` in row metadata.
+Rules:
 
-Provider-backed translation is exposed as a library adapter boundary, not hidden behind the CLI.
+- system, user, and assistant text content are translated
+- assistant `tool_calls` are preserved exactly
+- tool result messages are preserved exactly
+- tool definitions are preserved exactly
+- metadata is preserved and extended with `targetLocale`, `translationStatus`, `translationProvider`, and `translationRequestPath`
+- target locales must be BCP 47 codes such as `es-ES`, `fr-CA`, or `hi-IN`
 
-## Log-derived datasets
+Provider-backed translation is exposed only as a library adapter boundary.
 
-Real-log conversion is not included in v1. The `convert-logs` CLI command is a deferred boundary that exits with an error; it is present only so scripts and documentation can discover that the workflow is unavailable, not to imply a supported converter.
+## Log-Derived Datasets
+
+Real-log conversion is explicitly deferred for v1. The package does not define or accept any production log shape and does not ship a log-derived dataset converter. The `convert-logs` CLI command exists only as a discoverable deferred boundary and exits with an error.
 
 Before this repository accepts public log-derived datasets, it needs:
 
@@ -123,6 +175,34 @@ Before this repository accepts public log-derived datasets, it needs:
 - privacy-safe redacted fixtures and validation coverage
 - a converter implementation that is independent of Cloudflare gateway, queue, Worker, D1, or other backend runtime assumptions
 
-Until those pieces exist, use synthetic scenario generation and validation only. Do not pass production logs to this package expecting them to be converted or redacted.
+Until those pieces exist, do not pass production logs to this package expecting them to be converted or redacted.
 
-Later extraction phases will implement provider-backed simulation, provider adapters, localization, and production-ready dataset IO behind these boundaries.
+## Library Surface
+
+```ts
+import {
+  buildOpenAIFineTuningRow,
+  loadScenarioSource,
+  receptionistScenarioProfile,
+  validateOpenAIJsonl,
+} from "@amxv/finetuning";
+```
+
+Entrypoints:
+
+- `@amxv/finetuning`: package aggregator and workflow manifests
+- `@amxv/finetuning/core`: provider-neutral data model, scenarios, OpenAI row builder, validation, fixtures
+- `@amxv/finetuning/providers`: provider adapter contracts and unconfigured provider placeholders
+- `@amxv/finetuning/simulation`: scenario loading and runtime adapter contracts
+- `@amxv/finetuning/translation`: experimental translation transform and adapter contract
+
+See `docs/architecture.md` for the public architecture and `CONTRIBUTING.md` for development boundaries.
+
+## Development
+
+```bash
+npm run typecheck
+npm run verify
+```
+
+`npm run verify` builds the package, checks canonical fixtures, runs CLI workflows, verifies translation preservation, verifies log-conversion deferment, and runs the documented sample workflow from the checked-in example configs.

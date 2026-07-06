@@ -1,0 +1,117 @@
+{
+  "id": "sample-receptionist",
+  "name": "Demo Clinic receptionist",
+  "assistantRole": "Front-desk assistant",
+  "business": {
+    "id": "business-demo-clinic",
+    "name": "Demo Clinic",
+    "domain": "healthcare",
+    "description": "A neighborhood clinic that answers patient questions and schedules routine appointments.",
+    "locale": "en-US",
+    "attributes": {
+      "hours": {
+        "saturday": "9:00 AM to 1:00 PM"
+      },
+      "services": ["new patient intake", "cleaning", "follow-up visit"]
+    }
+  },
+  "personaSource": {
+    "count": 3,
+    "source": "checked-in OSS example personas",
+    "generatorPrompt": "Create realistic callers for a clinic receptionist. Include general information seekers, availability checkers, and visitors ready to book.",
+    "personas": [
+      {
+        "id": "persona-general-question",
+        "label": "General information seeker",
+        "goals": ["Ask whether the clinic accepts new patients."]
+      },
+      {
+        "id": "persona-hours-question",
+        "label": "Hours checker",
+        "goals": ["Find the Saturday business hours."]
+      },
+      {
+        "id": "persona-scheduler",
+        "label": "Appointment scheduler",
+        "goals": ["Find an appointment for a cleaning."]
+      }
+    ]
+  },
+  "toolInventory": {
+    "source": "checked-in OSS example tool schemas",
+    "tools": [
+      {
+        "name": "search",
+        "description": "Search public business knowledge for a concise answer.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query."
+            }
+          },
+          "required": ["query"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "check_availability",
+        "description": "Check available appointment slots for a requested service.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "description": "Requested service name."
+            },
+            "preferredDate": {
+              "type": "string",
+              "description": "Preferred appointment date."
+            }
+          },
+          "required": ["service", "preferredDate"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "book_appointment",
+        "description": "Book an appointment slot for a visitor.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string",
+              "description": "Requested service name."
+            },
+            "slotId": {
+              "type": "string",
+              "description": "Chosen appointment slot identifier."
+            },
+            "visitorName": {
+              "type": "string",
+              "description": "Visitor name."
+            }
+          },
+          "required": ["service", "slotId", "visitorName"],
+          "additionalProperties": false
+        }
+      }
+    ]
+  },
+  "conversationGoals": [
+    "Answer public business questions directly when enough information is available.",
+    "Use tools for factual lookup, appointment availability, and confirmed bookings.",
+    "Confirm important appointment details before closing the conversation."
+  ],
+  "stoppingRules": {
+    "maxTurns": 8,
+    "stopWhen": ["The user has received the requested answer.", "The booking is confirmed or the next step is clear."],
+    "escalationCriteria": ["The user asks for clinical advice.", "The user reports an emergency."]
+  },
+  "systemPrompt": "You are a helpful front-desk assistant for Demo Clinic. Be concise, use tools when needed, and avoid medical advice.",
+  "metadata": {
+    "sampleDomain": "receptionist",
+    "source": "examples/receptionist/scenario.json"
+  }
+}

@@ -17,12 +17,14 @@
   "files": [
     "dist",
     "docs",
+    "examples",
+    "CONTRIBUTING.md",
     "README.md"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs && node scripts/verify-log-deferment.mjs"
+    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs && node scripts/verify-log-deferment.mjs && node scripts/verify-readme-workflow.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

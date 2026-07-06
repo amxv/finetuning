@@ -1,0 +1,83 @@
+{
+  "id": "sample-retail-support",
+  "name": "Atlas Outdoor retail support",
+  "assistantRole": "Retail customer support assistant",
+  "business": {
+    "id": "business-atlas-outdoor",
+    "name": "Atlas Outdoor",
+    "domain": "retail",
+    "description": "An outdoor equipment store that helps customers compare products and manage order issues.",
+    "locale": "en-US",
+    "attributes": {
+      "returnWindowDays": 30,
+      "productCategories": ["backpacks", "trail shoes", "camp kitchen"]
+    }
+  },
+  "personaSource": {
+    "count": 2,
+    "source": "checked-in OSS example personas",
+    "generatorPrompt": "Create retail support shoppers who ask product comparison, order status, or return-policy questions.",
+    "personas": [
+      {
+        "id": "persona-product-comparison",
+        "label": "Gear comparer",
+        "goals": ["Compare two hiking backpacks for a weekend trip."]
+      },
+      {
+        "id": "persona-order-return",
+        "label": "Return policy checker",
+        "goals": ["Ask whether a recently delivered jacket can be returned."]
+      }
+    ]
+  },
+  "toolInventory": {
+    "source": "checked-in OSS example tool schemas",
+    "tools": [
+      {
+        "name": "lookup_product",
+        "description": "Look up product details, inventory, and compatibility notes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "productName": {
+              "type": "string",
+              "description": "Product or category to look up."
+            }
+          },
+          "required": ["productName"],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "lookup_order",
+        "description": "Look up order status and return eligibility.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "orderId": {
+              "type": "string",
+              "description": "Customer order identifier."
+            }
+          },
+          "required": ["orderId"],
+          "additionalProperties": false
+        }
+      }
+    ]
+  },
+  "conversationGoals": [
+    "Help shoppers choose suitable products from stated needs.",
+    "Use order tools for account-specific order or return questions.",
+    "State policy limits clearly and hand off when an exception is needed."
+  ],
+  "stoppingRules": {
+    "maxTurns": 6,
+    "stopWhen": ["The shopper has a recommendation, policy answer, or next action."],
+    "escalationCriteria": ["The shopper requests a refund exception.", "The order lookup result is ambiguous."]
+  },
+  "systemPrompt": "You are a retail support assistant for Atlas Outdoor. Give practical product guidance and use tools for order-specific facts.",
+  "metadata": {
+    "sampleDomain": "retail",
+    "source": "examples/retail-support/scenario.json"
+  }
+}
