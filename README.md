@@ -14,7 +14,7 @@ This repository is being bootstrapped from an implementation plan.
 
 The first public release is scoped to synthetic scenario-driven dataset generation for chat and tool-calling assistants. The v1 target includes persona generation, OpenAI chat fine-tuning JSONL export, full tool-trajectory rows, dataset validation, and one receptionist example profile.
 
-Translation is experimental until provider routing, field-preservation rules, and validation are implemented in the standalone package. Real-log conversion is deferred until there is a public log contract, redaction story, and privacy-safe fixture coverage.
+Translation is experimental. The standalone package includes schema-preserving translation transforms, explicit provider/request-path metadata, and a local pseudo-translation path for validation and integration testing. Real provider-backed translation remains behind a library adapter boundary. Real-log conversion is deferred until there is a public log contract, redaction story, and privacy-safe fixture coverage.
 
 Receptionist backend concerns are explicitly out of scope for this package. The OSS toolkit should not depend on Cloudflare Workers bindings, queue handlers, D1 persistence, Hono routes, receptionist dashboard storage, or production appointment-booking infrastructure.
 
@@ -97,6 +97,16 @@ node dist/cli/index.js validate-dataset outputs/receptionist-sample.jsonl
 
 `simulate-dataset` writes the requested JSONL file in one batch and refuses to overwrite an existing output unless `--force` is passed. The current simulation command is deterministic and scaffold-aligned: it creates small sample trajectories from the scenario profile and tool schemas. Provider-backed model simulation remains behind the simulation adapter boundary for later phases.
 
-`translate-dataset` remains experimental and exits without writing output until provider-backed translation is implemented. `convert-logs` remains deferred.
+Translate a dataset with the experimental local pseudo-translation path:
+
+```bash
+node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl \
+  --target-locale es-ES \
+  --out outputs/receptionist-sample.es-ES.jsonl
+```
+
+Translation uses BCP 47 locale codes such as `es-ES`, `fr-CA`, or `hi-IN`, not language names. The experimental CLI path translates system, user, and assistant text content. It preserves assistant tool calls, tool-call IDs, function names, function arguments, tool result messages, tool definitions, and existing schema-bearing metadata. The output is validated after translation and records `targetLocale`, `translationStatus`, `translationProvider`, and `translationRequestPath` in row metadata.
+
+Provider-backed translation is exposed as a library adapter boundary, not hidden behind the CLI. `convert-logs` remains deferred.
 
 Later extraction phases will implement provider-backed simulation, provider adapters, localization, and production-ready dataset IO behind these boundaries.

@@ -39,6 +39,17 @@ export type {
   ValidationSummary,
   WorkflowStatus,
 } from "./core/index.js";
+export type {
+  TranslateOpenAIJsonlOptions,
+  TranslateOpenAIRowOptions,
+  TranslationProviderKind,
+  TranslationRequestPath,
+  TranslationResult,
+  TranslationRules,
+  TranslationTextAdapter,
+  TranslationTextRequest,
+  TranslationWorkflowStatus,
+} from "./translation/index.js";
 export {
   assertValidOpenAIFineTuningRow,
   bookAppointmentTool,
@@ -65,6 +76,13 @@ export {
   validateOpenAIJsonl,
   validateOpenAIFineTuningRow,
 } from "./core/index.js";
+export {
+  assertValidLocaleCode,
+  createPseudoTranslationAdapter,
+  experimentalTranslationRules,
+  translateOpenAIFineTuningRow,
+  translateOpenAIJsonl,
+} from "./translation/index.js";
 export type {
   AnthropicProviderAdapter,
   CustomProviderAdapter,

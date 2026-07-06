@@ -13,7 +13,7 @@ V1 targets developers and teams building model-specific assistants that need syn
 - JSONL validation and dataset summaries
 - one receptionist example profile as a sample scenario, not as the core domain
 
-Translation is experimental for v1. It may be exposed behind explicit commands and library modules once the provider identity, field-preservation rules, and validation workflow are implemented.
+Translation is experimental for v1. The repo exposes schema-preserving library transforms and an explicit `translate-dataset` CLI workflow using a local pseudo-translation request path. Real provider-backed translation is represented as an adapter boundary and is not silently routed through any ambiguous provider helper.
 
 Real-log conversion is deferred. It will not be part of v1 until the repo has a public source contract, redaction hooks, privacy guidance, and fixture-backed validation.
 
@@ -39,10 +39,12 @@ Provider status for v1:
 | --- | --- | --- |
 | Dataset export | OpenAI chat fine-tuning JSONL | V1 target |
 | Simulation model calls | OpenAI, Anthropic, custom adapters | V1 target, implementation deferred to provider phase |
-| Translation model calls | OpenAI, Anthropic, custom adapters | Experimental |
+| Translation model calls | local-pseudo, OpenAI, Anthropic, custom adapters | Experimental |
 | Cloudflare bindings, queues, D1, Hono | None | Non-goal |
 
 Provider integrations are represented by `ModelClient`, `ProviderAdapter`, and provider-specific adapter marker types in `src/providers`. The exported OpenAI and Anthropic adapters are intentionally unconfigured placeholders in this phase; concrete HTTP SDK wiring belongs outside `src/core`.
+
+Translation provider identity is explicit. The library-level `TranslationTextAdapter` reports both a provider (`local-pseudo`, `openai`, `anthropic`, or `custom`) and a request path (`local-pseudo` or `provider-adapter`). The bundled CLI uses only `local-pseudo`; provider-backed translation must be supplied by library callers through the adapter boundary.
 
 ## Repository Boundaries
 
@@ -70,7 +72,17 @@ V1 output should be deterministic at the file-format boundary even when model-ge
 
 Dataset writing is represented as a `DatasetWriter`/`FileSystemAdapter` boundary in `src/simulation`. Concrete writers must receive an output directory from config or CLI input and should treat `outputs/` as an ignored local default, not as source.
 
-Translation, when enabled experimentally, must preserve schema-bearing fields such as tool names, tool-call IDs, arguments, and tool-result structure. Only natural-language content should be translated unless a config explicitly opts into another behavior.
+Translation is enabled experimentally with strict preservation rules:
+
+- translate system message content
+- translate user message content
+- translate assistant text content, including assistant content attached to a tool-call message when present
+- preserve assistant `tool_calls` exactly, including ids, function names, and JSON argument strings
+- preserve tool result messages exactly, including `tool_call_id`, `name`, and `content`
+- preserve tool definitions exactly, including function names, descriptions, and parameter schemas
+- preserve existing metadata and add `targetLocale`, `translationStatus`, `translationProvider`, and `translationRequestPath`
+
+Only BCP 47 locale codes are accepted in public API and CLI fields, for example `es-ES`, `fr-CA`, or `hi-IN`; language names are intentionally not accepted as target identifiers.
 
 ## Initial Library API Surface
 
@@ -97,6 +109,7 @@ Initial exported surface:
 - `buildOpenAIFineTuningRow` and `buildOpenAIFineTuningRows`: trajectory-oriented OpenAI export builders
 - `validateOpenAIFineTuningRow` and `assertValidOpenAIFineTuningRow`: runtime validation for exported examples
 - `serializeOpenAIJsonlRows`, `validateOpenAIJsonl`, and `summarizeOpenAIJsonlRows`: JSONL serialization, dataset-level validation, and summary reporting
+- `translateOpenAIFineTuningRow`, `translateOpenAIJsonl`, `TranslationTextAdapter`, and `experimentalTranslationRules`: experimental schema-preserving translation surface
 - `ModelClient`, `ProviderAdapter`, and provider adapter placeholder exports: provider integration boundary
 - `FileSystemAdapter`, `DatasetWriter`, `PersistenceAdapter`, and `SimulationRunner`: runtime and IO boundaries for simulation workflows
 - `supportedWorkflows`: discoverable workflow manifest
@@ -106,7 +119,6 @@ The following implementation APIs are intentionally not exported yet because the
 
 - simulator runners
 - concrete provider clients
-- translation transforms
 - log converters
 
 Tool definitions are included in exported rows only when the selected export mode contains assistant tool calls and the trajectory has tool schemas. Plain chat rows omit tools by default. Full tool trajectories are the canonical tool-calling export behavior; `tool_decision` remains available for users who only want tool-choice examples.
@@ -128,10 +140,11 @@ Implemented commands:
 - `finetuning generate-personas (--profile <id> | --config <path>) --out <path> [--count <n>] [--force]`
 - `finetuning simulate-dataset (--profile <id> | --config <path>) --out <path> [--limit <n>] [--mode <mode>] [--force]`
 - `finetuning validate-dataset <path>`
+- `finetuning translate-dataset <path> --target-locale <bcp47> --out <path> [--source-locale <bcp47>] [--strategy local-pseudo] [--force]` (experimental)
 
 `generate-personas` writes persona JSON in one batch to the requested output path. `simulate-dataset` writes OpenAI JSONL in one batch and refuses to overwrite an existing file unless `--force` is passed. Its current behavior is deterministic sample generation from the scenario profile and provider-neutral tool schemas, not model-provider simulation. `validate-dataset` validates JSONL rows and reports row counts, valid/invalid row counts, message counts, tool-call counts, tool-result counts, average messages per row, and language counts when row metadata includes a locale.
 
-`translate-dataset` is still experimental and exits without writing output until provider-backed translation is implemented. `convert-logs` is still deferred.
+`translate-dataset` is experimental. It validates input JSONL, translates natural-language message content through `local-pseudo`, preserves tool schema and tool-call structure, validates the translated output, and writes only to the requested output path. `convert-logs` is still deferred.
 
 ## Non-Goals
 

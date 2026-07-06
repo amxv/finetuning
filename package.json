@@ -11,7 +11,8 @@
     ".": "./dist/index.js",
     "./core": "./dist/core/index.js",
     "./providers": "./dist/providers/index.js",
-    "./simulation": "./dist/simulation/index.js"
+    "./simulation": "./dist/simulation/index.js",
+    "./translation": "./dist/translation/index.js"
   },
   "files": [
     "dist",
@@ -21,7 +22,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs"
+    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

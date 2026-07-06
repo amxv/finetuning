@@ -9,6 +9,7 @@ import {
   loadScenarioSource,
   serializeOpenAIJsonlRows,
   summarizeOpenAIJsonlRows,
+  translateOpenAIJsonl,
   validateOpenAIJsonl,
   type ConversationMessage,
   type ConversationTrajectory,
@@ -67,8 +68,8 @@ async function main(): Promise<void> {
       await validateDataset(context);
       return;
     case "translate-dataset":
-      console.error("translate-dataset is experimental and requires a translation provider implementation.");
-      process.exit(2);
+      await translateDataset(context);
+      return;
     case "convert-logs":
       console.error("convert-logs is deferred until a public log source contract and redaction workflow exist.");
       process.exit(2);
@@ -130,6 +131,41 @@ async function validateDataset({ args }: CliContext): Promise<void> {
   }
 
   console.log("Dataset is valid.");
+}
+
+async function translateDataset({ args }: CliContext): Promise<void> {
+  const inputPath = args.positionals[0] ?? readOptionalStringFlag(args, "input");
+  if (!inputPath) {
+    throw new Error("translate-dataset requires a dataset path or --input <path>.");
+  }
+
+  const outputPath = readRequiredStringFlag(args, "out");
+  const targetLocale = readRequiredStringFlag(args, "target-locale");
+  const sourceLocale = readOptionalStringFlag(args, "source-locale");
+  const strategy = readOptionalStringFlag(args, "strategy") ?? "local-pseudo";
+  const force = readBooleanFlag(args, "force");
+
+  if (strategy !== "local-pseudo") {
+    throw new Error(
+      "translate-dataset is experimental and currently supports only --strategy local-pseudo. Provider-backed translation is exposed as a library adapter boundary.",
+    );
+  }
+
+  const contents = await readFile(inputPath, "utf8");
+  const result = await translateOpenAIJsonl(contents, {
+    targetLocale,
+    ...(sourceLocale ? { sourceLocale } : {}),
+  });
+
+  await writeBatchFile(outputPath, result.jsonl, force);
+
+  const validation = validateOpenAIJsonl(result.jsonl);
+  console.log(`Wrote translated dataset to ${outputPath}`);
+  console.log(`Status: experimental`);
+  console.log(`Provider: ${result.provider}`);
+  console.log(`Request path: ${result.requestPath}`);
+  console.log(`Target locale: ${targetLocale}`);
+  printDatasetSummary(validation.summary);
 }
 
 async function readScenarioSource(args: ParsedArgs): Promise<ScenarioSource> {
@@ -442,8 +478,10 @@ function printCommandHelp(commandName: string): void {
       console.log("Usage: finetuning validate-dataset <path>");
       return;
     case "translate-dataset":
-      console.log("Usage: finetuning translate-dataset <path> --target-locale <locale> --out <path>");
-      console.log("Status: experimental; provider-backed translation is not implemented in this scaffold.");
+      console.log(
+        "Usage: finetuning translate-dataset <path> --target-locale <bcp47> --out <path> [--source-locale <bcp47>] [--strategy local-pseudo] [--force]",
+      );
+      console.log("Status: experimental; provider-backed translation is available only through the library adapter boundary.");
       return;
     case "convert-logs":
       console.log("Usage: finetuning convert-logs --config <path> --out <path>");
