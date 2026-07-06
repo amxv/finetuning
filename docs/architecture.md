@@ -1,0 +1,114 @@
+# Architecture Note
+
+This repository is being bootstrapped as a standalone fine-tuning dataset toolkit. It is extracted from a receptionist backend, but the public package is not a receptionist runtime and does not depend on Cloudflare Workers, Hono routes, D1 storage, queues, or dashboard data models.
+
+## V1 Scope
+
+V1 targets developers and teams building model-specific assistants that need synthetic fine-tuning corpora, especially corpora that include tool-calling behavior. The initial product scope is:
+
+- synthetic scenario-driven dataset generation
+- persona generation for synthetic conversations
+- chat-only and full tool-trajectory examples
+- OpenAI chat fine-tuning JSONL export
+- JSONL validation and dataset summaries
+- one receptionist example profile as a sample scenario, not as the core domain
+
+Translation is experimental for v1. It may be exposed behind explicit commands and library modules once the provider identity, field-preservation rules, and validation workflow are implemented.
+
+Real-log conversion is deferred. It will not be part of v1 until the repo has a public source contract, redaction hooks, privacy guidance, and fixture-backed validation.
+
+## Supported Workflows
+
+| Workflow | Status | Public surface |
+| --- | --- | --- |
+| Synthetic dataset generation | V1 | `simulate-dataset`, library workflow manifest |
+| Persona generation | V1 | `generate-personas`, library workflow manifest |
+| Dataset validation | V1 | `validate-dataset`, library workflow manifest |
+| Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
+| Log-to-dataset import | Deferred | `convert-logs`, documented placeholder only |
+
+Every workflow in this table has a code scaffold in `src/index.ts` and, for CLI discoverability, `src/cli.ts`. The scaffold declares the public names and status only; implementation of generation, validation, translation, and import behavior belongs to later phases in the extraction plan.
+
+## Supported Providers
+
+The canonical export target is OpenAI chat fine-tuning JSONL. Simulation providers are adapter-based and may include OpenAI, Anthropic, or a custom model client. Internal tool schemas should remain provider-neutral, with provider-specific conversion happening at the adapter/export boundary.
+
+Provider status for v1:
+
+| Provider role | Supported providers | Status |
+| --- | --- | --- |
+| Dataset export | OpenAI chat fine-tuning JSONL | V1 target |
+| Simulation model calls | OpenAI, Anthropic, custom adapters | V1 target, implementation deferred to provider phase |
+| Translation model calls | OpenAI, Anthropic, custom adapters | Experimental |
+| Cloudflare bindings, queues, D1, Hono | None | Non-goal |
+
+## Output Guarantees
+
+V1 output should be deterministic at the file-format boundary even when model-generated content is variable:
+
+- output rows are JSONL records compatible with OpenAI chat fine-tuning input expectations
+- chat-only examples contain ordered system, user, and assistant messages
+- tool-trajectory examples preserve assistant tool calls, tool result messages, and final assistant responses
+- validation reports malformed JSONL, missing messages, unsupported roles, malformed tool calls, and summary counts
+- generated files are written to user-selected output directories, not source directories
+
+Translation, when enabled experimentally, must preserve schema-bearing fields such as tool names, tool-call IDs, arguments, and tool-result structure. Only natural-language content should be translated unless a config explicitly opts into another behavior.
+
+## Initial Library API Surface
+
+The public library entrypoint is the package root:
+
+```ts
+import {
+  cliCommands,
+  supportedWorkflows,
+  type FineTuningToolkitConfig,
+} from "@amxv/finetuning";
+```
+
+Initial exported surface:
+
+- `FineTuningToolkitConfig`: config shape for scenario, provider, and output selection
+- `SupportedProvider`: provider identifiers for adapter configuration
+- `WorkflowStatus`: status labels for `v1`, `experimental`, and `deferred` features
+- `supportedWorkflows`: discoverable workflow manifest
+- `cliCommands`: discoverable CLI manifest
+
+The following implementation APIs are intentionally not exported in Phase 1 because their data model and adapter boundaries are later plan deliverables:
+
+- trajectory builders
+- OpenAI row serializers
+- validators
+- simulator runners
+- provider clients
+- translation transforms
+- log converters
+
+## Initial CLI Surface
+
+The CLI binary name is `finetuning`.
+
+Planned commands:
+
+- `finetuning generate-personas --config <path> --out <path>`
+- `finetuning simulate-dataset --config <path> --out <path>`
+- `finetuning validate-dataset <path>`
+- `finetuning translate-dataset <path> --target-locale <locale> --out <path>` (experimental)
+- `finetuning convert-logs --config <path> --out <path>` (deferred)
+
+Phase 1 only provides command discovery and status output. Later phases must replace the placeholders with functional implementations and tests before these commands are described as runnable workflows in user docs.
+
+## Non-Goals
+
+The OSS toolkit does not own receptionist production runtime concerns:
+
+- no Cloudflare Worker `Bindings`
+- no Cloudflare queue handlers
+- no D1 persistence
+- no Hono route handlers
+- no receptionist dashboard or storage model
+- no production appointment-booking backend
+- no queue-backed translation storage
+- no generated private datasets committed as source
+
+Receptionist behavior may appear only as an example profile showing how a domain-specific assistant can be modeled with public scenario configuration.
