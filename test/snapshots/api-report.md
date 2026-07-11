@@ -101,6 +101,9 @@ export { ProviderAuthenticationError, ProviderConfigurationError, ProviderError,
 export type { ProviderErrorOptions } from "./errors.js";
 export { mapAnthropicMessagesResponse, mapModelRequestToAnthropicMessagesRequest, mapModelRequestToOpenAIResponsesRequest, mapOpenAIResponsesResponse, } from "./mappers.js";
 export type { AnthropicMessageRequest, OpenAIResponseRequest } from "./mappers.js";
+export type { BudgetLimits, CostCatalog, NormalizedFinishReason, NormalizedUsage, ProviderCapabilities, RetryRecord, StructuredOutputRequest, TeacherCandidate, TeacherEnvelope, TeacherRequest, TeacherTransport, } from "./contracts.js";
+export { ReliableTeacherProvider, type ReliableProviderOptions } from "./reliable.js";
+export { inspectProvider, listProviders, providerCapabilities } from "./registry.js";
 ```
 
 ## dist/simulation/index.d.ts

@@ -93,10 +93,7 @@ export function createProviderAdapter(kind: ModelProviderKind): ProviderAdapter 
   }
 }
 
-export function createModelClientFromConfig(
-  config: ProviderRuntimeConfig,
-  env?: ProviderEnvironment,
-): ModelClient {
+export function createModelClientFromConfig(config: ProviderRuntimeConfig, env?: ProviderEnvironment): ModelClient {
   const adapter = createProviderAdapter(config.provider);
   return adapter.createClient(resolveProviderClientOptions(config, env));
 }
@@ -126,3 +123,18 @@ export {
   mapOpenAIResponsesResponse,
 } from "./mappers.js";
 export type { AnthropicMessageRequest, OpenAIResponseRequest } from "./mappers.js";
+export type {
+  BudgetLimits,
+  CostCatalog,
+  NormalizedFinishReason,
+  NormalizedUsage,
+  ProviderCapabilities,
+  RetryRecord,
+  StructuredOutputRequest,
+  TeacherCandidate,
+  TeacherEnvelope,
+  TeacherRequest,
+  TeacherTransport,
+} from "./contracts.js";
+export { ReliableTeacherProvider, type ReliableProviderOptions } from "./reliable.js";
+export { inspectProvider, listProviders, providerCapabilities } from "./registry.js";
