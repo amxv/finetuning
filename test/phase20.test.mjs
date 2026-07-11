@@ -52,7 +52,10 @@ test("strict config and fake REST", async () => {
       headers: { "content-type": "application/json" },
     });
   const cp = new RunPodControlPlane(
-    new RunPodTransport({ apiKeyEnv: "PHASE20_KEY", baseUrl: "https://rest.runpod.io/v1", timeoutMs: 100, maxResponseBytes: 1024 }, fake),
+    new RunPodTransport(
+      { apiKeyEnv: "PHASE20_KEY", baseUrl: "https://rest.runpod.io/v1", timeoutMs: 100, maxResponseBytes: 1024 },
+      fake,
+    ),
   );
   assert.equal((await cp.listPods())[0].id, "p");
   assert.equal(cp.capabilities().genericExecLogs, false);

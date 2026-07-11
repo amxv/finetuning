@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, readFile, readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -32,16 +31,100 @@ assert.equal(helpCount, 39);
 
 // Execute the complete checked-in offline chat tutorial without providers, downloads, GPU, or uploads.
 await rm(join(root, "tmp/chat-offline"), { recursive: true, force: true });
-assert.equal(JSON.parse(await run("dataset","freeze","examples/chat-offline/records.jsonl","--out","tmp/chat-offline/frozen","--force","--json")).recordCount,1);
-assert.equal(JSON.parse(await run("distill","init","--root","tmp/chat-offline/distill","--config","examples/chat-offline/distillation.json","--input","examples/chat-offline/records.jsonl","--force","--json")).initialized,true);
-assert.equal(JSON.parse(await run("distill","plan","--root","tmp/chat-offline/distill","--json")).generationCount,1);
-assert.equal(JSON.parse(await run("distill","responses","--root","tmp/chat-offline/distill","--offline-fake","--json")).candidateCount,1);
-assert.equal(JSON.parse(await run("distill","freeze","--root","tmp/chat-offline/distill","--out","tmp/chat-offline/distilled","--force","--json")).recordCount,1);
-for (const verb of ["run","evaluate","export","status"]) assert.equal(JSON.parse(await run("training",verb,"--spec","examples/chat-offline/training.json","--python","python3","--python-root","python","--json")).exitCode,0);
-assert.equal(JSON.parse(await run("training","resume","--spec","examples/chat-offline/training.json","--python","python3","--python-root","python","--checkpoint","../tmp/chat-offline/train/checkpoint-1.json","--json")).exitCode,0);
-const chatManifest=JSON.parse(await readFile(join(root,"tmp/chat-offline/train/artifact-manifest.json"),"utf8"));
-for(const item of chatManifest.artifacts)await access(join(root,"tmp/chat-offline/train",item.path));
-for (const verb of ["run","resume","evaluate","export","status"]) await rm(join(root,`examples/chat-offline/training.json.${verb}.json`),{force:true});
+assert.equal(
+  JSON.parse(
+    await run(
+      "dataset",
+      "freeze",
+      "examples/chat-offline/records.jsonl",
+      "--out",
+      "tmp/chat-offline/frozen",
+      "--force",
+      "--json",
+    ),
+  ).recordCount,
+  1,
+);
+assert.equal(
+  JSON.parse(
+    await run(
+      "distill",
+      "init",
+      "--root",
+      "tmp/chat-offline/distill",
+      "--config",
+      "examples/chat-offline/distillation.json",
+      "--input",
+      "examples/chat-offline/records.jsonl",
+      "--force",
+      "--json",
+    ),
+  ).initialized,
+  true,
+);
+assert.equal(
+  JSON.parse(await run("distill", "plan", "--root", "tmp/chat-offline/distill", "--json")).generationCount,
+  1,
+);
+assert.equal(
+  JSON.parse(await run("distill", "responses", "--root", "tmp/chat-offline/distill", "--offline-fake", "--json"))
+    .candidateCount,
+  1,
+);
+assert.equal(
+  JSON.parse(
+    await run(
+      "distill",
+      "freeze",
+      "--root",
+      "tmp/chat-offline/distill",
+      "--out",
+      "tmp/chat-offline/distilled",
+      "--force",
+      "--json",
+    ),
+  ).recordCount,
+  1,
+);
+for (const verb of ["run", "evaluate", "export", "status"])
+  assert.equal(
+    JSON.parse(
+      await run(
+        "training",
+        verb,
+        "--spec",
+        "examples/chat-offline/training.json",
+        "--python",
+        "python3",
+        "--python-root",
+        "python",
+        "--json",
+      ),
+    ).exitCode,
+    0,
+  );
+assert.equal(
+  JSON.parse(
+    await run(
+      "training",
+      "resume",
+      "--spec",
+      "examples/chat-offline/training.json",
+      "--python",
+      "python3",
+      "--python-root",
+      "python",
+      "--checkpoint",
+      "../tmp/chat-offline/train/checkpoint-1.json",
+      "--json",
+    ),
+  ).exitCode,
+  0,
+);
+const chatManifest = JSON.parse(await readFile(join(root, "tmp/chat-offline/train/artifact-manifest.json"), "utf8"));
+for (const item of chatManifest.artifacts) await access(join(root, "tmp/chat-offline/train", item.path));
+for (const verb of ["run", "resume", "evaluate", "export", "status"])
+  await rm(join(root, `examples/chat-offline/training.json.${verb}.json`), { force: true });
 
 // Parse every retained JSON/config fixture and reject common credential material.
 for (const file of ["records.jsonl", "manifest.json", "training.json", "evaluation.json"]) {

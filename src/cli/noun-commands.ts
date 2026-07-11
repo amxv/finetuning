@@ -1,5 +1,4 @@
 import { access, mkdir, readFile, rm } from "node:fs/promises";
-import process from "node:process";
 import { resolve } from "node:path";
 import type { DatasetExampleV1 } from "../core/canonical.js";
 import type { JsonValue } from "../core/model.js";
@@ -287,12 +286,23 @@ async function distillCommand(verb: string, args: ReturnType<typeof parseArgs>):
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  if (!readBooleanFlag(args,"offline-fake") && !readBooleanFlag(args,"allow-network")) throw new Error("DISTILL_NETWORK_OPT_IN_REQUIRED: choose --offline-fake or pass --allow-network");
-  const providers = readBooleanFlag(args, "offline-fake") ? deterministicProvider() : providerDistillation(project.config, {
-    network: true, generationCredentialEnv: readRequiredStringFlag(args,"generation-credential-env"), judgingCredentialEnv: readRequiredStringFlag(args,"judging-credential-env"),
-    generationBudget: Number(readRequiredStringFlag(args,"generation-budget-usd")), judgingBudget: Number(readRequiredStringFlag(args,"judging-budget-usd")),
-    generationInputPerMillion:Number(readRequiredStringFlag(args,"generation-input-per-million-usd")),generationOutputPerMillion:Number(readRequiredStringFlag(args,"generation-output-per-million-usd")),judgingInputPerMillion:Number(readRequiredStringFlag(args,"judging-input-per-million-usd")),judgingOutputPerMillion:Number(readRequiredStringFlag(args,"judging-output-per-million-usd")),generationSpent:previous?.costs.generator.cost??0,judgingSpent:previous?.costs.judge.cost??0,
-  });
+  if (!readBooleanFlag(args, "offline-fake") && !readBooleanFlag(args, "allow-network"))
+    throw new Error("DISTILL_NETWORK_OPT_IN_REQUIRED: choose --offline-fake or pass --allow-network");
+  const providers = readBooleanFlag(args, "offline-fake")
+    ? deterministicProvider()
+    : providerDistillation(project.config, {
+        network: true,
+        generationCredentialEnv: readRequiredStringFlag(args, "generation-credential-env"),
+        judgingCredentialEnv: readRequiredStringFlag(args, "judging-credential-env"),
+        generationBudget: Number(readRequiredStringFlag(args, "generation-budget-usd")),
+        judgingBudget: Number(readRequiredStringFlag(args, "judging-budget-usd")),
+        generationInputPerMillion: Number(readRequiredStringFlag(args, "generation-input-per-million-usd")),
+        generationOutputPerMillion: Number(readRequiredStringFlag(args, "generation-output-per-million-usd")),
+        judgingInputPerMillion: Number(readRequiredStringFlag(args, "judging-input-per-million-usd")),
+        judgingOutputPerMillion: Number(readRequiredStringFlag(args, "judging-output-per-million-usd")),
+        generationSpent: previous?.costs.generator.cost ?? 0,
+        judgingSpent: previous?.costs.judge.cost ?? 0,
+      });
   const pipeline = new DistillationPipeline(
     providers.generator,
     providers.judge,
@@ -350,10 +360,13 @@ function printResult(value: unknown, args: ReturnType<typeof parseArgs>): void {
 function printVerbHelp(noun: string, verb: string): void {
   if (noun === "dataset" && verb === "freeze") return printNounHelp(noun);
   const usage: Record<string, string> = {
-    "distill.init": "Usage: finetuning distill init --root <dir> --config <config.json> --input <canonical.jsonl> [--force] [--json]",
+    "distill.init":
+      "Usage: finetuning distill init --root <dir> --config <config.json> --input <canonical.jsonl> [--force] [--json]",
     "distill.plan": "Usage: finetuning distill plan --root <dir> [--json]",
-    "distill.responses": "Usage: finetuning distill responses --root <dir> (--offline-fake | --allow-network --generation-credential-env <ENV> --judging-credential-env <ENV> --generation-budget-usd <USD> --judging-budget-usd <USD> --generation-input-per-million-usd <USD> --generation-output-per-million-usd <USD> --judging-input-per-million-usd <USD> --judging-output-per-million-usd <USD>) [--json]",
-    "distill.resume": "Usage: finetuning distill resume --root <dir> (--offline-fake | --allow-network --generation-credential-env <ENV> --judging-credential-env <ENV> --generation-budget-usd <USD> --judging-budget-usd <USD> --generation-input-per-million-usd <USD> --generation-output-per-million-usd <USD> --judging-input-per-million-usd <USD> --judging-output-per-million-usd <USD>) [--json]",
+    "distill.responses":
+      "Usage: finetuning distill responses --root <dir> (--offline-fake | --allow-network --generation-credential-env <ENV> --judging-credential-env <ENV> --generation-budget-usd <USD> --judging-budget-usd <USD> --generation-input-per-million-usd <USD> --generation-output-per-million-usd <USD> --judging-input-per-million-usd <USD> --judging-output-per-million-usd <USD>) [--json]",
+    "distill.resume":
+      "Usage: finetuning distill resume --root <dir> (--offline-fake | --allow-network --generation-credential-env <ENV> --judging-credential-env <ENV> --generation-budget-usd <USD> --judging-budget-usd <USD> --generation-input-per-million-usd <USD> --generation-output-per-million-usd <USD> --judging-input-per-million-usd <USD> --judging-output-per-million-usd <USD>) [--json]",
     "distill.status": "Usage: finetuning distill status --root <dir> [--json]",
     "distill.freeze": "Usage: finetuning distill freeze --root <dir> --out <dir> [--force] [--json]",
     "training.prepare": "Usage: finetuning training prepare --spec <training-spec.json> [--json]",
@@ -363,7 +376,10 @@ function printVerbHelp(noun: string, verb: string): void {
     "training.evaluate": "Usage: finetuning training evaluate --spec <training-spec.json> [--json]",
     "training.export": "Usage: finetuning training export --spec <training-spec.json> [--json]",
   };
-  if (usage[`${noun}.${verb}`]) { console.log(usage[`${noun}.${verb}`]); return; }
+  if (usage[`${noun}.${verb}`]) {
+    console.log(usage[`${noun}.${verb}`]);
+    return;
+  }
   if (verb === "status")
     console.log(
       "Usage: finetuning pipeline status --ledger <path> --run-id <id> --stage-id <id> --record-id <id> [--json]",

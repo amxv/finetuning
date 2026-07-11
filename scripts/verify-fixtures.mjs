@@ -175,7 +175,9 @@ for (const file of coreFiles) {
   }
 }
 
-console.log(`Verified ${coreFiles.length} core files have no provider SDK, process.env, or backend runtime references.`);
+console.log(
+  `Verified ${coreFiles.length} core files have no provider SDK, process.env, or backend runtime references.`,
+);
 
 async function listTypeScriptFiles(directoryUrl) {
   const directory = directoryUrl.pathname;

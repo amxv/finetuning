@@ -1,5 +1,5 @@
 import { canonicalSha256 } from "../core/canonical.js";
-import type { JsonObject, JsonValue } from "../core/model.js";
+import type { JsonObject } from "../core/model.js";
 export type RemoteRunnerKind = "docker" | "slurm" | "cloud";
 export type RemoteStatus = "queued" | "running" | "succeeded" | "failed_retryable" | "failed_terminal" | "cancelled";
 export interface RemoteJobManifestV1 {

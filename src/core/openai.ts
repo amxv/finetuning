@@ -75,14 +75,10 @@ export function buildOpenAIFineTuningRows(
   return trajectories.map((trajectory) => buildOpenAIFineTuningRow(trajectory, options));
 }
 
-function selectMessagesForMode(
-  messages: ConversationMessage[],
-  mode: ExportMode,
-): ConversationMessage[] {
+function selectMessagesForMode(messages: ConversationMessage[], mode: ExportMode): ConversationMessage[] {
   if (mode === "plain_chat") {
     return messages.filter(
-      (message) =>
-        message.kind === "system" || message.kind === "user" || message.kind === "assistant_text",
+      (message) => message.kind === "system" || message.kind === "user" || message.kind === "assistant_text",
     );
   }
 

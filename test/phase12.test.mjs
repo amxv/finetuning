@@ -11,7 +11,6 @@ import { embeddingText, validateEmbeddingRecord, withEmbeddingHash } from "../di
 import { decodeEmbeddingRow, encodeEmbeddingRow } from "../dist/embeddings/formats.js";
 import {
   dedupeEmbeddingRecords,
-  exportEmbeddingJsonl,
   freezeEmbeddingDataset,
   importEmbeddingJsonl,
   readBoundedVectorShard,
@@ -205,8 +204,7 @@ test("mapping is explicit, ambiguity and column order cannot select semantics, u
 test("streaming locations, backpressure and vector shard bounds are demand driven", async () => {
   await assert.rejects(
     async () => {
-      for await (const _ of parseJsonl(one('{"a":1}\n{bad}\n'))) {
-      }
+      for await (const _row of parseJsonl(one('{"a":1}\n{bad}\n'))) void _row;
     },
     (e) => e.line === 2 && e.byteOffset === 8,
   );

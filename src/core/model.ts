@@ -126,11 +126,7 @@ export interface ToolResultMessage extends BaseConversationMessage {
 }
 
 export type ConversationMessage =
-  | SystemMessage
-  | UserMessage
-  | AssistantTextMessage
-  | AssistantToolCallMessage
-  | ToolResultMessage;
+  SystemMessage | UserMessage | AssistantTextMessage | AssistantToolCallMessage | ToolResultMessage;
 
 export interface SimulatedAssistantTurn {
   assistantText?: AssistantTextMessage;

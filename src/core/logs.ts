@@ -32,7 +32,5 @@ export const deferredLogConversionBoundary: DeferredLogConversionBoundary = {
 } as const;
 
 export function createDeferredLogConversionError(): Error {
-  return new Error(
-    `${deferredLogConversionBoundary.cliCommand} is deferred: ${deferredLogConversionBoundary.reason}`,
-  );
+  return new Error(`${deferredLogConversionBoundary.cliCommand} is deferred: ${deferredLogConversionBoundary.reason}`);
 }

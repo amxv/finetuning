@@ -36,10 +36,7 @@ async function assertMissingApiKey() {
       {},
     );
   } catch (error) {
-    if (
-      error instanceof ProviderConfigurationError &&
-      error.message === "Missing OPENAI_API_KEY for openai provider"
-    ) {
+    if (error instanceof ProviderConfigurationError && error.message === "Missing OPENAI_API_KEY for openai provider") {
       return;
     }
 
@@ -81,10 +78,7 @@ async function assertUnsupportedProvider() {
   try {
     assertSupportedModelProviderKind("unknown-provider");
   } catch (error) {
-    if (
-      error instanceof ProviderConfigurationError &&
-      error.message === "Unsupported provider: unknown-provider"
-    ) {
+    if (error instanceof ProviderConfigurationError && error.message === "Unsupported provider: unknown-provider") {
       return;
     }
 

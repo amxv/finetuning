@@ -28,10 +28,7 @@ async function assertDeterministicParity() {
     throw new Error(`Deterministic personas did not preserve expected ids: ${JSON.stringify(generated)}`);
   }
 
-  if (
-    generated[2]?.metadata?.generated !== true ||
-    generated[2]?.metadata?.scenarioId !== "sample-retail-support"
-  ) {
+  if (generated[2]?.metadata?.generated !== true || generated[2]?.metadata?.scenarioId !== "sample-retail-support") {
     throw new Error(`Deterministic generated persona metadata was missing: ${JSON.stringify(generated[2])}`);
   }
 }

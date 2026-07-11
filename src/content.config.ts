@@ -10,8 +10,8 @@ const docs = defineCollection({
     description: z.string(),
     order: z.number(),
     category: z.enum(docCategories),
-    summary: z.string().optional()
-  })
+    summary: z.string().optional(),
+  }),
 });
 
 export const collections = { docs };

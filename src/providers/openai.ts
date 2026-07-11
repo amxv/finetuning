@@ -6,7 +6,13 @@ import type {
   OpenAIProviderAdapter,
   ProviderClientOptions,
 } from "./index.js";
-import { ProviderAuthenticationError, ProviderConfigurationError, ProviderError, ProviderRateLimitError, ProviderResponseError } from "./errors.js";
+import {
+  ProviderAuthenticationError,
+  ProviderConfigurationError,
+  ProviderError,
+  ProviderRateLimitError,
+  ProviderResponseError,
+} from "./errors.js";
 import { mapModelRequestToOpenAIResponsesRequest, mapOpenAIResponsesResponse } from "./mappers/openai.js";
 
 export const openAIProviderAdapter: OpenAIProviderAdapter = {

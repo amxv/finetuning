@@ -2,58 +2,543 @@ import { canonicalSha256 } from "../core/canonical.js";
 import { redactSecrets } from "../node/redaction.js";
 import { atomicWrite } from "../node/storage.js";
 import { readFile } from "node:fs/promises";
-import { embeddingText, withEmbeddingHash, type EmbeddingRecordV1, type EmbeddingTextV1, type TeacherV1 } from "../experimental/embeddings-phase11.js";
+import {
+  embeddingText,
+  withEmbeddingHash,
+  type EmbeddingRecordV1,
+  type EmbeddingTextV1,
+  type TeacherV1,
+} from "../experimental/embeddings-phase11.js";
 import { dedupeEmbeddingRecords, scanEmbeddingContamination } from "./data.js";
 
-export const embeddingDistillationVersion="1.0.0" as const;
-export interface EmbeddingServiceCapabilities{tasks:string[];storageAllowed:boolean;retention:"none"|"temporary"|"persistent";competitiveTrainingAllowed:boolean;maxDimension?:number;matryoshkaDimensions?:number[]}
-export interface ServiceUsage{requests:number;units:number;cost:number;currency:string;rawRequestRef?:string;rawResponseRef?:string}
-export interface EmbeddingTeacher{readonly id:string;readonly model:string;readonly revision:string;capabilities():EmbeddingServiceCapabilities;embed(input:{requestId:string;texts:EmbeddingTextV1[];dimension:number}):Promise<{vectors:number[][];dtype:"float16"|"float32"|"bfloat16";norm:"l2"|"none";pooling:string;prompt:string;usage:ServiceUsage}>}
-export interface EmbeddingScorer{readonly id:string;readonly model:string;readonly revision:string;capabilities():EmbeddingServiceCapabilities;score(input:{requestId:string;query:EmbeddingTextV1;candidates:EmbeddingTextV1[]}):Promise<{scores:number[];scale:{min:number;max:number;direction:"higher-is-more-relevant"|"lower-is-more-relevant"};usage:ServiceUsage}>}
-export interface EmbeddingRanker{readonly id:string;readonly model:string;readonly revision:string;capabilities():EmbeddingServiceCapabilities;rank(input:{requestId:string;query:EmbeddingTextV1;candidates:EmbeddingTextV1[]}):Promise<{ranking:string[];scores:number[];prompt:string;configuration:Record<string,unknown>;usage:ServiceUsage}>}
-export interface SyntheticEmbeddingGenerator{readonly id:string;capabilities():EmbeddingServiceCapabilities;generate(input:{requestId:string;document:EmbeddingTextV1;intent:string;language:string}):Promise<{query:string;usage:ServiceUsage}>}
-export interface NegativeMiner{readonly id:string;readonly revision:string;mine(input:{requestId:string;query:EmbeddingTextV1;corpus:EmbeddingTextV1[];limit:number}):Promise<{candidateIds:string[];usage:ServiceUsage}>}
-export interface EmbeddingVerifier{verify(input:{query:EmbeddingTextV1;document:EmbeddingTextV1}):Promise<{supported:boolean;reason:string}>}
-export interface EmbeddingJudge{judge(input:{query:EmbeddingTextV1;document:EmbeddingTextV1;score:number}):Promise<{accepted:boolean;reason:string;usage:ServiceUsage}>}
-export type DistillationObjective={kind:"mse"|"cosine";projection?:{kind:"learned"|"pca";fitSplit:"train";artifactHash:string};dimensions?:number[]}|{kind:"margin-mse"|"pairwise-logistic"|"pairwise-kl"}|{kind:"listwise-kl";temperature:number};
-export interface EmbeddingDistillationCompliance{datasetRights:string;teacherOutputRights:string;terms:{url:string;version:string;reviewedAt:string;approver:string};retentionAllowed:"none"|"temporary"|"persistent";intendedUse:string;contaminationHash:string}
-export interface StageBudget{limit:number;spent:number;usage:ServiceUsage}
-export type BudgetStage="generation"|"scoring"|"judging"|"mining"|"vectors"|"ranking";
-export interface EmbeddingDistillationConfig{runId:string;dimension:number;objective:DistillationObjective;budgets:Record<BudgetStage,number>;compliance:EmbeddingDistillationCompliance;nearDuplicateThreshold:number;candidateLimit:number;refresh?:{kind:"checkpoint"|"epoch";values:number[]};teacherStorageRights:string;seed:string}
-export interface PaidResult{identity:string;stage:BudgetStage;requestId:string;result:unknown;usage:ServiceUsage}
-export interface EmbeddingDistillationState{version:typeof embeddingDistillationVersion;configHash:string;completedStages:string[];records:EmbeddingRecordV1[];paidSuccesses:Record<string,PaidResult>;budgets:Record<BudgetStage,StageBudget>;events:Array<{sequence:number;stage:string;kind:string;recordId?:string}>;exclusions:Array<{queryId:string;candidateId:string;reason:string}>;createdAt:string;updatedAt:string}
-
-export function validateEmbeddingDistillationConfig(config:EmbeddingDistillationConfig,services:EmbeddingServiceCapabilities[]):void{
- const c=config.compliance;if(!c.datasetRights||!c.teacherOutputRights||!c.terms.url||!c.terms.version||!c.terms.reviewedAt||!c.terms.approver||!c.contaminationHash||!config.teacherStorageRights)throw new Error("EMBED_DISTILL_RIGHTS_REQUIRED");
- if(config.objective.kind==="listwise-kl"&&(!(config.objective.temperature>0)||!Number.isFinite(config.objective.temperature)))throw new Error("EMBED_DISTILL_TEMPERATURE");
- if("projection" in config.objective&&config.objective.projection?.fitSplit!=="train")throw new Error("EMBED_PROJECTION_TRAIN_ONLY");
- for(const s of services){if(!s.storageAllowed||!s.competitiveTrainingAllowed)throw new Error("EMBED_TEACHER_STORAGE_RIGHTS");if(retentionRank(s.retention)>retentionRank(c.retentionAllowed))throw new Error("EMBED_TEACHER_RETENTION");if(s.maxDimension&&config.dimension>s.maxDimension)throw new Error("EMBED_VECTOR_DIMENSION");if("dimensions" in config.objective&&config.objective.dimensions?.some(d=>d!==config.dimension&&!s.matryoshkaDimensions?.includes(d)))throw new Error("EMBED_MATRYOSHKA_UNSUPPORTED");}
+export const embeddingDistillationVersion = "1.0.0" as const;
+export interface EmbeddingServiceCapabilities {
+  tasks: string[];
+  storageAllowed: boolean;
+  retention: "none" | "temporary" | "persistent";
+  competitiveTrainingAllowed: boolean;
+  maxDimension?: number;
+  matryoshkaDimensions?: number[];
 }
-export function marginMse(studentPositive:number,studentNegative:number,teacherPositive:number,teacherNegative:number){return ((studentPositive-studentNegative)-(teacherPositive-teacherNegative))**2}
-export function pairwiseLogisticLoss(positive:number,negative:number){return Math.log1p(Math.exp(-(positive-negative)))}
-export function listwiseKl(student:number[],teacher:number[],temperature:number){if(student.length!==teacher.length||!student.length||!(temperature>0))throw new Error("EMBED_LISTWISE_SHAPE");const p=softmax(teacher,temperature),q=softmax(student,temperature);return p.reduce((n,x,i)=>n+x*Math.log(x/q[i]!),0)*temperature*temperature}
+export interface ServiceUsage {
+  requests: number;
+  units: number;
+  cost: number;
+  currency: string;
+  rawRequestRef?: string;
+  rawResponseRef?: string;
+}
+export interface EmbeddingTeacher {
+  readonly id: string;
+  readonly model: string;
+  readonly revision: string;
+  capabilities(): EmbeddingServiceCapabilities;
+  embed(input: { requestId: string; texts: EmbeddingTextV1[]; dimension: number }): Promise<{
+    vectors: number[][];
+    dtype: "float16" | "float32" | "bfloat16";
+    norm: "l2" | "none";
+    pooling: string;
+    prompt: string;
+    usage: ServiceUsage;
+  }>;
+}
+export interface EmbeddingScorer {
+  readonly id: string;
+  readonly model: string;
+  readonly revision: string;
+  capabilities(): EmbeddingServiceCapabilities;
+  score(input: { requestId: string; query: EmbeddingTextV1; candidates: EmbeddingTextV1[] }): Promise<{
+    scores: number[];
+    scale: { min: number; max: number; direction: "higher-is-more-relevant" | "lower-is-more-relevant" };
+    usage: ServiceUsage;
+  }>;
+}
+export interface EmbeddingRanker {
+  readonly id: string;
+  readonly model: string;
+  readonly revision: string;
+  capabilities(): EmbeddingServiceCapabilities;
+  rank(input: { requestId: string; query: EmbeddingTextV1; candidates: EmbeddingTextV1[] }): Promise<{
+    ranking: string[];
+    scores: number[];
+    prompt: string;
+    configuration: Record<string, unknown>;
+    usage: ServiceUsage;
+  }>;
+}
+export interface SyntheticEmbeddingGenerator {
+  readonly id: string;
+  capabilities(): EmbeddingServiceCapabilities;
+  generate(input: {
+    requestId: string;
+    document: EmbeddingTextV1;
+    intent: string;
+    language: string;
+  }): Promise<{ query: string; usage: ServiceUsage }>;
+}
+export interface NegativeMiner {
+  readonly id: string;
+  readonly revision: string;
+  mine(input: {
+    requestId: string;
+    query: EmbeddingTextV1;
+    corpus: EmbeddingTextV1[];
+    limit: number;
+  }): Promise<{ candidateIds: string[]; usage: ServiceUsage }>;
+}
+export interface EmbeddingVerifier {
+  verify(input: { query: EmbeddingTextV1; document: EmbeddingTextV1 }): Promise<{ supported: boolean; reason: string }>;
+}
+export interface EmbeddingJudge {
+  judge(input: {
+    query: EmbeddingTextV1;
+    document: EmbeddingTextV1;
+    score: number;
+  }): Promise<{ accepted: boolean; reason: string; usage: ServiceUsage }>;
+}
+export type DistillationObjective =
+  | {
+      kind: "mse" | "cosine";
+      projection?: { kind: "learned" | "pca"; fitSplit: "train"; artifactHash: string };
+      dimensions?: number[];
+    }
+  | { kind: "margin-mse" | "pairwise-logistic" | "pairwise-kl" }
+  | { kind: "listwise-kl"; temperature: number };
+export interface EmbeddingDistillationCompliance {
+  datasetRights: string;
+  teacherOutputRights: string;
+  terms: { url: string; version: string; reviewedAt: string; approver: string };
+  retentionAllowed: "none" | "temporary" | "persistent";
+  intendedUse: string;
+  contaminationHash: string;
+}
+export interface StageBudget {
+  limit: number;
+  spent: number;
+  usage: ServiceUsage;
+}
+export type BudgetStage = "generation" | "scoring" | "judging" | "mining" | "vectors" | "ranking";
+export interface EmbeddingDistillationConfig {
+  runId: string;
+  dimension: number;
+  objective: DistillationObjective;
+  budgets: Record<BudgetStage, number>;
+  compliance: EmbeddingDistillationCompliance;
+  nearDuplicateThreshold: number;
+  candidateLimit: number;
+  refresh?: { kind: "checkpoint" | "epoch"; values: number[] };
+  teacherStorageRights: string;
+  seed: string;
+}
+export interface PaidResult {
+  identity: string;
+  stage: BudgetStage;
+  requestId: string;
+  result: unknown;
+  usage: ServiceUsage;
+}
+export interface EmbeddingDistillationState {
+  version: typeof embeddingDistillationVersion;
+  configHash: string;
+  completedStages: string[];
+  records: EmbeddingRecordV1[];
+  paidSuccesses: Record<string, PaidResult>;
+  budgets: Record<BudgetStage, StageBudget>;
+  events: Array<{ sequence: number; stage: string; kind: string; recordId?: string }>;
+  exclusions: Array<{ queryId: string; candidateId: string; reason: string }>;
+  createdAt: string;
+  updatedAt: string;
+}
 
-export class EmbeddingDistillationPipeline{
- constructor(readonly services:{teacher:EmbeddingTeacher;scorer:EmbeddingScorer;ranker:EmbeddingRanker;generator:SyntheticEmbeddingGenerator;miner:NegativeMiner;verifier:EmbeddingVerifier;judge:EmbeddingJudge},readonly now=()=>new Date().toISOString(),readonly checkpoint?:(s:EmbeddingDistillationState)=>Promise<void>){}
- async run(input:EmbeddingRecordV1[],config:EmbeddingDistillationConfig,previous?:EmbeddingDistillationState):Promise<EmbeddingDistillationState>{
-  validateEmbeddingDistillationConfig(config,[this.services.teacher.capabilities(),this.services.scorer.capabilities(),this.services.ranker.capabilities(),this.services.generator.capabilities()]);if(input.some(r=>r.split!=="train"&&r.split!=="validation"&&r.split!=="test"))throw new Error("EMBED_SPLIT_REQUIRED");
-  const heldout=new Set(input.filter(r=>r.split!=="train").map(r=>r.id)),train=input.filter(r=>r.split==="train");if(!train.length)throw new Error("EMBED_TRAIN_REQUIRED");
-  const state=previous??fresh(config,this.now());if(state.configHash!==canonicalSha256(config as never))throw new Error("EMBED_RESUME_CONFIG_MISMATCH");if(state.completedStages.includes("freeze"))return state;const paid=async<T>(stage:BudgetStage,key:unknown,call:()=>Promise<T&{usage:ServiceUsage}>):Promise<T&{usage:ServiceUsage}>=>{const identity=canonicalSha256({stage,key} as never),cached=state.paidSuccesses[identity];if(cached)return cached.result as T&{usage:ServiceUsage};const result=await call();charge(state,stage,result.usage);state.paidSuccesses[identity]={identity,stage,requestId:String((key as any).requestId??identity),result:redactSecrets(result as never),usage:result.usage};await this.checkpoint?.(state);return result};
-  const docs=train.flatMap(documentTexts),queries=train.flatMap(queryTexts);const generated:EmbeddingTextV1[]=[];
-  for(const doc of docs){const requestId=id(config,"generate",doc.id);const g=await paid("generation",{requestId,doc:doc.id},()=>this.services.generator.generate({requestId,document:doc,intent:"retrieval",language:doc.language}));const q=embeddingText(g.query,{language:doc.language,domain:doc.domain,...(doc.documentId?{documentId:doc.documentId}:{}),...(doc.corpusId?{corpusId:doc.corpusId}:{})});const verdict=await this.services.verifier.verify({query:q,document:doc});if(!verdict.supported){state.exclusions.push({queryId:q.id,candidateId:doc.id,reason:"unsupported-query"});continue}generated.push(q);}
-  for(const query of [...queries,...generated]){if(heldout.has(query.id))throw new Error("EMBED_HELDOUT_LEAKAGE");const requestId=id(config,"mine",query.id);const mined=await paid("mining",{requestId,query:query.id},()=>this.services.miner.mine({requestId,query,corpus:docs,limit:config.candidateLimit}));const positiveIds=new Set(train.filter(r=>queryTexts(r).some(q=>q.id===query.id)).flatMap(positiveTexts).map(x=>x.id));const qGroups=new Set(train.filter(r=>allTexts(r).some(x=>x.id===query.id)).map(r=>r.splitGroup));const candidates=docs.filter(d=>mined.candidateIds.includes(d.id)).filter(d=>{let reason="";if(positiveIds.has(d.id))reason="positive";else if(train.some(r=>qGroups.has(r.splitGroup)&&allTexts(r).some(x=>x.id===d.id)))reason="same-group";else if(similar(query.text,d.text)>=config.nearDuplicateThreshold)reason="near-duplicate";if(reason)state.exclusions.push({queryId:query.id,candidateId:d.id,reason});return!reason});if(!candidates.length)continue;
-   const scoreId=id(config,"score",query.id),scored=await paid("scoring",{requestId:scoreId,query:query.id,candidates:candidates.map(x=>x.id)},()=>this.services.scorer.score({requestId:scoreId,query,candidates}));if(scored.scores.length!==candidates.length||scored.scores.some(x=>!Number.isFinite(x)||x<scored.scale.min||x>scored.scale.max))throw new Error("EMBED_SCORE_CALIBRATION");
-   for(let i=0;i<candidates.length;i++){const judged=await paid("judging",{requestId:id(config,"judge",`${query.id}:${candidates[i]!.id}`)},async()=>({...await this.services.judge.judge({query,document:candidates[i]!,score:scored.scores[i]!})}));if(judged.accepted)state.records.push(withEmbeddingHash(recordBase(config,"teacher-score",query.id,{query,document:candidates[i]!,teacher:teacherMeta(this.services.scorer,this.now()),score:scored.scores[i]!,scale:scored.scale})));}
-   const rankId=id(config,"rank",query.id),ranked=await paid("ranking",{requestId:rankId,query:query.id,candidates:candidates.map(x=>x.id)},()=>this.services.ranker.rank({requestId:rankId,query,candidates}));const candidateIds=new Set(candidates.map(x=>x.id));if(ranked.ranking.length!==candidateIds.size||new Set(ranked.ranking).size!==ranked.ranking.length||ranked.ranking.some(x=>!candidateIds.has(x)))throw new Error("EMBED_RANKING_POOL");state.records.push(withEmbeddingHash(recordBase(config,"teacher-ranking",query.id,{query,teacher:teacherMeta(this.services.ranker,this.now()),candidatePoolId:canonicalSha256(candidates.map(x=>x.id).sort() as never),corpusId:candidates[0]!.corpusId??"corpus",candidates:candidates.map(x=>({id:x.id,documentId:x.documentId??x.id})),ranking:ranked.ranking,metadata:{"embedding.distillation":{scores:ranked.scores,prompt:ranked.prompt,configuration:ranked.configuration,exclusions:state.exclusions.filter(x=>x.queryId===query.id)}}})));
+export function validateEmbeddingDistillationConfig(
+  config: EmbeddingDistillationConfig,
+  services: EmbeddingServiceCapabilities[],
+): void {
+  const c = config.compliance;
+  if (
+    !c.datasetRights ||
+    !c.teacherOutputRights ||
+    !c.terms.url ||
+    !c.terms.version ||
+    !c.terms.reviewedAt ||
+    !c.terms.approver ||
+    !c.contaminationHash ||
+    !config.teacherStorageRights
+  )
+    throw new Error("EMBED_DISTILL_RIGHTS_REQUIRED");
+  if (
+    config.objective.kind === "listwise-kl" &&
+    (!(config.objective.temperature > 0) || !Number.isFinite(config.objective.temperature))
+  )
+    throw new Error("EMBED_DISTILL_TEMPERATURE");
+  if ("projection" in config.objective && config.objective.projection?.fitSplit !== "train")
+    throw new Error("EMBED_PROJECTION_TRAIN_ONLY");
+  for (const s of services) {
+    if (!s.storageAllowed || !s.competitiveTrainingAllowed) throw new Error("EMBED_TEACHER_STORAGE_RIGHTS");
+    if (retentionRank(s.retention) > retentionRank(c.retentionAllowed)) throw new Error("EMBED_TEACHER_RETENTION");
+    if (s.maxDimension && config.dimension > s.maxDimension) throw new Error("EMBED_VECTOR_DIMENSION");
+    if (
+      "dimensions" in config.objective &&
+      config.objective.dimensions?.some((d) => d !== config.dimension && !s.matryoshkaDimensions?.includes(d))
+    )
+      throw new Error("EMBED_MATRYOSHKA_UNSUPPORTED");
   }
-  for(const text of [...new Map([...docs,...queries,...generated].map(x=>[x.id,x])).values()]){const requestId=id(config,"vector",text.id),v=await paid("vectors",{requestId,text:text.id,dimension:config.dimension},()=>this.services.teacher.embed({requestId,texts:[text],dimension:config.dimension}));if(v.vectors.length!==1||v.vectors[0]!.length!==config.dimension||v.vectors[0]!.some(x=>!Number.isFinite(x)))throw new Error("EMBED_VECTOR_SHAPE");state.records.push(withEmbeddingHash(recordBase(config,"teacher-vector",text.id,{text,teacher:teacherMeta(this.services.teacher,this.now()),vector:{storage:"inline",values:v.vectors[0]!,dimension:config.dimension,norm:v.norm},metadata:{"embedding.distillation":{dtype:v.dtype,pooling:v.pooling,prompt:v.prompt,storageRights:config.teacherStorageRights,objective:config.objective}}})))}
-  await dedupeEmbeddingRecords(state.records);scanEmbeddingContamination(state.records, input.filter(x=>x.split!=="train"));state.completedStages=["freeze-corpus","split","generate","verify","dedupe","mine","exclude","score","rank","judge","vectors","freeze"];state.updatedAt=this.now();await this.checkpoint?.(state);return state;
- }
 }
-export async function saveEmbeddingDistillationState(path:string,state:EmbeddingDistillationState){await atomicWrite(path,JSON.stringify(state)+"\n")}
-export async function loadEmbeddingDistillationState(path:string){return JSON.parse(await readFile(path,"utf8")) as EmbeddingDistillationState}
-function fresh(c:EmbeddingDistillationConfig,now:string):EmbeddingDistillationState{const usage=():ServiceUsage=>({requests:0,units:0,cost:0,currency:"USD"}),budgets=Object.fromEntries((Object.keys(c.budgets) as BudgetStage[]).map(k=>[k,{limit:c.budgets[k],spent:0,usage:usage()}])) as Record<BudgetStage,StageBudget>;return{version:embeddingDistillationVersion,configHash:canonicalSha256(c as never),completedStages:[],records:[],paidSuccesses:{},budgets,events:[],exclusions:[],createdAt:now,updatedAt:now}}
-function charge(s:EmbeddingDistillationState,stage:BudgetStage,u:ServiceUsage){const b=s.budgets[stage];if(!b||b.spent+u.cost>b.limit)throw new Error(`EMBED_BUDGET_EXCEEDED:${stage}`);b.spent+=u.cost;b.usage.requests+=u.requests;b.usage.units+=u.units;b.usage.cost+=u.cost;b.usage.currency=u.currency}
-function retentionRank(x:string){return x==="none"?0:x==="temporary"?1:2}function softmax(x:number[],t:number){const m=Math.max(...x.map(v=>v/t)),a=x.map(v=>Math.exp(v/t-m)),z=a.reduce((n,v)=>n+v,0);return a.map(v=>v/z)}function id(c:EmbeddingDistillationConfig,s:string,x:string){return `${c.runId}:${s}:${canonicalSha256(`${c.seed}:${x}`).slice(0,20)}`}function teacherMeta(x:{id:string;model?:string;revision?:string},now:string):TeacherV1{return{provider:x.id,model:x.model??x.id,revision:x.revision??"1",requestId:canonicalSha256(x as never),createdAt:now}}
-function recordBase(c:EmbeddingDistillationConfig,kind:string,key:string,body:Record<string,unknown>):any{return{embeddingRecordVersion:"1.0.0",id:canonicalSha256({run:c.runId,kind,key,body} as never),kind,task:kind,split:"train",splitGroup:`distill-${key}`,source:{source:"embedding-distillation",revision:embeddingDistillationVersion,license:"derived",rights:c.compliance.teacherOutputRights},transformations:[],createdAt:"1970-01-01T00:00:00.000Z",...body}}
-function allTexts(r:EmbeddingRecordV1):EmbeddingTextV1[]{const out:EmbeddingTextV1[]=[];const walk=(v:unknown)=>{if(!v||typeof v!=="object")return;if("textHash" in v&&"text" in v)out.push(v as EmbeddingTextV1);for(const x of Array.isArray(v)?v:Object.values(v))walk(x)};walk(r);return out}function queryTexts(r:EmbeddingRecordV1){return r.kind==="query-document"||r.kind==="retrieval-set"||r.kind==="teacher-score"||r.kind==="teacher-ranking"?[r.query]:r.kind==="triplet"?[r.anchor]:[]}function documentTexts(r:EmbeddingRecordV1){return r.kind==="query-document"?[r.document]:r.kind==="retrieval-set"?[...r.positives,...r.negatives]:r.kind==="triplet"?[r.positive,r.negative]:r.kind==="teacher-score"?[r.document]:[]}function positiveTexts(r:EmbeddingRecordV1){return r.kind==="query-document"?[r.document]:r.kind==="retrieval-set"?r.positives:r.kind==="triplet"?[r.positive]:[]}function similar(a:string,b:string){const A=new Set(a.toLowerCase().split(/\s+/)),B=new Set(b.toLowerCase().split(/\s+/));let n=0;for(const x of A)if(B.has(x))n++;return n/(A.size+B.size-n||1)}
+export function marginMse(
+  studentPositive: number,
+  studentNegative: number,
+  teacherPositive: number,
+  teacherNegative: number,
+) {
+  return (studentPositive - studentNegative - (teacherPositive - teacherNegative)) ** 2;
+}
+export function pairwiseLogisticLoss(positive: number, negative: number) {
+  return Math.log1p(Math.exp(-(positive - negative)));
+}
+export function listwiseKl(student: number[], teacher: number[], temperature: number) {
+  if (student.length !== teacher.length || !student.length || !(temperature > 0))
+    throw new Error("EMBED_LISTWISE_SHAPE");
+  const p = softmax(teacher, temperature),
+    q = softmax(student, temperature);
+  return p.reduce((n, x, i) => n + x * Math.log(x / q[i]!), 0) * temperature * temperature;
+}
+
+export class EmbeddingDistillationPipeline {
+  constructor(
+    readonly services: {
+      teacher: EmbeddingTeacher;
+      scorer: EmbeddingScorer;
+      ranker: EmbeddingRanker;
+      generator: SyntheticEmbeddingGenerator;
+      miner: NegativeMiner;
+      verifier: EmbeddingVerifier;
+      judge: EmbeddingJudge;
+    },
+    readonly now = () => new Date().toISOString(),
+    readonly checkpoint?: (s: EmbeddingDistillationState) => Promise<void>,
+  ) {}
+  async run(
+    input: EmbeddingRecordV1[],
+    config: EmbeddingDistillationConfig,
+    previous?: EmbeddingDistillationState,
+  ): Promise<EmbeddingDistillationState> {
+    validateEmbeddingDistillationConfig(config, [
+      this.services.teacher.capabilities(),
+      this.services.scorer.capabilities(),
+      this.services.ranker.capabilities(),
+      this.services.generator.capabilities(),
+    ]);
+    if (input.some((r) => r.split !== "train" && r.split !== "validation" && r.split !== "test"))
+      throw new Error("EMBED_SPLIT_REQUIRED");
+    const heldout = new Set(input.filter((r) => r.split !== "train").map((r) => r.id)),
+      train = input.filter((r) => r.split === "train");
+    if (!train.length) throw new Error("EMBED_TRAIN_REQUIRED");
+    const state = previous ?? fresh(config, this.now());
+    if (state.configHash !== canonicalSha256(config as never)) throw new Error("EMBED_RESUME_CONFIG_MISMATCH");
+    if (state.completedStages.includes("freeze")) return state;
+    const paid = async <T>(
+      stage: BudgetStage,
+      key: unknown,
+      call: () => Promise<T & { usage: ServiceUsage }>,
+    ): Promise<T & { usage: ServiceUsage }> => {
+      const identity = canonicalSha256({ stage, key } as never),
+        cached = state.paidSuccesses[identity];
+      if (cached) return cached.result as T & { usage: ServiceUsage };
+      const result = await call();
+      charge(state, stage, result.usage);
+      state.paidSuccesses[identity] = {
+        identity,
+        stage,
+        requestId: String((key as any).requestId ?? identity),
+        result: redactSecrets(result as never),
+        usage: result.usage,
+      };
+      await this.checkpoint?.(state);
+      return result;
+    };
+    const docs = train.flatMap(documentTexts),
+      queries = train.flatMap(queryTexts);
+    const generated: EmbeddingTextV1[] = [];
+    for (const doc of docs) {
+      const requestId = id(config, "generate", doc.id);
+      const g = await paid("generation", { requestId, doc: doc.id }, () =>
+        this.services.generator.generate({ requestId, document: doc, intent: "retrieval", language: doc.language }),
+      );
+      const q = embeddingText(g.query, {
+        language: doc.language,
+        domain: doc.domain,
+        ...(doc.documentId ? { documentId: doc.documentId } : {}),
+        ...(doc.corpusId ? { corpusId: doc.corpusId } : {}),
+      });
+      const verdict = await this.services.verifier.verify({ query: q, document: doc });
+      if (!verdict.supported) {
+        state.exclusions.push({ queryId: q.id, candidateId: doc.id, reason: "unsupported-query" });
+        continue;
+      }
+      generated.push(q);
+    }
+    for (const query of [...queries, ...generated]) {
+      if (heldout.has(query.id)) throw new Error("EMBED_HELDOUT_LEAKAGE");
+      const requestId = id(config, "mine", query.id);
+      const mined = await paid("mining", { requestId, query: query.id }, () =>
+        this.services.miner.mine({ requestId, query, corpus: docs, limit: config.candidateLimit }),
+      );
+      const positiveIds = new Set(
+        train
+          .filter((r) => queryTexts(r).some((q) => q.id === query.id))
+          .flatMap(positiveTexts)
+          .map((x) => x.id),
+      );
+      const qGroups = new Set(train.filter((r) => allTexts(r).some((x) => x.id === query.id)).map((r) => r.splitGroup));
+      const candidates = docs
+        .filter((d) => mined.candidateIds.includes(d.id))
+        .filter((d) => {
+          let reason = "";
+          if (positiveIds.has(d.id)) reason = "positive";
+          else if (train.some((r) => qGroups.has(r.splitGroup) && allTexts(r).some((x) => x.id === d.id)))
+            reason = "same-group";
+          else if (similar(query.text, d.text) >= config.nearDuplicateThreshold) reason = "near-duplicate";
+          if (reason) state.exclusions.push({ queryId: query.id, candidateId: d.id, reason });
+          return !reason;
+        });
+      if (!candidates.length) continue;
+      const scoreId = id(config, "score", query.id),
+        scored = await paid(
+          "scoring",
+          { requestId: scoreId, query: query.id, candidates: candidates.map((x) => x.id) },
+          () => this.services.scorer.score({ requestId: scoreId, query, candidates }),
+        );
+      if (
+        scored.scores.length !== candidates.length ||
+        scored.scores.some((x) => !Number.isFinite(x) || x < scored.scale.min || x > scored.scale.max)
+      )
+        throw new Error("EMBED_SCORE_CALIBRATION");
+      for (let i = 0; i < candidates.length; i++) {
+        const judged = await paid(
+          "judging",
+          { requestId: id(config, "judge", `${query.id}:${candidates[i]!.id}`) },
+          async () => ({
+            ...(await this.services.judge.judge({ query, document: candidates[i]!, score: scored.scores[i]! })),
+          }),
+        );
+        if (judged.accepted)
+          state.records.push(
+            withEmbeddingHash(
+              recordBase(config, "teacher-score", query.id, {
+                query,
+                document: candidates[i]!,
+                teacher: teacherMeta(this.services.scorer, this.now()),
+                score: scored.scores[i]!,
+                scale: scored.scale,
+              }),
+            ),
+          );
+      }
+      const rankId = id(config, "rank", query.id),
+        ranked = await paid(
+          "ranking",
+          { requestId: rankId, query: query.id, candidates: candidates.map((x) => x.id) },
+          () => this.services.ranker.rank({ requestId: rankId, query, candidates }),
+        );
+      const candidateIds = new Set(candidates.map((x) => x.id));
+      if (
+        ranked.ranking.length !== candidateIds.size ||
+        new Set(ranked.ranking).size !== ranked.ranking.length ||
+        ranked.ranking.some((x) => !candidateIds.has(x))
+      )
+        throw new Error("EMBED_RANKING_POOL");
+      state.records.push(
+        withEmbeddingHash(
+          recordBase(config, "teacher-ranking", query.id, {
+            query,
+            teacher: teacherMeta(this.services.ranker, this.now()),
+            candidatePoolId: canonicalSha256(candidates.map((x) => x.id).sort() as never),
+            corpusId: candidates[0]!.corpusId ?? "corpus",
+            candidates: candidates.map((x) => ({ id: x.id, documentId: x.documentId ?? x.id })),
+            ranking: ranked.ranking,
+            metadata: {
+              "embedding.distillation": {
+                scores: ranked.scores,
+                prompt: ranked.prompt,
+                configuration: ranked.configuration,
+                exclusions: state.exclusions.filter((x) => x.queryId === query.id),
+              },
+            },
+          }),
+        ),
+      );
+    }
+    for (const text of [...new Map([...docs, ...queries, ...generated].map((x) => [x.id, x])).values()]) {
+      const requestId = id(config, "vector", text.id),
+        v = await paid("vectors", { requestId, text: text.id, dimension: config.dimension }, () =>
+          this.services.teacher.embed({ requestId, texts: [text], dimension: config.dimension }),
+        );
+      if (
+        v.vectors.length !== 1 ||
+        v.vectors[0]!.length !== config.dimension ||
+        v.vectors[0]!.some((x) => !Number.isFinite(x))
+      )
+        throw new Error("EMBED_VECTOR_SHAPE");
+      state.records.push(
+        withEmbeddingHash(
+          recordBase(config, "teacher-vector", text.id, {
+            text,
+            teacher: teacherMeta(this.services.teacher, this.now()),
+            vector: { storage: "inline", values: v.vectors[0]!, dimension: config.dimension, norm: v.norm },
+            metadata: {
+              "embedding.distillation": {
+                dtype: v.dtype,
+                pooling: v.pooling,
+                prompt: v.prompt,
+                storageRights: config.teacherStorageRights,
+                objective: config.objective,
+              },
+            },
+          }),
+        ),
+      );
+    }
+    await dedupeEmbeddingRecords(state.records);
+    scanEmbeddingContamination(
+      state.records,
+      input.filter((x) => x.split !== "train"),
+    );
+    state.completedStages = [
+      "freeze-corpus",
+      "split",
+      "generate",
+      "verify",
+      "dedupe",
+      "mine",
+      "exclude",
+      "score",
+      "rank",
+      "judge",
+      "vectors",
+      "freeze",
+    ];
+    state.updatedAt = this.now();
+    await this.checkpoint?.(state);
+    return state;
+  }
+}
+export async function saveEmbeddingDistillationState(path: string, state: EmbeddingDistillationState) {
+  await atomicWrite(path, JSON.stringify(state) + "\n");
+}
+export async function loadEmbeddingDistillationState(path: string) {
+  return JSON.parse(await readFile(path, "utf8")) as EmbeddingDistillationState;
+}
+function fresh(c: EmbeddingDistillationConfig, now: string): EmbeddingDistillationState {
+  const usage = (): ServiceUsage => ({ requests: 0, units: 0, cost: 0, currency: "USD" }),
+    budgets = Object.fromEntries(
+      (Object.keys(c.budgets) as BudgetStage[]).map((k) => [k, { limit: c.budgets[k], spent: 0, usage: usage() }]),
+    ) as Record<BudgetStage, StageBudget>;
+  return {
+    version: embeddingDistillationVersion,
+    configHash: canonicalSha256(c as never),
+    completedStages: [],
+    records: [],
+    paidSuccesses: {},
+    budgets,
+    events: [],
+    exclusions: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+function charge(s: EmbeddingDistillationState, stage: BudgetStage, u: ServiceUsage) {
+  const b = s.budgets[stage];
+  if (!b || b.spent + u.cost > b.limit) throw new Error(`EMBED_BUDGET_EXCEEDED:${stage}`);
+  b.spent += u.cost;
+  b.usage.requests += u.requests;
+  b.usage.units += u.units;
+  b.usage.cost += u.cost;
+  b.usage.currency = u.currency;
+}
+function retentionRank(x: string) {
+  return x === "none" ? 0 : x === "temporary" ? 1 : 2;
+}
+function softmax(x: number[], t: number) {
+  const m = Math.max(...x.map((v) => v / t)),
+    a = x.map((v) => Math.exp(v / t - m)),
+    z = a.reduce((n, v) => n + v, 0);
+  return a.map((v) => v / z);
+}
+function id(c: EmbeddingDistillationConfig, s: string, x: string) {
+  return `${c.runId}:${s}:${canonicalSha256(`${c.seed}:${x}`).slice(0, 20)}`;
+}
+function teacherMeta(x: { id: string; model?: string; revision?: string }, now: string): TeacherV1 {
+  return {
+    provider: x.id,
+    model: x.model ?? x.id,
+    revision: x.revision ?? "1",
+    requestId: canonicalSha256(x as never),
+    createdAt: now,
+  };
+}
+function recordBase(c: EmbeddingDistillationConfig, kind: string, key: string, body: Record<string, unknown>): any {
+  return {
+    embeddingRecordVersion: "1.0.0",
+    id: canonicalSha256({ run: c.runId, kind, key, body } as never),
+    kind,
+    task: kind,
+    split: "train",
+    splitGroup: `distill-${key}`,
+    source: {
+      source: "embedding-distillation",
+      revision: embeddingDistillationVersion,
+      license: "derived",
+      rights: c.compliance.teacherOutputRights,
+    },
+    transformations: [],
+    createdAt: "1970-01-01T00:00:00.000Z",
+    ...body,
+  };
+}
+function allTexts(r: EmbeddingRecordV1): EmbeddingTextV1[] {
+  const out: EmbeddingTextV1[] = [];
+  const walk = (v: unknown) => {
+    if (!v || typeof v !== "object") return;
+    if ("textHash" in v && "text" in v) out.push(v as EmbeddingTextV1);
+    for (const x of Array.isArray(v) ? v : Object.values(v)) walk(x);
+  };
+  walk(r);
+  return out;
+}
+function queryTexts(r: EmbeddingRecordV1) {
+  return r.kind === "query-document" ||
+    r.kind === "retrieval-set" ||
+    r.kind === "teacher-score" ||
+    r.kind === "teacher-ranking"
+    ? [r.query]
+    : r.kind === "triplet"
+      ? [r.anchor]
+      : [];
+}
+function documentTexts(r: EmbeddingRecordV1) {
+  return r.kind === "query-document"
+    ? [r.document]
+    : r.kind === "retrieval-set"
+      ? [...r.positives, ...r.negatives]
+      : r.kind === "triplet"
+        ? [r.positive, r.negative]
+        : r.kind === "teacher-score"
+          ? [r.document]
+          : [];
+}
+function positiveTexts(r: EmbeddingRecordV1) {
+  return r.kind === "query-document"
+    ? [r.document]
+    : r.kind === "retrieval-set"
+      ? r.positives
+      : r.kind === "triplet"
+        ? [r.positive]
+        : [];
+}
+function similar(a: string, b: string) {
+  const A = new Set(a.toLowerCase().split(/\s+/)),
+    B = new Set(b.toLowerCase().split(/\s+/));
+  let n = 0;
+  for (const x of A) if (B.has(x)) n++;
+  return n / (A.size + B.size - n || 1);
+}

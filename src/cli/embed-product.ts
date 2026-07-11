@@ -69,16 +69,25 @@ export async function runEmbedProduct(raw: string[]): Promise<boolean> {
       return true;
     }
     const runner = async (trainingSpec: EmbeddingTrainingSpecV1) => {
-      const spec = { ...trainingSpec, operation: verb, ...(typeof value["checkpoint"] === "string" ? { checkpointPath: value["checkpoint"] } : {}), ...(typeof value["artifact"] === "string" ? { artifactPath: value["artifact"] } : {}) };
+      const spec = {
+        ...trainingSpec,
+        operation: verb,
+        ...(typeof value["checkpoint"] === "string" ? { checkpointPath: value["checkpoint"] } : {}),
+        ...(typeof value["artifact"] === "string" ? { artifactPath: value["artifact"] } : {}),
+      };
       const specPath = join(String(value.outputDirectory), `.embedding-${verb}.json`);
       await atomicWrite(specPath, JSON.stringify(spec, null, 2) + "\n");
-      return runPythonEmbeddingTrainer({ pythonExecutable: typeof value.python === "string" ? value.python : "python3", specPath: resolve(specPath), cwd: resolve(typeof value["python-root"] === "string" ? value["python-root"] : "python") });
+      return runPythonEmbeddingTrainer({
+        pythonExecutable: typeof value.python === "string" ? value.python : "python3",
+        specPath: resolve(specPath),
+        cwd: resolve(typeof value["python-root"] === "string" ? value["python-root"] : "python"),
+      });
     };
     const run = new EmbeddingTrainingRun(value as unknown as EmbeddingTrainingSpecV1, { runTraining: runner }),
       plan = run.plan();
     let execution;
     if (["run", "resume", "status", "export", "inspect"].includes(verb) && !dry) {
-      execution = await run.run() as Awaited<ReturnType<typeof runPythonEmbeddingTrainer>>;
+      execution = (await run.run()) as Awaited<ReturnType<typeof runPythonEmbeddingTrainer>>;
       if (execution.exitCode !== 0)
         throw new Error(
           execution.stderr || String(execution.events.at(-1)?.data?.message ?? "Embedding trainer failed"),

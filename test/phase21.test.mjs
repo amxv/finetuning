@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -33,7 +33,7 @@ function job(task = "chat") {
     deadline: new Date(Date.now() + 3_600_000).toISOString(),
   };
 }
-const evidence = (j) => ({
+const evidence = (_job) => ({
   gpuType: "NVIDIA TEST",
   vramGiB: 24,
   available: 1,

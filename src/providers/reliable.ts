@@ -37,7 +37,9 @@ export class ReliableTeacherProvider {
   #tokens = 0;
   #spent: number;
   #successes = new Map<string, TeacherEnvelope>();
-  constructor(readonly options: ReliableProviderOptions) {this.#spent=options.initialSpent??0;}
+  constructor(readonly options: ReliableProviderOptions) {
+    this.#spent = options.initialSpent ?? 0;
+  }
   async generate(request: TeacherRequest): Promise<TeacherEnvelope> {
     const identity = canonicalSha256({
       provider: request.provider,

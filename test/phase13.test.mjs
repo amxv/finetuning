@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -124,7 +124,7 @@ function services(log, unsupported = false) {
       },
     },
     verifier: {
-      async verify(x) {
+      async verify(_input) {
         return { supported: !unsupported, reason: unsupported ? "unsupported" : "ok" };
       },
     },

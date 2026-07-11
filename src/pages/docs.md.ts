@@ -4,12 +4,7 @@ import { docCategories, siteConfig } from "../data/docs";
 export async function GET() {
   const entries = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
 
-  const lines = [
-    `# ${siteConfig.name} Docs`,
-    "",
-    "This is the raw markdown index for the documentation routes.",
-    ""
-  ];
+  const lines = [`# ${siteConfig.name} Docs`, "", "This is the raw markdown index for the documentation routes.", ""];
 
   for (const category of docCategories) {
     const groupedEntries = entries.filter((entry) => entry.data.category === category);
@@ -28,7 +23,7 @@ export async function GET() {
 
   return new Response(lines.join("\n"), {
     headers: {
-      "Content-Type": "text/markdown; charset=utf-8"
-    }
+      "Content-Type": "text/markdown; charset=utf-8",
+    },
   });
 }

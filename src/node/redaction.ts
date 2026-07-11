@@ -8,6 +8,12 @@ export function redactSecrets(value: JsonValue): JsonValue {
     );
   if (typeof value !== "string") return value;
   if (/^(bearer\s+|sk-|rp_)[\w.-]+$/i.test(value)) return "[REDACTED]";
-  try { const url=new URL(value); if (["token","signature","sig","x-amz-signature","credential"].some(k=>url.searchParams.has(k))) return "[REDACTED_SIGNED_URL]"; } catch { /* not a URL */ }
+  try {
+    const url = new URL(value);
+    if (["token", "signature", "sig", "x-amz-signature", "credential"].some((k) => url.searchParams.has(k)))
+      return "[REDACTED_SIGNED_URL]";
+  } catch {
+    /* not a URL */
+  }
   return value;
 }

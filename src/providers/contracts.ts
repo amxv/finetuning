@@ -57,9 +57,7 @@ export interface TeacherEnvelope {
   cached: boolean;
 }
 export interface TeacherTransport {
-  invoke(
-    request: TeacherRequest,
-  ): Promise<{
+  invoke(request: TeacherRequest): Promise<{
     response: ModelInvocationResponse;
     usage?: Partial<NormalizedUsage>;
     finishReason?: NormalizedFinishReason;

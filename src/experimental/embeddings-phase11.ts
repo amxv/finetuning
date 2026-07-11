@@ -137,13 +137,35 @@ export function validateEmbeddingRecord(record: EmbeddingRecordV1): void {
       record.score > record.scale.max)
   )
     fail("EMBED_SCORE_SCALE");
-  if (record.kind === "teacher-score" && (!Number.isFinite(record.score) || !record.scale || !(record.scale.min < record.scale.max) || record.score < record.scale.min || record.score > record.scale.max)) fail("EMBED_SCORE_SCALE");
-  if ((record.kind === "categorical-pair" || record.kind === "classification" || record.kind === "clustering") && (!record.labelDomain.length || !record.labelDomain.includes(record.label))) fail("EMBED_LABEL_DOMAIN");
+  if (
+    record.kind === "teacher-score" &&
+    (!Number.isFinite(record.score) ||
+      !record.scale ||
+      !(record.scale.min < record.scale.max) ||
+      record.score < record.scale.min ||
+      record.score > record.scale.max)
+  )
+    fail("EMBED_SCORE_SCALE");
+  if (
+    (record.kind === "categorical-pair" || record.kind === "classification" || record.kind === "clustering") &&
+    (!record.labelDomain.length || !record.labelDomain.includes(record.label))
+  )
+    fail("EMBED_LABEL_DOMAIN");
   if (record.kind === "boolean-pair" && typeof record.label !== "boolean") fail("EMBED_LABEL_DOMAIN");
-  if (record.kind === "instruction-aware" && (!record.instruction.trim() || record.text.text.startsWith(record.instruction))) fail("EMBED_INSTRUCTION_SEPARATION");
+  if (
+    record.kind === "instruction-aware" &&
+    (!record.instruction.trim() || record.text.text.startsWith(record.instruction))
+  )
+    fail("EMBED_INSTRUCTION_SEPARATION");
   if (record.kind === "teacher-ranking") {
     const ids = new Set(record.candidates.map((x) => x.id));
-    if (!record.candidatePoolId || !record.corpusId || ids.size !== record.candidates.length || new Set(record.ranking).size !== record.ranking.length || record.ranking.some((id) => !ids.has(id)))
+    if (
+      !record.candidatePoolId ||
+      !record.corpusId ||
+      ids.size !== record.candidates.length ||
+      new Set(record.ranking).size !== record.ranking.length ||
+      record.ranking.some((id) => !ids.has(id))
+    )
       fail("EMBED_RANKING_POOL");
   }
   if (record.kind.startsWith("teacher-") && !((record as any).teacher?.revision && (record as any).teacher?.requestId))

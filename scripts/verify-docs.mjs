@@ -7,7 +7,8 @@ const root = resolve(new URL("../", import.meta.url).pathname);
 const docs = ["README.md", "CHANGELOG.md", "MIGRATION.md", "SUPPORT.md", "docs/alpha-chat-workflows.md"];
 for (const file of docs) {
   const text = await readFile(join(root, file), "utf8");
-  for (const match of text.matchAll(/\[[^\]]+\]\((?!https?:|#)([^)]+)\)/g)) await access(resolve(dirname(join(root, file)), match[1]));
+  for (const match of text.matchAll(/\[[^\]]+\]\((?!https?:|#)([^)]+)\)/g))
+    await access(resolve(dirname(join(root, file)), match[1]));
 }
 JSON.parse(await readFile(join(root, "examples/provider-config.example.json"), "utf8"));
 JSON.parse(await readFile(join(root, "examples/offline-training-spec.json"), "utf8"));
@@ -18,7 +19,12 @@ try {
   const path = join(temp, "spec.json");
   await writeFile(path, JSON.stringify(spec));
   const { spawnSync } = await import("node:child_process");
-  const run = spawnSync("python3", ["-m", "amxv_finetuning_trainer.fake_runner", path], { cwd: join(root, "python"), encoding: "utf8" });
+  const run = spawnSync("python3", ["-m", "amxv_finetuning_trainer.fake_runner", path], {
+    cwd: join(root, "python"),
+    encoding: "utf8",
+  });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /"type": "completed"/);
-} finally { await rm(temp, { recursive: true, force: true }); }
+} finally {
+  await rm(temp, { recursive: true, force: true });
+}

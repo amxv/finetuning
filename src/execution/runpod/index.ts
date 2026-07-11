@@ -72,8 +72,9 @@ export function parseRunPodConfig(value: unknown = {}): RunPodConfig {
   const unknown = Object.keys(v).filter((k) => !allowed.includes(k));
   if (unknown.length) throw new RunPodError("RUNPOD_INCOMPATIBLE", `unknown config keys: ${unknown.join(", ")}`);
   if ("apiKey" in v) throw new RunPodError("RUNPOD_INCOMPATIBLE", "persisted API key values are forbidden");
-  const baseUrl=typeof v.baseUrl === "string" ? v.baseUrl : "https://rest.runpod.io/v1";
-  if(baseUrl!=="https://rest.runpod.io/v1")throw new RunPodError("RUNPOD_INCOMPATIBLE","RunPod base URL must equal the pinned REST v1 origin");
+  const baseUrl = typeof v.baseUrl === "string" ? v.baseUrl : "https://rest.runpod.io/v1";
+  if (baseUrl !== "https://rest.runpod.io/v1")
+    throw new RunPodError("RUNPOD_INCOMPATIBLE", "RunPod base URL must equal the pinned REST v1 origin");
   return {
     apiKeyEnv: typeof v.apiKeyEnv === "string" ? v.apiKeyEnv : "RUNPOD_API_KEY",
     baseUrl,
@@ -99,7 +100,9 @@ export class RunPodTransport {
         headers: { accept: "application/json", authorization: `Bearer ${key}`, ...init.headers },
         signal: ctl.signal,
       });
-      const raw=await response.text();if(Buffer.byteLength(raw)>this.config.maxResponseBytes)throw new RunPodError("RUNPOD_INCOMPATIBLE","RunPod response exceeds configured size bound");
+      const raw = await response.text();
+      if (Buffer.byteLength(raw) > this.config.maxResponseBytes)
+        throw new RunPodError("RUNPOD_INCOMPATIBLE", "RunPod response exceeds configured size bound");
       const body: unknown = raw ? JSON.parse(raw) : null;
       if (!response.ok) throw classify(response.status, body);
       return body;

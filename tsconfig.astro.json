@@ -3,12 +3,6 @@
   "compilerOptions": {
     "baseUrl": "."
   },
-  "include": [
-    ".astro/types.d.ts",
-    "src/**/*.astro",
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "astro.config.mjs"
-  ],
+  "include": [".astro/types.d.ts", "src/**/*.astro", "src/**/*.ts", "src/**/*.d.ts", "astro.config.mjs"],
   "exclude": ["dist", "docs-dist", "node_modules"]
 }

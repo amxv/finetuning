@@ -6,7 +6,13 @@ import type {
   ModelInvocationResponse,
   ProviderClientOptions,
 } from "./index.js";
-import { ProviderAuthenticationError, ProviderConfigurationError, ProviderError, ProviderRateLimitError, ProviderResponseError } from "./errors.js";
+import {
+  ProviderAuthenticationError,
+  ProviderConfigurationError,
+  ProviderError,
+  ProviderRateLimitError,
+  ProviderResponseError,
+} from "./errors.js";
 import { mapAnthropicMessagesResponse, mapModelRequestToAnthropicMessagesRequest } from "./mappers/anthropic.js";
 
 export const anthropicProviderAdapter: AnthropicProviderAdapter = {

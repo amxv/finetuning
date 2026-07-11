@@ -179,13 +179,16 @@ if (!validationRun.stdout.includes("Dataset is valid.") || !validationRun.stdout
   throw new Error(`validate-dataset did not validate generated dataset:\n${validationRun.stdout}`);
 }
 
-await writeFile(malformedPath, "{\"messages\":[{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"bad\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"not json\"}}]}]}\n");
+await writeFile(
+  malformedPath,
+  '{"messages":[{"role":"assistant","content":null,"tool_calls":[{"id":"bad","type":"function","function":{"name":"lookup","arguments":"not json"}}]}]}\n',
+);
 const malformedRun = await expectCliFailure(["validate-dataset", malformedPath]);
 if (!malformedRun.stderr.includes("Validation errors")) {
   throw new Error(`validate-dataset did not report malformed row errors:\n${malformedRun.stderr}`);
 }
 
-await writeFile(unsupportedRolePath, "{\"messages\":[{\"role\":\"developer\",\"content\":\"x\"}]}\n");
+await writeFile(unsupportedRolePath, '{"messages":[{"role":"developer","content":"x"}]}\n');
 const unsupportedRoleRun = await expectCliFailure(["validate-dataset", unsupportedRolePath]);
 if (
   !unsupportedRoleRun.stderr.includes("messages[0].role") ||
@@ -195,7 +198,9 @@ if (
 }
 
 await rm(workspace, { recursive: true, force: true });
-console.log("Verified CLI workflows, provider config parsing, flag overrides, help text, overwrite safety, and invalid validation.");
+console.log(
+  "Verified CLI workflows, provider config parsing, flag overrides, help text, overwrite safety, and invalid validation.",
+);
 
 async function runCli(args) {
   return execFileAsync(process.execPath, [cliPath, ...args], {

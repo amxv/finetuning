@@ -88,7 +88,11 @@ if (
   throw new Error(`Provider translation metadata was incomplete: ${JSON.stringify(providerTranslated.row.metadata)}`);
 }
 
-assertDeepEqual(providerTranslated.row.messages[2].tool_calls, originalAssistantToolCall.tool_calls, "provider assistant tool calls");
+assertDeepEqual(
+  providerTranslated.row.messages[2].tool_calls,
+  originalAssistantToolCall.tool_calls,
+  "provider assistant tool calls",
+);
 assertDeepEqual(providerTranslated.row.messages[3], originalToolResult, "provider tool result message");
 assertDeepEqual(providerTranslated.row.tools, row.tools, "provider row tools");
 
@@ -183,7 +187,9 @@ if (!missingKeyRun.stderr.includes("Missing ANTHROPIC_API_KEY for anthropic prov
 }
 
 await rm(workspace, { recursive: true, force: true });
-console.log("Verified experimental translation preserves schema, provider adapters, CLI config validation, and valid JSONL.");
+console.log(
+  "Verified experimental translation preserves schema, provider adapters, CLI config validation, and valid JSONL.",
+);
 
 function assertDeepEqual(actual, expected, label) {
   const actualJson = JSON.stringify(actual);

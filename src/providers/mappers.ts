@@ -256,7 +256,7 @@ function mapToolToOpenAIResponseTool(tool: ToolSchema): OpenAIResponseTool {
 function mapMessagesToAnthropicMessages(messages: ModelMessage[]): Anthropic.MessageParam[] {
   const mapped: Anthropic.MessageParam[] = [];
 
-  for (let index = 0; index < messages.length; ) {
+  for (let index = 0; index < messages.length;) {
     const message = messages[index]!;
     if (message.role !== "tool") {
       mapped.push(mapMessageToAnthropicMessage(message));
@@ -379,10 +379,7 @@ function collectOpenAIText(item: Record<string, unknown>, textParts: string[]): 
   }
 }
 
-function parseToolArguments(
-  value: string,
-  context: { provider: ModelProviderKind; model: string },
-): JsonObject {
+function parseToolArguments(value: string, context: { provider: ModelProviderKind; model: string }): JsonObject {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (isJsonObject(parsed)) {
@@ -423,12 +420,7 @@ function buildAnthropicMetadata(response: Record<string, unknown>): JsonObject {
   });
 }
 
-function asRecord(
-  value: unknown,
-  label: string,
-  provider: ModelProviderKind,
-  model: string,
-): Record<string, unknown> {
+function asRecord(value: unknown, label: string, provider: ModelProviderKind, model: string): Record<string, unknown> {
   if (isRecord(value)) {
     return value;
   }

@@ -11,12 +11,19 @@ const execFileAsync = promisify(execFile);
 const root = new URL("../", import.meta.url);
 
 test("packed package imports and runs its bin in a clean ESM consumer", async () => {
-  const fixture = await mkdtemp(join(tmpdir(), "finetuning-consumer-")), stage=join(fixture,"stage"),source=fileURLToPath(root);
+  const fixture = await mkdtemp(join(tmpdir(), "finetuning-consumer-")),
+    stage = join(fixture, "stage"),
+    source = fileURLToPath(root);
   try {
     await mkdir(stage);
     const sourcePackage = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-    for(const entry of ["package.json",...sourcePackage.files])await cp(join(source,entry),join(stage,entry),{recursive:true});
-    const { stdout } = await execFileAsync("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", fixture], { cwd: stage });
+    for (const entry of ["package.json", ...sourcePackage.files])
+      await cp(join(source, entry), join(stage, entry), { recursive: true });
+    const { stdout } = await execFileAsync(
+      "npm",
+      ["pack", "--ignore-scripts", "--json", "--pack-destination", fixture],
+      { cwd: stage },
+    );
     const [{ filename }] = JSON.parse(stdout);
     await writeFile(join(fixture, "package.json"), '{"private":true,"type":"module"}\n');
     await execFileAsync("npm", ["install", "--ignore-scripts", `./${filename}`], { cwd: fixture });

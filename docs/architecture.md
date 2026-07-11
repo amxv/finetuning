@@ -21,13 +21,13 @@ Real-log conversion is explicitly deferred. It is not part of v1, no public log 
 
 ## Supported Workflows
 
-| Workflow | Status | Public surface |
-| --- | --- | --- |
-| Synthetic dataset generation | V1 | `simulate-dataset`, library workflow manifest |
-| Persona generation | V1 | `generate-personas`, library workflow manifest |
-| Dataset validation | V1 | `validate-dataset`, library workflow manifest |
-| Dataset translation | Experimental | `translate-dataset`, explicitly experimental |
-| Log-to-dataset import | Deferred | `convert-logs` exits with the shared deferred-boundary error; no converter is implemented |
+| Workflow                     | Status       | Public surface                                                                            |
+| ---------------------------- | ------------ | ----------------------------------------------------------------------------------------- |
+| Synthetic dataset generation | V1           | `simulate-dataset`, library workflow manifest                                             |
+| Persona generation           | V1           | `generate-personas`, library workflow manifest                                            |
+| Dataset validation           | V1           | `validate-dataset`, library workflow manifest                                             |
+| Dataset translation          | Experimental | `translate-dataset`, explicitly experimental                                              |
+| Log-to-dataset import        | Deferred     | `convert-logs` exits with the shared deferred-boundary error; no converter is implemented |
 
 Every workflow in this table has a public manifest in `src/index.ts`. V1 CLI commands for persona generation, dataset generation, validation, and translation are implemented in `src/cli/index.ts`, with command code limited to argument parsing, file reading/writing, config resolution, and workflow orchestration. Persona and simulation behavior lives in `src/simulation`, provider construction lives in `src/providers`, and schema-preserving translation lives in `src/translation`.
 
@@ -37,12 +37,12 @@ The canonical export target is OpenAI chat fine-tuning JSONL. Simulation provide
 
 Provider status for v1:
 
-| Provider role | Supported providers | Status |
-| --- | --- | --- |
-| Dataset export | OpenAI chat fine-tuning JSONL | V1 target |
-| Simulation model calls | deterministic, OpenAI, Anthropic | V1; OpenAI and Anthropic run through model-backed simulation adapters |
-| Translation model calls | local-pseudo, OpenAI, Anthropic, custom adapters | Experimental; OpenAI and Anthropic are wired through `ModelClient` |
-| Cloudflare bindings, queues, D1, Hono | None | Non-goal |
+| Provider role                         | Supported providers                              | Status                                                                |
+| ------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------- |
+| Dataset export                        | OpenAI chat fine-tuning JSONL                    | V1 target                                                             |
+| Simulation model calls                | deterministic, OpenAI, Anthropic                 | V1; OpenAI and Anthropic run through model-backed simulation adapters |
+| Translation model calls               | local-pseudo, OpenAI, Anthropic, custom adapters | Experimental; OpenAI and Anthropic are wired through `ModelClient`    |
+| Cloudflare bindings, queues, D1, Hono | None                                             | Non-goal                                                              |
 
 Provider integrations are represented by `ModelClient`, `ProviderAdapter`, concrete OpenAI/Anthropic adapters, provider-specific adapter marker types, and `ProviderRuntimeConfig` in `src/providers`. OpenAI and Anthropic SDK imports are confined to `src/providers`; `src/core` remains provider-neutral.
 
@@ -96,11 +96,7 @@ Only BCP 47 locale codes are accepted in public API and CLI fields, for example 
 The public library entrypoint is the package root:
 
 ```ts
-import {
-  cliCommands,
-  supportedWorkflows,
-  type FineTuningToolkitConfig,
-} from "@amxv/finetuning";
+import { cliCommands, supportedWorkflows, type FineTuningToolkitConfig } from "@amxv/finetuning";
 ```
 
 Initial exported surface:

@@ -73,7 +73,7 @@ function assertOpenAIHistoricalToolCallRequestMapper() {
           },
         ],
       },
-      { role: "tool", toolCallId: "call_1", name: "check_availability", content: "{\"available\":true}" },
+      { role: "tool", toolCallId: "call_1", name: "check_availability", content: '{"available":true}' },
     ],
   });
 
@@ -89,7 +89,7 @@ function assertOpenAIHistoricalToolCallRequestMapper() {
     functionCall.type !== "function_call" ||
     functionCall.call_id !== "call_1" ||
     functionCall.name !== "check_availability" ||
-    functionCall.arguments !== "{\"preferredDate\":\"tomorrow\",\"service\":\"cleaning\"}" ||
+    functionCall.arguments !== '{"preferredDate":"tomorrow","service":"cleaning"}' ||
     output.type !== "function_call_output" ||
     output.call_id !== "call_1"
   ) {
@@ -139,7 +139,7 @@ function assertOpenAIToolResponseMapper() {
           id: "fc_1",
           call_id: "call_1",
           name: "check_availability",
-          arguments: "{\"preferredDate\":\"tomorrow\",\"service\":\"cleaning\"}",
+          arguments: '{"preferredDate":"tomorrow","service":"cleaning"}',
         },
       ],
     },
@@ -166,7 +166,7 @@ function assertOpenAIMalformedToolArguments() {
             id: "fc_bad",
             call_id: "call_bad",
             name: "check_availability",
-            arguments: "{\"preferredDate\":",
+            arguments: '{"preferredDate":',
           },
         ],
       },
@@ -224,13 +224,14 @@ function assertAnthropicHistoricalToolCallRequestMapper() {
           },
         ],
       },
-      { role: "tool", toolCallId: "toolu_1", name: "check_availability", content: "{\"available\":true}" },
+      { role: "tool", toolCallId: "toolu_1", name: "check_availability", content: '{"available":true}' },
     ],
   });
 
   const assistantIndex = mapped.messages.findIndex((message) => message.role === "assistant");
   const toolResultIndex = mapped.messages.findIndex(
-    (message) => message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
+    (message) =>
+      message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
   );
   const assistant = mapped.messages[assistantIndex];
   const toolResult = mapped.messages[toolResultIndex];
@@ -276,14 +277,15 @@ function assertAnthropicParallelToolResultRequestMapper() {
           },
         ],
       },
-      { role: "tool", toolCallId: "toolu_product", name: "lookup_product", content: "{\"inStock\":true}" },
-      { role: "tool", toolCallId: "toolu_order", name: "lookup_order", content: "{\"returnEligible\":true}" },
+      { role: "tool", toolCallId: "toolu_product", name: "lookup_product", content: '{"inStock":true}' },
+      { role: "tool", toolCallId: "toolu_order", name: "lookup_order", content: '{"returnEligible":true}' },
     ],
   });
 
   const assistantIndex = mapped.messages.findIndex((message) => message.role === "assistant");
   const toolResultMessages = mapped.messages.filter(
-    (message) => message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
+    (message) =>
+      message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
   );
   const assistant = mapped.messages[assistantIndex];
   const toolResult = toolResultMessages[0];

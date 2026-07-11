@@ -234,15 +234,13 @@ interface RuntimeJsonSchemaObject {
   additionalProperties?: boolean;
 }
 
-type RuntimeJsonSchemaValue =
-  | RuntimeJsonSchemaObject
-  | RuntimeJsonSchemaPrimitive;
+type RuntimeJsonSchemaValue = RuntimeJsonSchemaObject | RuntimeJsonSchemaPrimitive;
 
 type RuntimeJsonSchemaPrimitive = {
-      type: "string" | "number" | "integer" | "boolean" | "array" | "null";
-      enum?: JsonPrimitive[];
-      items?: RuntimeJsonSchemaValue;
-    };
+  type: "string" | "number" | "integer" | "boolean" | "array" | "null";
+  enum?: JsonPrimitive[];
+  items?: RuntimeJsonSchemaValue;
+};
 
 function collectToolSchemas(value: unknown, errors: ValidationIssue[]): Map<string, RuntimeToolSchema> {
   const schemas = new Map<string, RuntimeToolSchema>();
@@ -351,7 +349,9 @@ function validateJsonValueAgainstSchema(
         return;
       }
       if (schema.items) {
-        value.forEach((item, index) => validateJsonValueAgainstSchema(item, schema.items!, `${path}[${index}]`, errors));
+        value.forEach((item, index) =>
+          validateJsonValueAgainstSchema(item, schema.items!, `${path}[${index}]`, errors),
+        );
       }
       return;
     case "null":
@@ -475,7 +475,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isRuntimePrimitiveSchemaType(value: string): value is RuntimeJsonSchemaPrimitive["type"] {
-  return value === "string" || value === "number" || value === "integer" || value === "boolean" || value === "array" || value === "null";
+  return (
+    value === "string" ||
+    value === "number" ||
+    value === "integer" ||
+    value === "boolean" ||
+    value === "array" ||
+    value === "null"
+  );
 }
 
 function isJsonObject(value: unknown): value is JsonObject {

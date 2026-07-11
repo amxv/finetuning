@@ -30,9 +30,13 @@ Any change that affects generated rows, tool calls, tool results, scenario parsi
 At minimum, run:
 
 ```bash
+npm run lint
+npm run format:check
 npm run typecheck
 npm run verify
 ```
+
+Use `npm run lint:js:fix` and `npm run lint:python:fix` for safe lint fixes, or `npm run format` to format all supported files. JavaScript, TypeScript, JSON, Markdown, YAML, and other Prettier-supported repository files are formatted with Prettier; Python is checked and formatted with Ruff 0.12.11 targeting Python 3.9. Generated builds, caches, package artifacts, snapshots, pinned RunPod OpenAPI evidence, and vendored dependencies are excluded from formatting.
 
 Validation should cover:
 

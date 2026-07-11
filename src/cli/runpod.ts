@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { parseExecutionJob } from "../execution/index.js";
 import { planRunPodJob } from "../execution/runpod/index.js";
 import { RunPodTransport } from "../execution/runpod/index.js";
-import { RestRunPodLifecycleBackend,RunPodLifecycleController,verifyAndFetchArtifacts,ensureIndependentVolume } from "../execution/runpod/lifecycle.js";
+import {
+  RestRunPodLifecycleBackend,
+  RunPodLifecycleController,
+  verifyAndFetchArtifacts,
+  ensureIndependentVolume,
+} from "../execution/runpod/lifecycle.js";
 import { atomicWrite } from "../node/storage.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 const reads = new Set(["status", "orphans", "cost"]),
@@ -58,13 +63,49 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
     const sub = args.positionals[0];
     if (!["list", "ensure", "delete"].includes(sub ?? ""))
       throw new Error("Usage: finetuning runpod volume list|ensure|delete");
-    if (!readBooleanFlag(args,"dry-run")) {
-      if(!readBooleanFlag(args,"allow-live")||!readBooleanFlag(args,"i-accept-billing")||!readBooleanFlag(args,"i-own-resources"))throw new Error("RUNPOD_LIVE_OPT_IN_REQUIRED");
-      const auth=readRequiredStringFlag(args,"authorization-env");if(process.env[auth]!=="AUTHORIZED")throw new Error(`RUNPOD_LIVE_AUTHORIZATION_MISSING: ${auth}`);
-      const ownership=readRequiredStringFlag(args,"ownership-marker"),backend=new RestRunPodLifecycleBackend(new RunPodTransport({apiKeyEnv:readRequiredStringFlag(args,"api-key-env"),baseUrl:"https://rest.runpod.io/v1",timeoutMs:15000,maxResponseBytes:1048576}),true);
-      if(sub==="list")return print({operation:"volume list",volumes:(await backend.listVolumes()).filter(v=>v.ownershipMarker===ownership)},args);
-      if(sub==="ensure")return print(await ensureIndependentVolume(backend,{name:readRequiredStringFlag(args,"name"),sizeGiB:Number(readRequiredStringFlag(args,"size-gib")),dataCenterId:readRequiredStringFlag(args,"data-center-id"),ownershipMarker:ownership}),args);
-      if(!readBooleanFlag(args,"yes"))throw new Error("volume delete requires --yes");const id=readRequiredStringFlag(args,"id"),volume=(await backend.listVolumes()).find(v=>v.id===id);if(!volume||volume.ownershipMarker!==ownership)throw new Error("foreign volume deletion refused");await backend.deleteVolume(id);return print({operation:"volume delete",id,deleted:true},args);
+    if (!readBooleanFlag(args, "dry-run")) {
+      if (
+        !readBooleanFlag(args, "allow-live") ||
+        !readBooleanFlag(args, "i-accept-billing") ||
+        !readBooleanFlag(args, "i-own-resources")
+      )
+        throw new Error("RUNPOD_LIVE_OPT_IN_REQUIRED");
+      const auth = readRequiredStringFlag(args, "authorization-env");
+      if (process.env[auth] !== "AUTHORIZED") throw new Error(`RUNPOD_LIVE_AUTHORIZATION_MISSING: ${auth}`);
+      const ownership = readRequiredStringFlag(args, "ownership-marker"),
+        backend = new RestRunPodLifecycleBackend(
+          new RunPodTransport({
+            apiKeyEnv: readRequiredStringFlag(args, "api-key-env"),
+            baseUrl: "https://rest.runpod.io/v1",
+            timeoutMs: 15000,
+            maxResponseBytes: 1048576,
+          }),
+          true,
+        );
+      if (sub === "list")
+        return print(
+          {
+            operation: "volume list",
+            volumes: (await backend.listVolumes()).filter((v) => v.ownershipMarker === ownership),
+          },
+          args,
+        );
+      if (sub === "ensure")
+        return print(
+          await ensureIndependentVolume(backend, {
+            name: readRequiredStringFlag(args, "name"),
+            sizeGiB: Number(readRequiredStringFlag(args, "size-gib")),
+            dataCenterId: readRequiredStringFlag(args, "data-center-id"),
+            ownershipMarker: ownership,
+          }),
+          args,
+        );
+      if (!readBooleanFlag(args, "yes")) throw new Error("volume delete requires --yes");
+      const id = readRequiredStringFlag(args, "id"),
+        volume = (await backend.listVolumes()).find((v) => v.id === id);
+      if (!volume || volume.ownershipMarker !== ownership) throw new Error("foreign volume deletion refused");
+      await backend.deleteVolume(id);
+      return print({ operation: "volume delete", id, deleted: true }, args);
     }
     return print(
       {
@@ -146,16 +187,60 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
     return print({ operation: verb, readOnly: true, requiresState: true, productionMutation: false }, args);
   if (mutations.has(verb)) {
     if (!readBooleanFlag(args, "dry-run")) {
-      if(!readBooleanFlag(args,"allow-live")||!readBooleanFlag(args,"i-accept-billing")||!readBooleanFlag(args,"i-own-resources"))throw new Error("RUNPOD_LIVE_OPT_IN_REQUIRED: require --allow-live --i-accept-billing --i-own-resources");
-      const authorizationEnv=readRequiredStringFlag(args,"authorization-env");if(process.env[authorizationEnv]!=="AUTHORIZED")throw new Error(`RUNPOD_LIVE_AUTHORIZATION_MISSING: ${authorizationEnv}`);
-      const state=readRequiredStringFlag(args,"state"),ownership=readRequiredStringFlag(args,"ownership-marker");
-      const backend=new RestRunPodLifecycleBackend(new RunPodTransport({apiKeyEnv:readRequiredStringFlag(args,"api-key-env"),baseUrl:"https://rest.runpod.io/v1",timeoutMs:Number(readOptionalStringFlag(args,"timeout-ms")??15000),maxResponseBytes:1048576}),true),controller=new RunPodLifecycleController(backend,state,ownership);
-      if(verb==="launch"){const job=parseExecutionJob(JSON.parse(await readFile(readRequiredStringFlag(args,"job"),"utf8"))),plan=JSON.parse(await readFile(readRequiredStringFlag(args,"plan"),"utf8"));return print(await controller.launch(job,plan,false),args)}
-      if(verb==="stop"||verb==="cancel")return print(await controller.stop(false),args);
-      if(verb==="terminate")return print(await controller.terminate(readBooleanFlag(args,"yes"),false),args);
-      if(verb==="resume")return print(await controller.status(),args);
-      if(verb==="cleanup"){const root=readOptionalStringFlag(args,"volume-root");return print(await controller.cleanup({deleteRunPrefix:readBooleanFlag(args,"delete-run-prefix"),deleteVolume:readBooleanFlag(args,"delete-volume"),yes:readBooleanFlag(args,"yes"),dryRun:false,...(root?{root}:{})}),args)}
-      if(verb==="fetch"){const artifacts=JSON.parse(await readFile(readRequiredStringFlag(args,"artifacts"),"utf8"));return print(await verifyAndFetchArtifacts(readRequiredStringFlag(args,"source"),readRequiredStringFlag(args,"destination"),artifacts,readRequiredStringFlag(args,"run-id")),args)}
+      if (
+        !readBooleanFlag(args, "allow-live") ||
+        !readBooleanFlag(args, "i-accept-billing") ||
+        !readBooleanFlag(args, "i-own-resources")
+      )
+        throw new Error("RUNPOD_LIVE_OPT_IN_REQUIRED: require --allow-live --i-accept-billing --i-own-resources");
+      const authorizationEnv = readRequiredStringFlag(args, "authorization-env");
+      if (process.env[authorizationEnv] !== "AUTHORIZED")
+        throw new Error(`RUNPOD_LIVE_AUTHORIZATION_MISSING: ${authorizationEnv}`);
+      const state = readRequiredStringFlag(args, "state"),
+        ownership = readRequiredStringFlag(args, "ownership-marker");
+      const backend = new RestRunPodLifecycleBackend(
+          new RunPodTransport({
+            apiKeyEnv: readRequiredStringFlag(args, "api-key-env"),
+            baseUrl: "https://rest.runpod.io/v1",
+            timeoutMs: Number(readOptionalStringFlag(args, "timeout-ms") ?? 15000),
+            maxResponseBytes: 1048576,
+          }),
+          true,
+        ),
+        controller = new RunPodLifecycleController(backend, state, ownership);
+      if (verb === "launch") {
+        const job = parseExecutionJob(JSON.parse(await readFile(readRequiredStringFlag(args, "job"), "utf8"))),
+          plan = JSON.parse(await readFile(readRequiredStringFlag(args, "plan"), "utf8"));
+        return print(await controller.launch(job, plan, false), args);
+      }
+      if (verb === "stop" || verb === "cancel") return print(await controller.stop(false), args);
+      if (verb === "terminate") return print(await controller.terminate(readBooleanFlag(args, "yes"), false), args);
+      if (verb === "resume") return print(await controller.status(), args);
+      if (verb === "cleanup") {
+        const root = readOptionalStringFlag(args, "volume-root");
+        return print(
+          await controller.cleanup({
+            deleteRunPrefix: readBooleanFlag(args, "delete-run-prefix"),
+            deleteVolume: readBooleanFlag(args, "delete-volume"),
+            yes: readBooleanFlag(args, "yes"),
+            dryRun: false,
+            ...(root ? { root } : {}),
+          }),
+          args,
+        );
+      }
+      if (verb === "fetch") {
+        const artifacts = JSON.parse(await readFile(readRequiredStringFlag(args, "artifacts"), "utf8"));
+        return print(
+          await verifyAndFetchArtifacts(
+            readRequiredStringFlag(args, "source"),
+            readRequiredStringFlag(args, "destination"),
+            artifacts,
+            readRequiredStringFlag(args, "run-id"),
+          ),
+          args,
+        );
+      }
       throw new Error(`RUNPOD_LIVE_OPERATION_REQUIRES_SAVED_CONTROLLER_INPUT: ${verb}`);
     }
     const destructive = ["terminate", "cleanup"].includes(verb);

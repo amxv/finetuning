@@ -23,18 +23,60 @@
     "dimension": { "type": "integer", "minimum": 1 },
     "adapter": { "enum": ["lora", "full"] },
     "trustRemoteCode": { "type": "boolean" },
-    "executionGates": { "type":"object", "additionalProperties":false, "required":["allowModelLoad","licenseApproved","revisionPinned","remoteCodeReviewed","gpuQualified"], "properties":{"allowModelLoad":{"type":"boolean"},"licenseApproved":{"type":"boolean"},"revisionPinned":{"type":"boolean"},"remoteCodeReviewed":{"type":"boolean"},"gpuQualified":{"type":"boolean"}} },
-    "recipeIdentity": { "type":"object", "additionalProperties":false, "required":["modelRevision","tokenizerRevision"], "properties":{"modelRevision":{"type":"string","pattern":"^[a-f0-9]{40}$"},"tokenizerRevision":{"type":"string","pattern":"^[a-f0-9]{40}$"}} },
-    "trainingArguments": { "type":"object" },
+    "executionGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowModelLoad", "licenseApproved", "revisionPinned", "remoteCodeReviewed", "gpuQualified"],
+      "properties": {
+        "allowModelLoad": { "type": "boolean" },
+        "licenseApproved": { "type": "boolean" },
+        "revisionPinned": { "type": "boolean" },
+        "remoteCodeReviewed": { "type": "boolean" },
+        "gpuQualified": { "type": "boolean" }
+      }
+    },
+    "recipeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelRevision", "tokenizerRevision"],
+      "properties": {
+        "modelRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "tokenizerRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      }
+    },
+    "trainingArguments": { "type": "object" },
     "seed": { "type": "integer" },
     "immutableIdentity": {
       "type": "object",
-      "required": ["modelRevision", "tokenizerRevision", "configRevision", "dataHash", "splitHash", "taskMapping", "prompts", "pooling", "padding", "normalization", "dimensions", "objective", "seed"],
+      "required": [
+        "modelRevision",
+        "tokenizerRevision",
+        "configRevision",
+        "dataHash",
+        "splitHash",
+        "taskMapping",
+        "prompts",
+        "pooling",
+        "padding",
+        "normalization",
+        "dimensions",
+        "objective",
+        "seed"
+      ],
       "properties": {
-        "modelRevision": { "type": "string", "minLength": 1 }, "tokenizerRevision": { "type": "string", "minLength": 1 }, "configRevision": { "type": "string", "minLength": 1 },
-        "dataHash": { "type": "string", "minLength": 1 }, "splitHash": { "type": "string", "minLength": 1 }, "taskMapping": {}, "prompts": {},
-        "pooling": { "type": "string", "minLength": 1 }, "padding": { "type": "string", "minLength": 1 }, "normalization": {},
-        "dimensions": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 1 } }, "objective": { "type": "string", "minLength": 1 }, "seed": { "type": "integer" }
+        "modelRevision": { "type": "string", "minLength": 1 },
+        "tokenizerRevision": { "type": "string", "minLength": 1 },
+        "configRevision": { "type": "string", "minLength": 1 },
+        "dataHash": { "type": "string", "minLength": 1 },
+        "splitHash": { "type": "string", "minLength": 1 },
+        "taskMapping": {},
+        "prompts": {},
+        "pooling": { "type": "string", "minLength": 1 },
+        "padding": { "type": "string", "minLength": 1 },
+        "normalization": {},
+        "dimensions": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 1 } },
+        "objective": { "type": "string", "minLength": 1 },
+        "seed": { "type": "integer" }
       },
       "additionalProperties": false
     },

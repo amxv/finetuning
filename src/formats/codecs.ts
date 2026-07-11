@@ -1,7 +1,7 @@
 import { datasetSchemaVersion, type CanonicalMessageV1, type DatasetExampleV1 } from "../core/canonical.js";
 import type { JsonObject, ToolSchema } from "../core/model.js";
 import type { OpenAIChatFineTuningRow } from "../core/openai.js";
-import type { CodecId, ConversionLoss, ConversionResult, DatasetCodec } from "./contracts.js";
+import type { CodecId, ConversionLoss, DatasetCodec } from "./contracts.js";
 
 type HFConversation = { messages: Array<{ role: string; content: string }>; [key: string]: unknown };
 type HFText = { text: string; [key: string]: unknown };
@@ -40,7 +40,7 @@ export const openAIChatCodec: DatasetCodec<OpenAIChatFineTuningRow> = {
   detect: (v) => (isRecord(v) && Array.isArray(v.messages) ? 0.8 : 0),
   decode(row) {
     const losses: ConversionLoss[] = [];
-    const messages: CanonicalMessageV1[] = row.messages.map((message, index) => {
+    const messages: CanonicalMessageV1[] = row.messages.map((message) => {
       const content = typeof message.content === "string" ? [{ type: "text" as const, text: message.content }] : [];
       if (message.role === "assistant" && message.tool_calls)
         return {

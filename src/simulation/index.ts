@@ -15,11 +15,7 @@ import type {
   ToolResultMessage,
   ToolSchema,
 } from "../core/index.js";
-import {
-  findBundledScenarioProfile,
-  parseScenarioDefinition,
-  parseScenarioDefinitionJson,
-} from "../core/index.js";
+import { findBundledScenarioProfile, parseScenarioDefinition, parseScenarioDefinitionJson } from "../core/index.js";
 import type { ModelClient } from "../providers/index.js";
 import { ProviderResponseError, ProviderToolCallError } from "../providers/index.js";
 import type { ModelMessage, ModelProviderKind } from "../providers/index.js";
@@ -140,9 +136,7 @@ export function createDeterministicPersonaGenerator(): PersonaGenerator {
   };
 }
 
-export function createModelBackedPersonaGenerator(
-  options: ModelBackedPersonaGeneratorOptions,
-): PersonaGenerator {
+export function createModelBackedPersonaGenerator(options: ModelBackedPersonaGeneratorOptions): PersonaGenerator {
   return {
     async generate(request: PersonaGenerationRequest): Promise<PersonaDefinition[]> {
       assertPersonaCount(request.count);
@@ -178,8 +172,7 @@ export function createModelBackedPersonaGenerator(
         messages: [
           {
             role: "system",
-            content:
-              "Repair persona JSON. Return only a valid JSON array matching the requested shape. No markdown.",
+            content: "Repair persona JSON. Return only a valid JSON array matching the requested shape. No markdown.",
           },
           { role: "user", content: buildPersonaRepairPrompt(firstPrompt, firstParsed.error) },
         ],
@@ -263,9 +256,7 @@ export function createDeterministicSimulationRunner(): SimulationRunner {
   };
 }
 
-export function createModelBackedSimulationRunner(
-  options: ModelBackedSimulationRunnerOptions,
-): SimulationRunner {
+export function createModelBackedSimulationRunner(options: ModelBackedSimulationRunnerOptions): SimulationRunner {
   return {
     async run(request: SimulationRequest): Promise<ConversationTrajectory[]> {
       const mode = request.mode ?? "full_tool_trajectory";
@@ -275,7 +266,16 @@ export function createModelBackedSimulationRunner(
       const trajectories: ConversationTrajectory[] = [];
 
       for (const [index, persona] of personas.entries()) {
-        trajectories.push(await simulateModelBackedTrajectory(request.scenario.definition, persona, index, mode, options, toolResultProvider));
+        trajectories.push(
+          await simulateModelBackedTrajectory(
+            request.scenario.definition,
+            persona,
+            index,
+            mode,
+            options,
+            toolResultProvider,
+          ),
+        );
       }
 
       return trajectories;
@@ -619,10 +619,7 @@ function validateProviderToolCall(
   return toolCall;
 }
 
-function assertUniqueProviderToolCallIds(
-  toolCalls: ToolCall[],
-  options: ModelBackedSimulationRunnerOptions,
-): void {
+function assertUniqueProviderToolCallIds(toolCalls: ToolCall[], options: ModelBackedSimulationRunnerOptions): void {
   const seen = new Set<string>();
   for (const toolCall of toolCalls) {
     if (seen.has(toolCall.id)) {
@@ -715,7 +712,9 @@ function matchesJsonSchemaValue(value: JsonValue, schema: JsonSchemaValue): bool
     case "boolean":
       return typeof value === "boolean";
     case "array":
-      return Array.isArray(value) && (!schema.items || value.every((item) => matchesJsonSchemaValue(item, schema.items!)));
+      return (
+        Array.isArray(value) && (!schema.items || value.every((item) => matchesJsonSchemaValue(item, schema.items!)))
+      );
     case "null":
       return value === null;
   }
@@ -757,7 +756,8 @@ function toModelMessages(messages: ConversationMessage[]): ModelMessage[] {
         return [
           {
             role: "tool",
-            content: typeof message.result.result === "string" ? message.result.result : JSON.stringify(message.result.result),
+            content:
+              typeof message.result.result === "string" ? message.result.result : JSON.stringify(message.result.result),
             toolCallId: message.result.toolCallId,
             name: message.result.name,
           },
@@ -906,9 +906,7 @@ function parseModelPersonaResponse(
   return parsePersonaArray(parsed);
 }
 
-function parsePersonaArray(
-  value: unknown,
-): { ok: true; personas: PersonaDefinition[] } | { ok: false; error: string } {
+function parsePersonaArray(value: unknown): { ok: true; personas: PersonaDefinition[] } | { ok: false; error: string } {
   if (!Array.isArray(value)) {
     return { ok: false, error: "persona response must be a JSON array" };
   }

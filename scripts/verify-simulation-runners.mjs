@@ -24,7 +24,9 @@ await assertDuplicateToolCallIdRejected();
 await assertMismatchedToolResultRejected();
 await assertEmptyFinalAssistantRejected();
 
-console.log("Verified deterministic and model-backed simulation runners, tool flow, mode behavior, and provider validation.");
+console.log(
+  "Verified deterministic and model-backed simulation runners, tool flow, mode behavior, and provider validation.",
+);
 
 async function assertDeterministicRunnerParity() {
   const runner = createDeterministicSimulationRunner();
@@ -202,7 +204,10 @@ async function assertFakeModelMultipleToolCallFlow() {
   assertValidOpenAIFineTuningRow(row);
   assertRoles(row, "system,user,assistant,tool,tool,assistant");
 
-  if (row.messages[2].tool_calls?.length !== 2 || row.messages.filter((message) => message.role === "tool").length !== 2) {
+  if (
+    row.messages[2].tool_calls?.length !== 2 ||
+    row.messages.filter((message) => message.role === "tool").length !== 2
+  ) {
     throw new Error(`Multi-tool provider flow did not preserve two calls and two results: ${JSON.stringify(row)}`);
   }
 }
@@ -245,7 +250,9 @@ async function assertToolDecisionStopsAtAssistantToolCall() {
   assertRoles(row, "system,user,assistant");
 
   if (trajectory.messages.length !== 3 || trajectory.messages[2]?.kind !== "assistant_tool_call") {
-    throw new Error(`Tool-decision trajectory did not stop at assistant tool call: ${JSON.stringify(trajectory.messages)}`);
+    throw new Error(
+      `Tool-decision trajectory did not stop at assistant tool call: ${JSON.stringify(trajectory.messages)}`,
+    );
   }
 }
 
@@ -437,7 +444,9 @@ function assertFinalRequestIncludesAssistantToolHistory(request) {
   const toolResultIndex = request.messages.findIndex((message) => message.role === "tool");
 
   if (assistantToolCallIndex < 0 || toolResultIndex < 0 || assistantToolCallIndex > toolResultIndex) {
-    throw new Error(`Final model request did not preserve assistant tool-call history before tool results: ${JSON.stringify(request.messages)}`);
+    throw new Error(
+      `Final model request did not preserve assistant tool-call history before tool results: ${JSON.stringify(request.messages)}`,
+    );
   }
 
   const assistantMessage = request.messages[assistantToolCallIndex];
@@ -462,7 +471,8 @@ function assertFinalAnthropicRequestGroupsParallelToolResults(request) {
       message.content.filter((block) => block.type === "tool_use").length === 2,
   );
   const toolResultMessages = mapped.messages.filter(
-    (message) => message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
+    (message) =>
+      message.role === "user" && Array.isArray(message.content) && message.content[0]?.type === "tool_result",
   );
   const toolResultMessage = toolResultMessages[0];
 
@@ -480,10 +490,9 @@ function assertFinalAnthropicRequestGroupsParallelToolResults(request) {
   }
 
   const finalPromptBlock = toolResultMessage.content[2];
-  if (
-    finalPromptBlock?.type !== "text" ||
-    !finalPromptBlock.text.includes("Write the final assistant response")
-  ) {
-    throw new Error(`Anthropic final request did not keep final user text after tool results: ${JSON.stringify(mapped.messages)}`);
+  if (finalPromptBlock?.type !== "text" || !finalPromptBlock.text.includes("Write the final assistant response")) {
+    throw new Error(
+      `Anthropic final request did not keep final user text after tool results: ${JSON.stringify(mapped.messages)}`,
+    );
   }
 }

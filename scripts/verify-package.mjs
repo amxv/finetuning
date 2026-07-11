@@ -16,13 +16,29 @@ if (process.argv.includes("--source-only")) process.exit(0);
 
 const directory = await mkdtemp(join(tmpdir(), "finetuning-pack-audit-"));
 try {
-  const { stdout } = await exec("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", directory], { cwd: root });
+  const { stdout } = await exec("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", directory], {
+    cwd: root,
+  });
   const [packed] = JSON.parse(stdout);
   const names = packed.files.map(({ path }) => path);
-  for (const required of ["package.json", "LICENSE", "README.md", "CHANGELOG.md", "MIGRATION.md", "SUPPORT.md", "dist/index.js", "dist/cli/index.js"])
+  for (const required of [
+    "package.json",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md",
+    "MIGRATION.md",
+    "SUPPORT.md",
+    "dist/index.js",
+    "dist/cli/index.js",
+  ])
     assert(names.includes(required), `packed NPM artifact is missing ${required}`);
-  const forbidden = /(^|\/)(\.env|node_modules|python|tmp|outputs|coverage|__pycache__)(\/|$)|\.(pem|key|pt|bin|safetensors)$/i;
-  assert.deepEqual(names.filter((name) => forbidden.test(name)), [], "packed NPM artifact contains forbidden content");
+  const forbidden =
+    /(^|\/)(\.env|node_modules|python|tmp|outputs|coverage|__pycache__)(\/|$)|\.(pem|key|pt|bin|safetensors)$/i;
+  assert.deepEqual(
+    names.filter((name) => forbidden.test(name)),
+    [],
+    "packed NPM artifact contains forbidden content",
+  );
   assert(packed.size < 2_000_000, `packed NPM artifact is unexpectedly large: ${packed.size}`);
 } finally {
   await rm(directory, { recursive: true, force: true });

@@ -7,7 +7,7 @@ export async function getStaticPaths() {
 
   return entries.map((entry) => ({
     params: { slug: entry.id },
-    props: { filePath: entry.filePath }
+    props: { filePath: entry.filePath },
   }));
 }
 
@@ -16,8 +16,8 @@ export async function GET({ props }: { props: { filePath?: string } }) {
     return new Response("Markdown source not found.\n", {
       status: 404,
       headers: {
-        "Content-Type": "text/plain; charset=utf-8"
-      }
+        "Content-Type": "text/plain; charset=utf-8",
+      },
     });
   }
 
@@ -25,7 +25,7 @@ export async function GET({ props }: { props: { filePath?: string } }) {
 
   return new Response(source, {
     headers: {
-      "Content-Type": "text/markdown; charset=utf-8"
-    }
+      "Content-Type": "text/markdown; charset=utf-8",
+    },
   });
 }

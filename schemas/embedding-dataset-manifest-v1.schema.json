@@ -1,1 +1,29 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://amxv.dev/schemas/embedding-dataset-manifest-v1.schema.json","type":"object","required":["embeddingDatasetManifestVersion","id","recordsHash","recordCount","recordKinds","splitGroups","sourceRevisions","vectorShards","contaminationScanHash","createdAt"],"properties":{"embeddingDatasetManifestVersion":{"const":"1.0.0"},"id":{"type":"string"},"recordsHash":{"type":"string"},"recordCount":{"type":"integer","minimum":0},"recordKinds":{"type":"array"},"splitGroups":{"type":"array"},"sourceRevisions":{"type":"array"},"vectorShards":{"type":"array"},"contaminationScanHash":{"type":"string"},"createdAt":{"type":"string"}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/schemas/embedding-dataset-manifest-v1.schema.json",
+  "type": "object",
+  "required": [
+    "embeddingDatasetManifestVersion",
+    "id",
+    "recordsHash",
+    "recordCount",
+    "recordKinds",
+    "splitGroups",
+    "sourceRevisions",
+    "vectorShards",
+    "contaminationScanHash",
+    "createdAt"
+  ],
+  "properties": {
+    "embeddingDatasetManifestVersion": { "const": "1.0.0" },
+    "id": { "type": "string" },
+    "recordsHash": { "type": "string" },
+    "recordCount": { "type": "integer", "minimum": 0 },
+    "recordKinds": { "type": "array" },
+    "splitGroups": { "type": "array" },
+    "sourceRevisions": { "type": "array" },
+    "vectorShards": { "type": "array" },
+    "contaminationScanHash": { "type": "string" },
+    "createdAt": { "type": "string" }
+  }
+}

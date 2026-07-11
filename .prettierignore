@@ -2,6 +2,13 @@ dist
 docs-dist
 node_modules
 tmp
-package-lock.json
 test/snapshots
 gg
+python
+coverage
+.astro
+release-artifacts
+*.tgz
+schemas/runpod-openapi.json
+contracts/runpod/openapi-*.json
+docs/runpod-evidence

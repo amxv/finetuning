@@ -27,7 +27,7 @@
     "src/orchestration/**/*.ts",
     "src/distillation/**/*.ts",
     "src/node/**/*.ts",
-    "src/experimental/**/*.ts"
-    ,"src/execution/**/*.ts"
+    "src/experimental/**/*.ts",
+    "src/execution/**/*.ts"
   ]
 }

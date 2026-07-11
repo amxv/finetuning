@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { canonicalSha256 } from "../core/canonical.js";
 import { atomicWrite } from "../node/storage.js";
-import { EmbeddingSdkError, type EmbeddingServiceDependencies } from "./sdk.js";
+import { type EmbeddingServiceDependencies } from "./sdk.js";
 export const embeddingEvaluationSpecVersion = "embedding.evaluation.v1" as const,
   embeddingEvaluationReportVersion = "embedding.evaluation.report.v1" as const;
 export interface RankedQuery {

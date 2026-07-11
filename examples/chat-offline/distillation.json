@@ -1,1 +1,19 @@
-{"runId":"offline-chat-docs","salt":"docs","generator":{"provider":"openai","model":"not-attributed-in-fake-mode"},"judge":{"provider":"anthropic","model":"not-attributed-in-fake-mode","orderSwap":true},"compliance":{"sourceRights":{"status":"approved","basis":"project-owned fixture"},"teacherTerms":{"url":"https://example.invalid/offline","version":"offline","reviewedAt":"1970-01-01","approver":"fixture"},"intendedUse":"offline documentation test","retentionPolicy":"ephemeral","reasoningPolicy":"none","studentLicense":{"id":"Apache-2.0","version":"2.0"}}}
+{
+  "runId": "offline-chat-docs",
+  "salt": "docs",
+  "generator": { "provider": "openai", "model": "not-attributed-in-fake-mode" },
+  "judge": { "provider": "anthropic", "model": "not-attributed-in-fake-mode", "orderSwap": true },
+  "compliance": {
+    "sourceRights": { "status": "approved", "basis": "project-owned fixture" },
+    "teacherTerms": {
+      "url": "https://example.invalid/offline",
+      "version": "offline",
+      "reviewedAt": "1970-01-01",
+      "approver": "fixture"
+    },
+    "intendedUse": "offline documentation test",
+    "retentionPolicy": "ephemeral",
+    "reasoningPolicy": "none",
+    "studentLicense": { "id": "Apache-2.0", "version": "2.0" }
+  }
+}
