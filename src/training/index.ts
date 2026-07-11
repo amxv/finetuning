@@ -53,6 +53,14 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
     typeof value.dataset.recordsHash !== "string"
   )
     throw new Error("Invalid TrainingSpecV1 fields");
+  if(value.recipeId!=="cpu-tiny-fixture"){
+    const gates=value.executionGates;
+    if(!isObject(gates)||!["allowModelLoad","licenseApproved","revisionPinned","remoteCodeReviewed","gpuQualified"].every(k=>typeof gates[k]==="boolean"))throw new Error("Invalid production executionGates");
+    if(!isObject(value.recipeIdentity)||!sha40(value.recipeIdentity.modelRevision)||!sha40(value.recipeIdentity.tokenizerRevision)||!sha64(value.recipeIdentity.templateHash)||typeof value.recipeIdentity.reasoningPolicy!=="string")throw new Error("Invalid production recipeIdentity");
+    if(!["lora","qlora","full"].includes(String(value.adapter))||!isObject(value.trainingArguments))throw new Error("Invalid production adapter/trainingArguments");
+    if(value.adapter==="qlora"&&value.quantization!=="4bit")throw new Error("QLoRA requires 4bit quantization");
+    if(value.trustRemoteCode===true&&gates.remoteCodeReviewed!==true)throw new Error("Remote code review required");
+  }
   return value as unknown as TrainingSpecV1;
 }
 export function parseTrainingEvent(value: unknown): TrainingEventV1 {
@@ -78,3 +86,5 @@ export function parseArtifactManifest(value: unknown): ArtifactManifestV1 {
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+function sha40(v:unknown){return typeof v==="string"&&/^[a-f0-9]{40}$/.test(v)}
+function sha64(v:unknown){return typeof v==="string"&&/^[a-f0-9]{64}$/.test(v)}

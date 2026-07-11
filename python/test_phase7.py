@@ -17,7 +17,7 @@ class Phase7(unittest.TestCase):
             path=Path(d)/"warm.json";path.write_text(json.dumps({"model":{"weight":1}}));self.assertEqual(classify_checkpoint(path),"weights-only-warm-start")
     def test_production_and_hardware_preflight_are_actionable(self):
         with tempfile.TemporaryDirectory() as d:
-            spec=self.fixture(Path(d),"x");spec["recipeId"]="qwen3.6-27b";self.assertRaisesRegex(RuntimeError,"UNRESOLVED_RECIPE",preflight,spec)
+            spec=self.fixture(Path(d),"x");spec.update({"recipeId":"qwen3.6-27b","adapter":"qlora","quantization":"4bit","trainingArguments":{},"executionGates":{"allowModelLoad":False,"licenseApproved":False,"revisionPinned":False,"remoteCodeReviewed":False,"gpuQualified":False},"recipeIdentity":{"modelRevision":"a"*40,"tokenizerRevision":"a"*40,"templateHash":"b"*64,"reasoningPolicy":"none"}});self.assertRaisesRegex(RuntimeError,"UNRESOLVED_RECIPE",preflight,spec)
     def test_artifact_paths_fail_closed(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);outside=root/"outside";outside.write_text("secret");art=root/"art";art.mkdir();manifest={"artifactManifestVersion":"1.0.0","runId":"r","createdAt":"x","trainingSpecHash":"a"*64,"artifacts":[{"path":"../outside","sha256":"a"*64,"bytes":6,"kind":"file"}]};path=art/"artifact-manifest.json";path.write_text(json.dumps(manifest));self.assertRaisesRegex(ValueError,"unsafe artifact path",verify_artifacts,path)

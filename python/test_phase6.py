@@ -9,7 +9,7 @@ class OfflineTokenizerFixture:
         return list(range(len(rendered))) if tokenize else rendered
 class Phase6(unittest.TestCase):
     def test_contract_matrix(self):
-        spec={"trainingSpecVersion":"1.9.0","runId":"r","dataset":{},"recipeId":"x","outputDirectory":"x","objective":"sft","seed":0};self.assertEqual(parse_spec(spec),spec)
+        spec={"trainingSpecVersion":"1.9.0","runId":"r","dataset":{},"recipeId":"cpu-tiny-fixture","outputDirectory":"x","objective":"sft","seed":0};self.assertEqual(parse_spec(spec),spec)
         with self.assertRaises(ValueError):parse_event({"trainingEventVersion":"2.0.0"})
     def test_all_family_offline_audits(self):
         examples=[[{"role":"user","content":"u"},{"role":"assistant","content":"a"}] for _ in range(100)];expected=hashlib.sha256(OfflineTokenizerFixture.chat_template.encode()).hexdigest()

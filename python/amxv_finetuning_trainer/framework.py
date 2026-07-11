@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
-import hashlib
+import hashlib,json
+try:
+ import torch
+ _Module=torch.nn.Module
+except ImportError:
+ torch=None
+ _Module=object
 
 class FrameworkAdapter(Protocol):
     def load_tokenizer(self, model_id:str, revision:str, trust_remote_code:bool=False)->Any: ...
@@ -55,7 +61,7 @@ class HuggingFaceFramework:
     def train_sft(self,model,tokenizer,dataset,config):
         args=dict(config);resume=args.pop("resume_from_checkpoint",None);trainer=self.SFTTrainer(model=model,processing_class=tokenizer,train_dataset=dataset,args=self.SFTConfig(**args));trainer.train(resume_from_checkpoint=resume);return trainer
     def train_embedding(self,model,tokenizer,dataset,config):
-        args=dict(config);collator=args.pop("data_collator");resume=args.pop("resume_from_checkpoint",None);trainer=self.Trainer(model=model,train_dataset=dataset,data_collator=collator,args=self.TrainingArguments(**args));trainer.train(resume_from_checkpoint=resume);return trainer
+        args=dict(config);collator=args.pop("data_collator");resume=args.pop("resume_from_checkpoint",None);args.setdefault("remove_unused_columns",False);trainer=self.Trainer(model=model,train_dataset=dataset,data_collator=collator,args=self.TrainingArguments(**args));trainer.train(resume_from_checkpoint=resume);return trainer
     def save(self,trainer,output,*,adapter_only):output.mkdir(parents=True,exist_ok=True);trainer.save_model(str(output));trainer.tokenizer.save_pretrained(str(output)) if getattr(trainer,"tokenizer",None) else None;return sorted(p.name for p in output.iterdir())
 
 def require_execution_gates(spec:dict[str,Any])->None:
@@ -81,7 +87,11 @@ RECIPES={
 def resolve_recipe(recipe_id,track):
  recipe=RECIPES.get(recipe_id)
  if not recipe or recipe["track"]!=track:raise RuntimeError(f"RECIPE_DESCRIPTOR_UNAVAILABLE: {recipe_id}")
- return recipe
+ evidence_path=Path(__file__).with_name("recipe-evidence.json")
+ evidence=json.loads(evidence_path.read_text())["recipes"].get(recipe_id,{}) if evidence_path.exists() else {}
+ resolved={**recipe,**{k:v for k,v in evidence.items() if k in ("modelRevision","tokenizerRevision")}}
+ if evidence.get("status")!="supported" and evidence.get("unavailableReasons"):resolved["blocked"]="; ".join(evidence["unavailableReasons"])
+ return resolved
 def execute_recipe(spec:dict[str,Any],rows:list[dict[str,Any]],framework:FrameworkAdapter,track:str)->dict[str,Any]:
     recipe=resolve_recipe(spec["recipeId"],track)
     if recipe.get("blocked"):raise RuntimeError("RECIPE_EVIDENCE_UNAVAILABLE: "+recipe["blocked"])
@@ -99,11 +109,11 @@ def execute_recipe(spec:dict[str,Any],rows:list[dict[str,Any]],framework:Framewo
         if any(m.get("role") not in allowed for row in rows for m in row.get("messages",[])):raise RuntimeError("CHAT_ROLE_UNSUPPORTED")
         if not recipe.get("lora",{}).get("target_modules") and spec.get("adapter") in ("lora","qlora"):raise RuntimeError("LORA_TARGETS_UNRESOLVED")
     model=framework.load_model(recipe["modelId"],recipe["modelRevision"],quantization=spec.get("quantization","bf16"),trust_remote_code=spec.get("trustRemoteCode",False),track=track)
+    if spec.get("adapter") in ("lora","qlora"):model=framework.attach_adapter(model,recipe["lora"])
     if track=="embedding":
         dimension=spec.get("dimension")
         if dimension is not None and dimension not in recipe["dimensions"]:raise RuntimeError("EMBED_DIMENSION_UNSUPPORTED")
         model=framework.wrap_embedding(model,recipe,dimension)
-    if spec.get("adapter") in ("lora","qlora"):model=framework.attach_adapter(model,recipe["lora"])
     if track=="chat":data=framework.prepare_chat(rows,tokenizer);collator=None
     else:data,collator=framework.prepare_embedding(rows,tokenizer,recipe)
     config=dict(spec.get("trainingArguments",{}));config.update({"resume_from_checkpoint":spec.get("checkpointPath")}) if spec.get("checkpointPath") else None
@@ -112,12 +122,11 @@ def execute_recipe(spec:dict[str,Any],rows:list[dict[str,Any]],framework:Framewo
     files=framework.save(trainer,Path(spec["outputDirectory"])/"portable",adapter_only=spec.get("adapter") in ("lora","qlora"))
     return {"track":track,"recipeId":spec["recipeId"],"portableFiles":files,"framework":"huggingface","uploads":False}
 
-class BiEncoder:
- def __init__(self,encoder,pooling,dimension=None,normalize=True):self.encoder,self.pooling,self.dimension,self.normalize=encoder,pooling,dimension,normalize
- def parameters(self):return self.encoder.parameters()
- def train(self,*a,**k):self.encoder.train(*a,**k);return self
- def __call__(self,query,document,**_):
-  import torch
+class BiEncoder(_Module):
+ def __init__(self,encoder,pooling,dimension=None,normalize=True):
+  if torch is None:raise RuntimeError("TRAINING_DEPENDENCY_MISSING: torch")
+  super().__init__();self.encoder,self.pooling,self.dimension,self.normalize=encoder,pooling,dimension,normalize
+ def forward(self,query,document,**_):
   q=self._encode(query);d=self._encode(document);logits=q@d.transpose(0,1);labels=torch.arange(logits.shape[0],device=logits.device);loss=torch.nn.functional.cross_entropy(logits,labels);return {"loss":loss,"logits":logits,"query_embeddings":q,"document_embeddings":d}
  def _encode(self,batch):
   import torch
@@ -127,3 +136,8 @@ class BiEncoder:
   else:pooled=(hidden*mask.unsqueeze(-1)).sum(1)/mask.sum(1,keepdim=True).clamp(min=1)
   if self.dimension:pooled=pooled[:,:self.dimension]
   return torch.nn.functional.normalize(pooled,p=2,dim=-1) if self.normalize else pooled
+ def save_pretrained(self,path):
+  target=Path(path);target.mkdir(parents=True,exist_ok=True);torch.save({"state_dict":self.state_dict(),"pooling":self.pooling,"dimension":self.dimension,"normalize":self.normalize},target/"biencoder.pt")
+ @classmethod
+ def from_pretrained(cls,path,encoder):
+  value=torch.load(Path(path)/"biencoder.pt",map_location="cpu",weights_only=True);model=cls(encoder,value["pooling"],value["dimension"],value["normalize"]);model.load_state_dict(value["state_dict"]);return model

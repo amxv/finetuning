@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { parseExecutionJob } from "../execution/index.js";
 import { planRunPodJob } from "../execution/runpod/index.js";
 import { RunPodTransport } from "../execution/runpod/index.js";
-import { RestRunPodLifecycleBackend,RunPodLifecycleController,verifyAndFetchArtifacts } from "../execution/runpod/lifecycle.js";
+import { RestRunPodLifecycleBackend,RunPodLifecycleController,verifyAndFetchArtifacts,ensureIndependentVolume } from "../execution/runpod/lifecycle.js";
 import { atomicWrite } from "../node/storage.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 const reads = new Set(["status", "orphans", "cost"]),
@@ -58,10 +58,14 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
     const sub = args.positionals[0];
     if (!["list", "ensure", "delete"].includes(sub ?? ""))
       throw new Error("Usage: finetuning runpod volume list|ensure|delete");
-    if (sub !== "list" && !readBooleanFlag(args, "dry-run"))
-      throw new Error(
-        "RUNPOD_MUTATION_UNAVAILABLE: use --dry-run; Phase 21 production mutation awaits live qualification",
-      );
+    if (!readBooleanFlag(args,"dry-run")) {
+      if(!readBooleanFlag(args,"allow-live")||!readBooleanFlag(args,"i-accept-billing")||!readBooleanFlag(args,"i-own-resources"))throw new Error("RUNPOD_LIVE_OPT_IN_REQUIRED");
+      const auth=readRequiredStringFlag(args,"authorization-env");if(process.env[auth]!=="AUTHORIZED")throw new Error(`RUNPOD_LIVE_AUTHORIZATION_MISSING: ${auth}`);
+      const ownership=readRequiredStringFlag(args,"ownership-marker"),backend=new RestRunPodLifecycleBackend(new RunPodTransport({apiKeyEnv:readRequiredStringFlag(args,"api-key-env"),baseUrl:"https://rest.runpod.io/v1",timeoutMs:15000,maxResponseBytes:1048576}),true);
+      if(sub==="list")return print({operation:"volume list",volumes:(await backend.listVolumes()).filter(v=>v.ownershipMarker===ownership)},args);
+      if(sub==="ensure")return print(await ensureIndependentVolume(backend,{name:readRequiredStringFlag(args,"name"),sizeGiB:Number(readRequiredStringFlag(args,"size-gib")),dataCenterId:readRequiredStringFlag(args,"data-center-id"),ownershipMarker:ownership}),args);
+      if(!readBooleanFlag(args,"yes"))throw new Error("volume delete requires --yes");const id=readRequiredStringFlag(args,"id"),volume=(await backend.listVolumes()).find(v=>v.id===id);if(!volume||volume.ownershipMarker!==ownership)throw new Error("foreign volume deletion refused");await backend.deleteVolume(id);return print({operation:"volume delete",id,deleted:true},args);
+    }
     return print(
       {
         operation: `volume ${sub}`,

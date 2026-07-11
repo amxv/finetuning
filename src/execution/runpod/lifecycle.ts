@@ -123,6 +123,12 @@ export interface RunPodLifecycleBackend {
   deleteVolume(id: string): Promise<void>;
 }
 export interface RunPodMutationTransport { request(path:string,init?:RequestInit):Promise<unknown> }
+export async function ensureIndependentVolume(backend:RunPodLifecycleBackend,input:Omit<LifecycleVolume,"id">):Promise<LifecycleVolume>{
+ const matches=(await backend.listVolumes()).filter(v=>v.name===input.name);
+ if(matches.length>1)throw new RunPodError("RUNPOD_INCOMPATIBLE","ambiguous owned volume name");
+ const found=matches[0];if(found){if(found.ownershipMarker!==input.ownershipMarker)throw new RunPodError("RUNPOD_FORBIDDEN","foreign volume adoption refused");if(found.dataCenterId!==input.dataCenterId||found.sizeGiB!==input.sizeGiB)throw new RunPodError("RUNPOD_INCOMPATIBLE","owned volume shape mismatch");return found}
+ return backend.createVolume(input)
+}
 export class RestRunPodLifecycleBackend implements RunPodLifecycleBackend {
   constructor(private transport:RunPodMutationTransport,private liveAuthorized=false){}
   private gate(){if(!this.liveAuthorized)throw new RunPodError("RUNPOD_FORBIDDEN","live RunPod mutations require explicit allowLive authorization")}
@@ -233,6 +239,9 @@ export class RunPodLifecycleController {
       if (state.providerPodId)
         return result("launch", state.runId, state.status, state.providerPodId, state.providerVolumeId);
     }
+    const byId=(await this.backend.listVolumes()).find(v=>v.id===plan.volume.id);
+    if(byId&&(byId.ownershipMarker!==this.ownershipMarker||byId.dataCenterId!==plan.volume.dataCenterId||byId.sizeGiB!==plan.disk.volumeGiB))throw new RunPodError(byId.ownershipMarker!==this.ownershipMarker?"RUNPOD_FORBIDDEN":"RUNPOD_INCOMPATIBLE","foreign or mismatched planned volume refused");
+    const volume=byId??await ensureIndependentVolume(this.backend,{name:`amxv-${job.runId}`,dataCenterId:plan.volume.dataCenterId,sizeGiB:plan.disk.volumeGiB,ownershipMarker:this.ownershipMarker});
     const found = (await this.backend.listPods()).find(
       (p) =>
         p.specHash === plan.specHash &&
@@ -244,21 +253,21 @@ export class RunPodLifecycleController {
       await this.writeState(state);
       return result("launch", job.runId, "running", found.id, found.volumeId);
     }
-    state = this.newState(job, plan, "creating-pod", undefined, plan.volume.id);
+    state = this.newState(job, plan, "creating-pod", undefined, volume.id);
     await this.writeState(state);
     const pod = await this.backend.createPod({
       name: `amxv-${job.runId}`,
       imageDigest: plan.image.digest,
       ownershipMarker: this.ownershipMarker,
       specHash: plan.specHash,
-      volumeId: plan.volume.id,
+      volumeId: volume.id,
       gpuType: plan.gpu.type,
       gpuCount: 1,
       containerDiskGiB: plan.disk.containerGiB,
     });
     state = { ...state, status: "running", providerPodId: pod.id, updatedAt: this.now() };
     await this.writeState(state);
-    return result("launch", job.runId, "running", pod.id, plan.volume.id);
+    return result("launch", job.runId, "running", pod.id, volume.id);
   }
   async status(): Promise<RunPodRunStateV1> {
     const s = await this.readState();

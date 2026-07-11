@@ -93,8 +93,9 @@ test("cleanup refuses foreign volume and fetch verifies hashes", async () => {
     j = job(),
     p = planRunPodJob(j, evidence(j)),
     ctl = new RunPodLifecycleController(backend, join(root, "state.json"), "owner");
-  backend.volumes.push({ id: "volume-1", name: "v", dataCenterId: "TEST-1", sizeGiB: 40, ownershipMarker: "foreign" });
+  backend.volumes.push({ id: "volume-1", name: "v", dataCenterId: "TEST-1", sizeGiB: 40, ownershipMarker: "owner" });
   await ctl.launch(j, p);
+  backend.volumes[0].ownershipMarker = "foreign";
   await assert.rejects(
     () => ctl.cleanup({ deleteRunPrefix: false, deleteVolume: true, yes: true, dryRun: false }),
     /foreign/,

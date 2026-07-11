@@ -37,4 +37,7 @@ where = ["."]
 include = ["amxv_finetuning_trainer*"]
 
 [tool.setuptools]
-include-package-data = false
+include-package-data = true
+
+[tool.setuptools.package-data]
+amxv_finetuning_trainer = ["recipe-evidence.json"]
