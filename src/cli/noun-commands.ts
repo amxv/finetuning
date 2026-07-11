@@ -21,8 +21,13 @@ import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringF
 import { runEmbedCommand } from "./embed-data.js";
 import { runEmbedPhase13 } from "./embed-distill.js";
 import { printEmbedHelp, runEmbedProduct } from "./embed-product.js";
+import { runRunPodCommand } from "./runpod.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
+  if (noun === "runpod") {
+    await runRunPodCommand(rawArgs);
+    return true;
+  }
   if (noun === "embed") {
     if (!rawArgs.length || rawArgs[0] === "--help" || rawArgs[0] === "-h") printEmbedHelp();
     else if (rawArgs[0] === "data") await runEmbedCommand(rawArgs);

@@ -193,6 +193,7 @@ export function requireReconcileBeforeRetry(state: RunPodProviderStateV1): void 
   if (state.providerPodId)
     throw new RunPodError("RUNPOD_INCOMPATIBLE", "ambiguous mutation must be reconciled by provider ID before retry");
 }
+export * from "./lifecycle.js";
 function parsePods(v: unknown) {
   if (!Array.isArray(v)) throw incompatible("pod list");
   return v.map(parsePod);
