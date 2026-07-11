@@ -14,3 +14,4 @@ No package is published by this repository configuration; both distributions rem
 - Added isolated preference-record codecs and deterministic DPO/ORPO CPU fixtures.
 - Added local-only top-k logit and feature-alignment plugin contracts with storage, alignment, resume, and artifact-integrity gates.
 - Black-box response providers explicitly reject logit and hidden-feature capability claims.
+- Added isolated durable remote-runner, provider-batch, object/lease, distributed dedupe, human-review, gated Parquet, governed-log, and lineage-deletion contracts with local fault fixtures.
