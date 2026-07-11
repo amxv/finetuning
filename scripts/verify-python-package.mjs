@@ -37,6 +37,10 @@ try {
   const python = process.platform === "win32" ? join(venv, "Scripts", "python.exe") : join(venv, "bin", "python");
   await exec("uv", ["pip", "install", "--python", python, "--no-deps", wheel]);
   await exec(python, ["-c", "import amxv_finetuning_trainer; from amxv_finetuning_trainer.cli import main"]);
+  await exec(python, [
+    "-c",
+    "from amxv_finetuning_trainer.contracts import VERSIONS; from amxv_finetuning_trainer.embedding_training import SPEC_VERSION,EVENT_VERSION,ARTIFACT_VERSION; assert VERSIONS['trainingSpecVersion']=='1.0.0'; assert VERSIONS['trainingEventVersion']=='1.0.0'; assert SPEC_VERSION=='embedding.training.v1'; assert EVENT_VERSION=='embedding.training.event.v1'; assert ARTIFACT_VERSION=='embedding.training.artifact.v1'",
+  ]);
   const { stdout: help } = await exec(python, ["-m", "amxv_finetuning_trainer.cli", "--help"]);
   assert.match(help, /prepare.*run.*resume.*status.*evaluate.*export.*verify/s);
   const pyproject = await readFile(new URL("pyproject.toml", root), "utf8");

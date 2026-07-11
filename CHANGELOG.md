@@ -6,6 +6,8 @@
 - Preserved legacy imports and flat CLI commands; `convert-logs` remains deliberately deferred.
 - Moved OpenAI and Anthropic SDKs to optional peers with provider-specific missing-peer guidance.
 - Added curated NPM and Python artifact verification plus executable offline documentation examples.
+- Unified chat and embedding private-alpha packaging with machine-readable recipe support gates, protocol compatibility, license/NOTICE inventory, provenance, reproducible pack checks, and clean all-subpath consumers.
+- All five production embedding recipes and six production chat recipes remain unavailable pending recorded license, hardware, reload, and evaluation evidence; the Qwen 9B pilot remains experimental.
 
 No package is published by this repository configuration; both distributions remain private alpha artifacts.
 

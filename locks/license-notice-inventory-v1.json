@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "packageLicense": { "expression": "Apache-2.0", "licenseFile": "LICENSE", "noticeFile": "NOTICE" },
+  "npm": { "bundledRuntimeDependencies": [], "optionalPeers": ["openai", "@anthropic-ai/sdk"] },
+  "python": { "bundledRuntimeDependencies": [], "optionalTrainingExtra": "not bundled" },
+  "models": { "source": "embedding-models-v1.json", "artifactsBundled": false, "verificationRequiredBeforeUse": true },
+  "datasets": [{ "path": "examples/embedding-offline", "license": "CC0-1.0", "synthetic": true }],
+  "excluded": ["weights", "provider-envelopes", "third-party-evaluation-corpora"]
+}

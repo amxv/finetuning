@@ -119,6 +119,8 @@
     "CHANGELOG.md",
     "MIGRATION.md",
     "SUPPORT.md",
+    "NOTICE",
+    "RELEASE-PROVENANCE.json",
     "LICENSE",
     "README.md"
   ],
@@ -144,7 +146,8 @@
     "verify:simulation-runners": "npm run build && node scripts/verify-simulation-runners.mjs",
     "verify:package": "node scripts/verify-package.mjs",
     "verify:python": "node scripts/verify-python-package.mjs",
-    "verify:product": "npm run test && npm run api:check && npm run verify:package && npm run verify:python",
+    "verify:release": "npm run build && node scripts/verify-release-readiness.mjs",
+    "verify:product": "npm run test && npm run api:check && npm run verify:package && npm run verify:python && npm run verify:release",
     "verify:docs": "npm run build && node scripts/verify-readme-workflow.mjs && node scripts/verify-docs.mjs && node scripts/verify-phase17-docs.mjs",
     "prepack": "tsc && node scripts/api-report.mjs --check && node scripts/verify-package.mjs --source-only",
     "verify": "npm run verify:product"

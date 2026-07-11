@@ -1,0 +1,10 @@
+{
+  "formatVersion": "1.0.0",
+  "releaseKind": "private-alpha-rehearsal",
+  "publishAuthorized": false,
+  "independentAcceptanceComplete": false,
+  "source": "current reviewed commit supplied by the build environment",
+  "artifacts": ["npm-tarball", "python-wheel", "python-sdist"],
+  "requiredGates": ["verify:product", "verify:docs", "api:check", "verify:package", "verify:python", "verify:release"],
+  "excluded": ["model-weights", "paid-provider-envelopes", "credentials", "caches", "unlicensed-evaluation-data"]
+}

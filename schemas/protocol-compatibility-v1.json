@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "npm": {
+    "package": "@amxv/finetuning",
+    "version": "0.0.0",
+    "node": ["20.19", "22", "24"],
+    "os": ["linux", "macos", "windows"]
+  },
+  "python": {
+    "package": "amxv-finetuning-trainer",
+    "version": "0.0.0",
+    "python": ">=3.9",
+    "platforms": ["linux", "macos", "windows"]
+  },
+  "protocols": {
+    "chatTrainingSpec": "1.0.0",
+    "chatEvents": "1.0.0",
+    "embeddingTrainingSpec": "embedding.training.v1",
+    "embeddingEvents": "embedding.training.event.v1",
+    "embeddingArtifacts": "embedding.training.artifact.v1"
+  },
+  "rule": "Compatible major versions only; incompatible majors fail closed."
+}

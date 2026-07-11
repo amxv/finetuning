@@ -7,3 +7,5 @@ Version `0.0.x` is an alpha: canonical version negotiation, legacy commands/impo
 - Provider networking, model downloads, CUDA, paid calls, uploads, and remote code are never implicit.
 - Deprecations are documented in the changelog and migration guide and retain compatibility for at least one subsequent alpha minor unless a security issue requires earlier removal.
 - Apache-2.0 covers this repository's code; users remain responsible for dataset rights, teacher terms, model licenses, privacy, trademarks, and regulated uses.
+- Machine-readable status lives in `locks/recipe-support-v1.json`. `supported` means every declared gate passed for the stated scope, `experimental` is non-production, and `unavailable` must fail closed. The supported CPU embedding fixture is test-only and is not model support.
+- Private alpha artifact rehearsal does not authorize publishing and is not the final independent acceptance review.

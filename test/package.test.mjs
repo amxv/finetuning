@@ -22,6 +22,15 @@ test("packed package imports and runs its bin in a clean ESM consumer", async ()
       'import * as sdk from "@amxv/finetuning"; import * as experimental from "@amxv/finetuning/experimental/advanced-distillation"; import * as embeddings from "@amxv/finetuning/embeddings"; import * as formats from "@amxv/finetuning/embeddings/formats"; import * as distillation from "@amxv/finetuning/embeddings/distillation"; import * as training from "@amxv/finetuning/embeddings/training"; import * as evaluation from "@amxv/finetuning/embeddings/evaluation"; if (!sdk.validateOpenAIJsonl || !experimental.validateLogitTarget || !embeddings.EmbeddingDatasetBuilder || !formats.decodeEmbeddingRow || !distillation.EmbeddingDistillationPipeline || !training.EmbeddingTrainingRun || !evaluation.EmbeddingEvaluator || "validateLogitTarget" in sdk || "validateEmbeddingRecord" in sdk) throw new Error("missing or leaked export");\n',
     );
     await execFileAsync(process.execPath, ["consumer.mjs"], { cwd: fixture });
+    const sourcePackage = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    for (const subpath of Object.keys(sourcePackage.exports).filter((key) => key !== "./package.json")) {
+      const specifier = subpath === "." ? "@amxv/finetuning" : `@amxv/finetuning/${subpath.slice(2)}`;
+      await execFileAsync(
+        process.execPath,
+        ["--input-type=module", "--eval", `await import(${JSON.stringify(specifier)})`],
+        { cwd: fixture },
+      );
+    }
     await writeFile(
       join(fixture, "embedding-example.ts"),
       'import { runEmbeddingSdkExample } from "@amxv/finetuning/examples/embedding-sdk"; const result = await runEmbeddingSdkExample(); if (!result.validation.valid) throw new Error("invalid");\n',

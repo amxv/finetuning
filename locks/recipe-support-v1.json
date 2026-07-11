@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-07-12",
+  "policy": "Status is derived from recorded gates. Missing evidence fails closed to unavailable.",
+  "recipes": [
+    {
+      "track": "chat",
+      "id": "qwen3.6-27b",
+      "status": "unavailable",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "chat",
+      "id": "qwen3.6-35b-a3b",
+      "status": "unavailable",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "chat",
+      "id": "nemotron-cascade-2-30b-a3b",
+      "status": "unavailable",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "chat",
+      "id": "nemotron-3-nano-30b-a3b",
+      "status": "unavailable",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "chat",
+      "id": "olmo-3.1-32b-instruct",
+      "status": "unavailable",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "chat",
+      "id": "olmo-3.1-32b-think",
+      "status": "unavailable",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "chat",
+      "id": "qwen3.5-9b-pilot",
+      "status": "experimental",
+      "gates": { "pinnedLicense": false, "gpuSmoke": false, "reload": false, "evaluation": false }
+    },
+    {
+      "track": "embedding",
+      "id": "qwen3-embed-0.6b-lora",
+      "status": "unavailable",
+      "modelId": "Qwen/Qwen3-Embedding-0.6B"
+    },
+    {
+      "track": "embedding",
+      "id": "arctic-m-v2-full",
+      "status": "unavailable",
+      "modelId": "Snowflake/snowflake-arctic-embed-m-v2.0"
+    },
+    {
+      "track": "embedding",
+      "id": "bge-m3-dense",
+      "status": "unavailable",
+      "modelId": "BAAI/bge-m3",
+      "laterExperimental": ["sparse", "colbert", "hybrid"]
+    },
+    {
+      "track": "embedding",
+      "id": "nomic-v2-moe-native",
+      "status": "unavailable",
+      "modelId": "nomic-ai/nomic-embed-text-v2-moe"
+    },
+    {
+      "track": "embedding",
+      "id": "gte-multilingual-base-full",
+      "status": "unavailable",
+      "modelId": "Alibaba-NLP/gte-multilingual-base",
+      "laterExperimental": ["sparse"]
+    },
+    {
+      "track": "embedding",
+      "id": "cpu-tiny-embedding-fixture",
+      "status": "supported",
+      "scope": "offline-test-fixture-only"
+    }
+  ]
+}
