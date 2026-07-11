@@ -20,6 +20,7 @@ import type {
   TranslationStrategyChoice,
 } from "./context.js";
 import { printDatasetSummary, writeBatchFile } from "./io.js";
+import { printNounRootHelp, runNounCommand } from "./noun-commands.js";
 import {
   buildOpenAIFineTuningRow,
   bundledScenarioProfiles,
@@ -60,6 +61,8 @@ async function main(): Promise<void> {
     printHelp();
     return;
   }
+
+  if (await runNounCommand(commandName, rawArgs)) return;
 
   const args = parseArgs(rawArgs);
   if (readBooleanFlag(args, "help") || readBooleanFlag(args, "h")) {
@@ -556,6 +559,7 @@ function printHelp(): void {
 
   console.log("");
   console.log("Run finetuning <command> --help for command options.");
+  printNounRootHelp();
 }
 
 function printCommandHelp(commandName: string): void {

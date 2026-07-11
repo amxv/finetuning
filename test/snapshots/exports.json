@@ -198,10 +198,24 @@
     "trainingApiVersion"
   ],
   "@amxv/finetuning/orchestration": [
-    "orchestrationApiVersion"
+    "AttemptLedger",
+    "LocalDagExecutor",
+    "createStageCacheKey",
+    "datasetManifestVersion",
+    "eventProtocolVersion",
+    "freezeDataset",
+    "orchestrationApiVersion",
+    "runManifestVersion",
+    "stageStateVersion",
+    "verifyFrozenDataset"
   ],
   "@amxv/finetuning/distillation": [
     "distillationApiVersion"
   ],
-  "@amxv/finetuning/node": []
+  "@amxv/finetuning/node": [
+    "ContentAddressedBlobStore",
+    "ScopedLock",
+    "atomicWrite",
+    "redactSecrets"
+  ]
 }

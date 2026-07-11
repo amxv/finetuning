@@ -338,6 +338,11 @@ export declare const trainingApiVersion: "0";
 ```ts
 /** Reserved stable namespace for orchestration contracts (Phase 3). */
 export declare const orchestrationApiVersion: "0";
+export * from "./contracts.js";
+export { LocalDagExecutor } from "./executor.js";
+export { freezeDataset, verifyFrozenDataset, type LineageDeletionStore } from "./freeze.js";
+export { createStageCacheKey } from "./identity.js";
+export { AttemptLedger } from "./ledger.js";
 ```
 
 ## dist/distillation/index.d.ts
@@ -352,4 +357,6 @@ export declare const distillationApiVersion: "0";
 ```ts
 /** Node-specific operational adapters. */
 export type { DatasetWriter, FileSystemAdapter, PersistenceAdapter } from "../simulation/index.js";
+export { redactSecrets } from "./redaction.js";
+export { atomicWrite, ContentAddressedBlobStore, ScopedLock } from "./storage.js";
 ```
