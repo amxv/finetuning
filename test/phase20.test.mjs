@@ -60,3 +60,41 @@ test("strict config and fake REST", async () => {
   assert.equal((await cp.listPods())[0].id, "p");
   assert.equal(cp.capabilities().genericExecLogs, false);
 });
+test("transport distinguishes pre-abort, caller abort, and timeout", async () => {
+  process.env.PHASE20_ABORT_KEY = "hidden";
+  const config = {
+    apiKeyEnv: "PHASE20_ABORT_KEY",
+    baseUrl: "https://rest.runpod.io/v1",
+    timeoutMs: 20,
+    maxResponseBytes: 1024,
+  };
+  let calls = 0;
+  const pending = (_url, init) => {
+    calls++;
+    return new Promise((_resolve, reject) =>
+      init.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true }),
+    );
+  };
+  const pre = new AbortController();
+  pre.abort();
+  await assert.rejects(new RunPodTransport(config, pending).request("/pods", { signal: pre.signal }), (error) => {
+    assert.equal(error.code, "RUNPOD_ABORTED");
+    return true;
+  });
+  assert.equal(calls, 0);
+
+  const caller = new AbortController();
+  const callerRequest = new RunPodTransport(config, pending).request("/pods", { signal: caller.signal });
+  caller.abort();
+  await assert.rejects(callerRequest, (error) => {
+    assert.equal(error.code, "RUNPOD_ABORTED");
+    return true;
+  });
+  assert.equal(calls, 1);
+
+  await assert.rejects(new RunPodTransport(config, pending).request("/pods"), (error) => {
+    assert.equal(error.code, "RUNPOD_TIMEOUT");
+    return true;
+  });
+  assert.equal(calls, 2);
+});

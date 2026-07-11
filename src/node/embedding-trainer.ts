@@ -6,8 +6,10 @@ import {
   embeddingTrainingEventVersion,
   type EmbeddingTrainingEventV1,
 } from "../embeddings/training.js";
+import { terminateChild } from "./terminate-child.js";
 export interface EmbeddingTrainerBridgeOptions {
   pythonExecutable: string;
+  module?: string;
   specPath: string;
   cwd: string;
   signal?: AbortSignal;
@@ -19,7 +21,7 @@ export async function runPythonEmbeddingTrainer(options: EmbeddingTrainerBridgeO
   if (options.signal?.aborted) throw new DOMException("Embedding training cancelled before start", "AbortError");
   const child = spawn(
       options.pythonExecutable,
-      ["-m", "amxv_finetuning_trainer.embedding_training", options.specPath],
+      ["-m", options.module ?? "amxv_finetuning_trainer.embedding_training", options.specPath],
       {
         cwd: options.cwd,
         stdio: ["ignore", "pipe", "pipe"],
@@ -60,12 +62,7 @@ export async function runPythonEmbeddingTrainer(options: EmbeddingTrainerBridgeO
     return { exitCode, events, stderr };
   } catch (error) {
     reader.close();
-    child.kill("SIGTERM");
-    try {
-      await closed;
-    } catch {
-      // Preserve the original protocol or callback failure.
-    }
+    await terminateChild(child, closed);
     throw error;
   } finally {
     options.signal?.removeEventListener("abort", abort);

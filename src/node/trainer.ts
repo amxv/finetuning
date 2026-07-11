@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { parseTrainingEvent, type TrainingEventV1 } from "../training/index.js";
+import { terminateChild } from "./terminate-child.js";
 export interface TrainerBridgeOptions {
   pythonExecutable: string;
   module: string;
@@ -63,12 +64,7 @@ export async function runPythonTrainer(options: TrainerBridgeOptions): Promise<T
     return { exitCode, events, stderr };
   } catch (error) {
     reader.close();
-    child.kill("SIGTERM");
-    try {
-      await closed;
-    } catch {
-      // Preserve the original protocol or callback failure.
-    }
+    await terminateChild(child, closed);
     throw error;
   } finally {
     options.signal?.removeEventListener("abort", abort);

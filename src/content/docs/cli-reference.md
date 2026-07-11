@@ -113,6 +113,32 @@ The complete tested matrix contains 39 command pairs:
 
 All 39 help pages are executed by the documentation gate. Mutating embedding commands accept dry-run where implemented; configuration is strict and versioned; CLI flags override environment references, command config, then defaults. Production recipes remain unavailable. See [Configuration and schemas](/docs/config-schemas) and [Models, recipes, providers, and execution](/docs/models-providers).
 
+### Rendered command registry
+
+Every entry uses the exact registered form `finetuning embed <noun> <verb> [--config <path>] [--json] [--quiet] [--dry-run]`. The docs gate executes each corresponding `--help` page and fails if this registry omits a command.
+
+| Group        | Registered commands                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Data         | `embed data create`, `embed data import`, `embed data convert`, `embed data validate`, `embed data inspect`, `embed data split`, `embed data dedupe`, `embed data freeze`, `embed data export`         |
+| Generate     | `embed generate queries`, `embed generate documents`, `embed generate pairs`                                                                                                                           |
+| Mining       | `embed mine negatives`                                                                                                                                                                                 |
+| Distillation | `embed distill vectors`, `embed distill scores`, `embed distill rankings`, `embed distill plan`, `embed distill run`, `embed distill resume`, `embed distill status`                                   |
+| Models       | `embed models list`, `embed models info`, `embed models license`, `embed models compat`                                                                                                                |
+| Recipes      | `embed recipes list`, `embed recipes show`, `embed recipes lock`                                                                                                                                       |
+| Training     | `embed train init`, `embed train validate`, `embed train estimate`, `embed train run`, `embed train resume`, `embed train status`, `embed train evaluate`, `embed train export`, `embed train inspect` |
+| Evaluation   | `embed evaluate run`, `embed evaluate compare`, `embed evaluate inspect`                                                                                                                               |
+
+### Effects and contracts
+
+| Reference field | Contract                                                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Capability      | Data inspection, fixture evaluation, and CPU fixture training are offline. Production recipes and unqualified remote mutations fail unavailable.                                                                                                                               |
+| Configuration   | `--config` is strict and versioned. CLI flags override environment references, config, then defaults. Credentials are environment-variable names, never stored values.                                                                                                         |
+| Input/output    | Data commands accept a positional input or `-` only where their exact help declares it. `--out` controls files or `-`; `--json` reserves stdout for one document and `--quiet` suppresses non-result output.                                                                   |
+| Mutation        | `--dry-run` plans without writes. Mutating commands require explicit destinations and refuse overwrite unless their help declares and the caller supplies `--force`. Resume writes only within the bound run directory.                                                        |
+| Network/cost    | Offline commands make no network calls. Provider-backed distillation requires explicit network permission, credential references, prices, separate generation/judging budgets, and resume identity. Model downloads, GPU execution, RunPod mutation, and uploads remain gated. |
+| Errors/version  | Exit `0` is success. Usage, schema, policy/license, budget, provider/network, unavailable capability, checkpoint, artifact-integrity, and internal failures are nonzero. Serialized data, specs, events, checkpoints, and artifacts carry independently checked versions.      |
+
 ## RunPod commands
 
 `runpod init|doctor|plan|launch|status|connect|cancel|stop|terminate|cleanup|resume|fetch|orphans|cost` and `runpod volume list|ensure|delete` are discoverable. Planning and dry runs are offline; status/cost contracts are read-only. Credentialed `volume list` returns pinned provider fields with `ownershipVerified: false`. Live Pod and volume mutations fail before transport because qualification and provider-side ownership evidence are unavailable.

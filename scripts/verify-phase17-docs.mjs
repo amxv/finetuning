@@ -10,6 +10,23 @@ const root = resolve(new URL("../", import.meta.url).pathname);
 const cli = join(root, "dist/cli/index.js");
 const run = async (...args) => (await exec(process.execPath, [cli, ...args], { cwd: root })).stdout;
 
+const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const stableExports = Object.keys(packageJson.exports)
+  .filter((path) => !path.startsWith("./examples/") && !path.startsWith("./experimental/") && path !== "./package.json")
+  .map((path) => (path === "." ? "root" : path.slice(2)));
+const assertExportReference = (text) => {
+  for (const path of stableExports)
+    assert.match(
+      text,
+      new RegExp(`(?:^|[^\\w/])${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^\\w/]|$)`),
+      `missing stable export ${path}`,
+    );
+  assert.doesNotMatch(text, /`nonexistent(?:\/[^`]*)?`/, "phantom stable export");
+};
+for (const page of ["sdk-api.md", "compatibility-reference.md"])
+  assertExportReference(await readFile(join(root, "src/content/docs", page), "utf8"));
+assert.throws(() => assertExportReference("root, `core`, `nonexistent`"));
+
 // Every documented embedding command exists. This is the authoritative 39-command matrix.
 const matrix = {
   data: ["create", "import", "convert", "validate", "inspect", "split", "dedupe", "freeze", "export"],
@@ -22,11 +39,16 @@ const matrix = {
   evaluate: ["run", "compare", "inspect"],
 };
 let helpCount = 0;
+const renderedCliReference = await readFile(join(root, "src/content/docs/cli-reference.md"), "utf8");
 for (const [noun, verbs] of Object.entries(matrix))
   for (const verb of verbs) {
-    assert.match(await run("embed", noun, verb, "--help"), /^Usage:/);
+    const help = await run("embed", noun, verb, "--help");
+    assert.match(help, /^Usage:/);
+    assert.match(renderedCliReference, new RegExp(`embed ${noun} ${verb.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`));
     helpCount++;
   }
+for (const field of ["Capability", "Configuration", "Input/output", "Mutation", "Network/cost", "Errors/version"])
+  assert.match(renderedCliReference, new RegExp(field, "i"), `CLI reference missing ${field} metadata`);
 assert.equal(helpCount, 39);
 
 // Execute the complete checked-in offline chat tutorial without providers, downloads, GPU, or uploads.

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -122,6 +122,43 @@ test("bridge rejects malformed events and forwards cancellation signals", async 
       signal: preAborted.signal,
     }),
     { name: "AbortError" },
+  );
+});
+test("chat bridge version, sequence, and callback failures leave no child", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "phase6-protocol-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  for (const [name, pattern] of [
+    ["version", /Incompatible/],
+    ["sequence", /Out-of-order/],
+  ]) {
+    const marker = join(root, `${name}.marker`),
+      specPath = join(root, `${name}.json`);
+    await writeFile(specPath, JSON.stringify({ case: name, track: "chat", marker }));
+    await assert.rejects(
+      runPythonTrainer({
+        pythonExecutable: "python3",
+        module: "amxv_finetuning_trainer.test_runner_cases",
+        specPath,
+        cwd: resolve("python"),
+      }),
+      pattern,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    await assert.rejects(access(marker));
+  }
+  const callbackPath = join(root, "callback.json");
+  await writeFile(callbackPath, JSON.stringify({ case: "cancel", track: "chat" }));
+  await assert.rejects(
+    runPythonTrainer({
+      pythonExecutable: "python3",
+      module: "amxv_finetuning_trainer.test_runner_cases",
+      specPath: callbackPath,
+      cwd: resolve("python"),
+      onEvent: () => {
+        throw new Error("callback failed");
+      },
+    }),
+    /callback failed/,
   );
 });
 test("template and training prepare CLI surfaces are additive and fail closed", async (t) => {

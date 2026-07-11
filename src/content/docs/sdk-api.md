@@ -24,18 +24,21 @@ This block is **executable** and is typechecked/run from a clean packed consumer
 
 For chat, import provider-neutral records and freeze/validation helpers from the root, `formats`, and `validation`; use `distillation`, `training`, and `orchestration` to plan stages without importing a provider SDK. Provider adapters are optional peers and load only when selected.
 
-```js
+```ts
+import type { DatasetExampleV1 } from "@amxv/finetuning/core";
 import { validateDatasetExample } from "@amxv/finetuning/validation";
 
-const report = validateDatasetExample({
+const example: DatasetExampleV1 = {
   datasetSchemaVersion: "1.0.0",
   id: "sdk-chat-example",
   messages: [
-    { role: "user", content: "Hello" },
-    { role: "assistant", content: "Hello!" },
+    { role: "user", content: [{ type: "text", text: "Hello" }] },
+    { role: "assistant", content: [{ type: "text", text: "Hello!" }] },
   ],
-  provenance: { source: "docs", sourceRevision: "1", rights: "approved" },
-});
+  provenance: { source: "docs", sourceId: "sdk-chat-example", license: "CC0-1.0" },
+  createdAt: "2026-07-12T00:00:00.000Z",
+};
+const report = validateDatasetExample(example);
 console.log(report.valid);
 ```
 

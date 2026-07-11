@@ -88,10 +88,15 @@ export class RunPodTransport {
     private fetcher: typeof fetch = fetch,
   ) {}
   async request(path: string, init: RequestInit = {}): Promise<unknown> {
+    if (init.signal?.aborted) throw new RunPodError("RUNPOD_ABORTED", "request aborted");
     const key = process.env[this.config.apiKeyEnv];
     if (!key) throw new RunPodError("RUNPOD_AUTH", `missing environment variable ${this.config.apiKeyEnv}`);
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort("timeout"), this.config.timeoutMs);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      ctl.abort("timeout");
+    }, this.config.timeoutMs);
     const abort = () => ctl.abort("aborted");
     init.signal?.addEventListener("abort", abort, { once: true });
     try {
@@ -109,8 +114,8 @@ export class RunPodTransport {
     } catch (e) {
       if (ctl.signal.aborted)
         throw new RunPodError(
-          init.signal?.aborted ? "RUNPOD_ABORTED" : "RUNPOD_TIMEOUT",
-          init.signal?.aborted ? "request aborted" : "request timed out",
+          timedOut ? "RUNPOD_TIMEOUT" : "RUNPOD_ABORTED",
+          timedOut ? "request timed out" : "request aborted",
         );
       throw e;
     } finally {

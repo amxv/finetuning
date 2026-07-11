@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -11,6 +11,7 @@ import {
   embeddingRecipeRegistry,
   embeddingTrainingSpecVersion,
 } from "../dist/embeddings/training.js";
+import { runPythonEmbeddingTrainer } from "../dist/node/index.js";
 const exec = promisify(execFile),
   cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
 test("embedding protocol, five-recipe honesty, and CPU CLI train/resume/export", async (t) => {
@@ -87,4 +88,46 @@ test("embedding protocol, five-recipe honesty, and CPU CLI train/resume/export",
     JSON.parse(await readFile(join(out, "embedding-artifact-manifest.json"), "utf8")).embeddingArtifactVersion,
     "embedding.training.artifact.v1",
   );
+});
+
+test("embedding bridge cancellation and protocol failures close children", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "phase15-bridge-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const runCase = async (name, options = {}) => {
+    const marker = join(root, `${name}.marker`);
+    const specPath = join(root, `${name}.json`);
+    await writeFile(specPath, JSON.stringify({ case: name, track: "embedding", marker }));
+    const promise = runPythonEmbeddingTrainer({
+      pythonExecutable: "python3",
+      module: "amxv_finetuning_trainer.test_runner_cases",
+      specPath,
+      cwd: resolve("python"),
+      ...options,
+    });
+    return { promise, marker };
+  };
+  for (const [name, pattern] of [
+    ["malformed", /Malformed embedding/],
+    ["version", /Incompatible/],
+    ["sequence", /Out-of-order/],
+  ]) {
+    const { promise, marker } = await runCase(name);
+    await assert.rejects(promise, pattern);
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    await assert.rejects(access(marker));
+  }
+  const callback = await runCase("cancel", {
+    onEvent: () => {
+      throw new Error("callback failed");
+    },
+  });
+  await assert.rejects(callback.promise, /callback failed/);
+
+  const controller = new AbortController();
+  const cancelled = await runCase("cancel", { signal: controller.signal, onEvent: () => controller.abort() });
+  assert.equal((await cancelled.promise).exitCode, 130);
+  const pre = new AbortController();
+  pre.abort();
+  const preCase = await runCase("cancel", { signal: pre.signal });
+  await assert.rejects(preCase.promise, { name: "AbortError" });
 });
