@@ -61,6 +61,7 @@
     "supportedWorkflows",
     "toolDecisionConversationFixture",
     "toolTrajectoryFixtures",
+    "translateDatasetExample",
     "translateOpenAIFineTuningRow",
     "translateOpenAIJsonl",
     "validateOpenAIFineTuningRow",
@@ -73,9 +74,12 @@
     "buildOpenAIFineTuningRow",
     "buildOpenAIFineTuningRows",
     "bundledScenarioProfiles",
+    "canonicalSerialize",
+    "canonicalSha256",
     "checkAvailabilityTool",
     "checkAvailabilityToolTrajectoryFixture",
     "createDeferredLogConversionError",
+    "datasetSchemaVersion",
     "deferredLogConversionBoundary",
     "findBundledScenarioProfile",
     "fullToolTrajectoryConversationFixture",
@@ -91,8 +95,10 @@
     "summarizeOpenAIJsonlRows",
     "toolDecisionConversationFixture",
     "toolTrajectoryFixtures",
+    "trajectoryToDatasetExample",
     "validateOpenAIFineTuningRow",
-    "validateOpenAIJsonl"
+    "validateOpenAIJsonl",
+    "withContentHash"
   ],
   "@amxv/finetuning/providers": [
     "ProviderAuthenticationError",
@@ -134,6 +140,7 @@
     "createProviderTranslationAdapter",
     "createPseudoTranslationAdapter",
     "experimentalTranslationRules",
+    "translateDatasetExample",
     "translateOpenAIFineTuningRow",
     "translateOpenAIJsonl"
   ],
@@ -151,6 +158,15 @@
     "toolTrajectoryFixtures"
   ],
   "@amxv/finetuning/formats": [
+    "JsonlParseError",
+    "canonicalMessagesCodec",
+    "codecRegistry",
+    "detectCodec",
+    "hfConversationalCodec",
+    "hfTextCodec",
+    "openAIChatCodec",
+    "parseJsonl",
+    "serializeJsonl",
     "serializeOpenAIJsonlRows",
     "validateOpenAIJsonl"
   ],
@@ -165,6 +181,7 @@
   ],
   "@amxv/finetuning/validation": [
     "assertValidOpenAIFineTuningRow",
+    "validateDatasetExample",
     "validateOpenAIFineTuningRow",
     "validateOpenAIJsonl"
   ],

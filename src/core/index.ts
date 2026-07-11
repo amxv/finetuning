@@ -28,11 +28,7 @@ export type {
   UserMessage,
   WorkflowStatus,
 } from "./model.js";
-export {
-  serializeOpenAIJsonlRows,
-  summarizeOpenAIJsonlRows,
-  validateOpenAIJsonl,
-} from "./dataset.js";
+export { serializeOpenAIJsonlRows, summarizeOpenAIJsonlRows, validateOpenAIJsonl } from "./dataset.js";
 export type { DatasetSummary, DatasetValidationIssue, DatasetValidationResult } from "./dataset.js";
 export {
   bundledScenarioProfiles,
@@ -49,10 +45,7 @@ export type {
   OpenAIToolCall,
   OpenAIToolDefinition,
 } from "./openai.js";
-export {
-  buildOpenAIFineTuningRow,
-  buildOpenAIFineTuningRows,
-} from "./openai.js";
+export { buildOpenAIFineTuningRow, buildOpenAIFineTuningRows } from "./openai.js";
 export {
   assertValidOpenAIFineTuningRow,
   validateOpenAIFineTuningRow,
@@ -78,3 +71,19 @@ export {
   toolDecisionConversationFixture,
   toolTrajectoryFixtures,
 } from "./fixtures.js";
+export {
+  canonicalSerialize,
+  canonicalSha256,
+  datasetSchemaVersion,
+  withContentHash,
+  type CanonicalMessageV1,
+  type CanonicalRoleV1,
+  type CanonicalToolCallV1,
+  type ContentPartV1,
+  type DatasetExampleV1,
+  type DatasetSplitV1,
+  type DecisionV1,
+  type ProvenanceV1,
+  type TransformationV1,
+} from "./canonical.js";
+export { trajectoryToDatasetExample } from "./trajectory.js";

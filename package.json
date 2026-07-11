@@ -83,6 +83,7 @@
   },
   "files": [
     "dist",
+    "schemas",
     "docs",
     "examples",
     "CONTRIBUTING.md",

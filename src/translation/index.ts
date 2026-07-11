@@ -1,4 +1,5 @@
 import { serializeOpenAIJsonlRows, validateOpenAIJsonl } from "../core/dataset.js";
+import type { DatasetExampleV1 } from "../core/canonical.js";
 import type { JsonObject } from "../core/model.js";
 import type { OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow } from "../core/openai.js";
 import { assertValidOpenAIFineTuningRow } from "../core/validation.js";
@@ -50,6 +51,45 @@ export interface TranslationResult {
   rules: TranslationRules;
   provider: TranslationProviderKind;
   requestPath: TranslationRequestPath;
+}
+
+export async function translateDatasetExample(
+  example: DatasetExampleV1,
+  options: TranslateOpenAIRowOptions,
+): Promise<DatasetExampleV1> {
+  assertValidLocaleCode(options.targetLocale);
+  const adapter = options.adapter ?? createPseudoTranslationAdapter();
+  const messages = await Promise.all(
+    example.messages.map(async (message, index) => ({
+      ...message,
+      content: await Promise.all(
+        message.content.map(async (part, partIndex) =>
+          part.type === "text" && message.role !== "tool"
+            ? {
+                ...part,
+                text: await adapter.translateText({
+                  text: part.text,
+                  ...(options.sourceLocale ? { sourceLocale: options.sourceLocale } : {}),
+                  targetLocale: options.targetLocale,
+                  path: `messages[${index}].content[${partIndex}].text`,
+                }),
+              }
+            : part,
+        ),
+      ),
+    })),
+  );
+  return {
+    ...example,
+    messages,
+    metadata: {
+      ...(example.metadata ?? {}),
+      ...(options.sourceLocale ? { sourceLocale: options.sourceLocale } : {}),
+      targetLocale: options.targetLocale,
+      translationProvider: adapter.provider,
+      translationRequestPath: adapter.requestPath,
+    },
+  };
 }
 
 export const experimentalTranslationRules: TranslationRules = {

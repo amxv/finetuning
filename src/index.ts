@@ -88,6 +88,7 @@ export {
   createProviderTranslationAdapter,
   experimentalTranslationRules,
   translateOpenAIFineTuningRow,
+  translateDatasetExample,
   translateOpenAIJsonl,
 } from "./translation/index.js";
 export type {

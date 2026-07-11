@@ -8,7 +8,7 @@ Generated from the public package entry points.
 export type { AssistantTextMessage, AssistantToolCallMessage, BuildOpenAIRowOptions, BusinessContext, CliCommandDefinition, ConversationMessage, ConversationTrajectory, DatasetSummary, DatasetValidationIssue, DatasetValidationResult, DeferredLogConversionBoundary, ExportMode, FineTuningToolkitConfig, JsonObject, JsonPrimitive, JsonSchemaObject, JsonSchemaValue, JsonValue, OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow, OpenAIToolCall, OpenAIToolDefinition, PersonaDefinition, PublicWorkflow, ScenarioDefinition, ScenarioPersonaSource, ScenarioStoppingRules, ScenarioToolInventory, SimulatedAssistantTurn, SupportedProvider, SystemMessage, ToolCall, ToolResult, ToolResultMessage, ToolSchema, UserMessage, ValidationIssue, ValidationResult, ValidationSummary, WorkflowStatus, } from "./core/index.js";
 export type { TranslateOpenAIJsonlOptions, TranslateOpenAIRowOptions, ProviderTranslationAdapterOptions, TranslationProviderKind, TranslationRequestPath, TranslationResult, TranslationRules, TranslationTextAdapter, TranslationTextRequest, TranslationWorkflowStatus, } from "./translation/index.js";
 export { assertValidOpenAIFineTuningRow, bookAppointmentTool, bookAppointmentToolTrajectoryFixture, buildOpenAIFineTuningRow, buildOpenAIFineTuningRows, bundledScenarioProfiles, checkAvailabilityTool, checkAvailabilityToolTrajectoryFixture, createDeferredLogConversionError, deferredLogConversionBoundary, findBundledScenarioProfile, fullToolTrajectoryConversationFixture, noToolConversationFixture, parseScenarioDefinition, parseScenarioDefinitionJson, receptionistScenarioProfile, representativeTrajectories, retailSupportScenarioProfile, searchTool, searchToolTrajectoryFixture, serializeOpenAIJsonlRows, summarizeOpenAIJsonlRows, toolDecisionConversationFixture, toolTrajectoryFixtures, validateOpenAIJsonl, validateOpenAIFineTuningRow, } from "./core/index.js";
-export { assertValidLocaleCode, createAnthropicTranslationAdapter, createOpenAITranslationAdapter, createPseudoTranslationAdapter, createProviderTranslationAdapter, experimentalTranslationRules, translateOpenAIFineTuningRow, translateOpenAIJsonl, } from "./translation/index.js";
+export { assertValidLocaleCode, createAnthropicTranslationAdapter, createOpenAITranslationAdapter, createPseudoTranslationAdapter, createProviderTranslationAdapter, experimentalTranslationRules, translateOpenAIFineTuningRow, translateDatasetExample, translateOpenAIJsonl, } from "./translation/index.js";
 export type { AnthropicProviderAdapter, CustomProviderAdapter, ModelClient, ModelInvocationRequest, ModelInvocationResponse, ModelMessage, ModelProviderKind, OpenAIProviderAdapter, OpenAIResponseRequest, ProviderAdapter, ProviderClientOptions, ProviderEnvironment, ProviderErrorOptions, ProviderRuntimeConfig, AnthropicMessageRequest, } from "./providers/index.js";
 export { anthropicProviderAdapter, assertSupportedModelProviderKind, createModelClientFromConfig, createProviderAdapter, createUnconfiguredProviderAdapter, defaultApiKeyEnvForProvider, mapAnthropicMessagesResponse, mapModelRequestToAnthropicMessagesRequest, mapModelRequestToOpenAIResponsesRequest, mapOpenAIResponsesResponse, openAIProviderAdapter, ProviderAuthenticationError, ProviderConfigurationError, ProviderError, ProviderRateLimitError, ProviderResponseError, ProviderToolCallError, ProviderUnsupportedFeatureError, resolveProviderClientOptions, } from "./providers/index.js";
 export type { DatasetWriter, FileSystemAdapter, ModelBackedPersonaGeneratorOptions, ModelBackedSimulationRunnerOptions, PersonaGenerationRequest, PersonaGenerator, PersistenceAdapter, ScenarioSource, ScenarioSourceInput, SimulationRequest, SimulationRunner, SimulationRuntimeAdapters, ToolResultProvider, ToolResultRequest, } from "./simulation/index.js";
@@ -22,14 +22,16 @@ export declare const cliCommands: CliCommandDefinition[];
 
 ```ts
 export type { AssistantTextMessage, AssistantToolCallMessage, BusinessContext, CliCommandDefinition, ConversationMessage, ConversationTrajectory, ExportMode, FineTuningToolkitConfig, JsonObject, JsonPrimitive, JsonSchemaObject, JsonSchemaValue, JsonValue, PersonaDefinition, PublicWorkflow, ScenarioDefinition, ScenarioPersonaSource, ScenarioStoppingRules, ScenarioToolInventory, SimulatedAssistantTurn, SupportedProvider, SystemMessage, ToolCall, ToolResult, ToolResultMessage, ToolSchema, UserMessage, WorkflowStatus, } from "./model.js";
-export { serializeOpenAIJsonlRows, summarizeOpenAIJsonlRows, validateOpenAIJsonl, } from "./dataset.js";
+export { serializeOpenAIJsonlRows, summarizeOpenAIJsonlRows, validateOpenAIJsonl } from "./dataset.js";
 export type { DatasetSummary, DatasetValidationIssue, DatasetValidationResult } from "./dataset.js";
 export { bundledScenarioProfiles, findBundledScenarioProfile, parseScenarioDefinition, parseScenarioDefinitionJson, receptionistScenarioProfile, retailSupportScenarioProfile, } from "./scenarios.js";
 export type { BuildOpenAIRowOptions, OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow, OpenAIToolCall, OpenAIToolDefinition, } from "./openai.js";
-export { buildOpenAIFineTuningRow, buildOpenAIFineTuningRows, } from "./openai.js";
+export { buildOpenAIFineTuningRow, buildOpenAIFineTuningRows } from "./openai.js";
 export { assertValidOpenAIFineTuningRow, validateOpenAIFineTuningRow, type ValidationIssue, type ValidationResult, type ValidationSummary, } from "./validation.js";
 export { createDeferredLogConversionError, deferredLogConversionBoundary, type DeferredLogConversionBoundary, } from "./logs.js";
 export { bookAppointmentTool, bookAppointmentToolTrajectoryFixture, checkAvailabilityTool, checkAvailabilityToolTrajectoryFixture, fullToolTrajectoryConversationFixture, noToolConversationFixture, representativeTrajectories, searchTool, searchToolTrajectoryFixture, toolDecisionConversationFixture, toolTrajectoryFixtures, } from "./fixtures.js";
+export { canonicalSerialize, canonicalSha256, datasetSchemaVersion, withContentHash, type CanonicalMessageV1, type CanonicalRoleV1, type CanonicalToolCallV1, type ContentPartV1, type DatasetExampleV1, type DatasetSplitV1, type DecisionV1, type ProvenanceV1, type TransformationV1, } from "./canonical.js";
+export { trajectoryToDatasetExample } from "./trajectory.js";
 ```
 
 ## dist/providers/index.d.ts
@@ -207,6 +209,7 @@ export declare function loadScenarioSource(input: ScenarioSourceInput, filesyste
 ## dist/translation/index.d.ts
 
 ```ts
+import type { DatasetExampleV1 } from "../core/canonical.js";
 import type { OpenAIChatFineTuningRow } from "../core/openai.js";
 import type { ModelClient, ModelProviderKind } from "../providers/index.js";
 export type TranslationWorkflowStatus = "experimental";
@@ -249,6 +252,7 @@ export interface TranslationResult {
     provider: TranslationProviderKind;
     requestPath: TranslationRequestPath;
 }
+export declare function translateDatasetExample(example: DatasetExampleV1, options: TranslateOpenAIRowOptions): Promise<DatasetExampleV1>;
 export declare const experimentalTranslationRules: TranslationRules;
 export declare function assertValidLocaleCode(locale: string, fieldName?: string): void;
 export declare function createPseudoTranslationAdapter(): TranslationTextAdapter;
@@ -283,6 +287,9 @@ export { bookAppointmentTool, bookAppointmentToolTrajectoryFixture, checkAvailab
 /** Stable dataset-format namespace. Codecs are introduced in Phase 2. */
 export type { OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow } from "../core/openai.js";
 export { serializeOpenAIJsonlRows, validateOpenAIJsonl } from "../core/dataset.js";
+export type { CodecId, ConversionLoss, ConversionResult, DatasetCodec } from "./contracts.js";
+export { canonicalMessagesCodec, codecRegistry, detectCodec, hfConversationalCodec, hfTextCodec, openAIChatCodec, } from "./codecs.js";
+export { JsonlParseError, parseJsonl, serializeJsonl, type JsonlRecord } from "./streaming.js";
 ```
 
 ## dist/formats/openai.d.ts
@@ -301,6 +308,7 @@ export { assertValidOpenAIFineTuningRow, validateOpenAIFineTuningRow } from "../
 /** Stable validation namespace. */
 export { assertValidOpenAIFineTuningRow, validateOpenAIFineTuningRow, type ValidationIssue, type ValidationResult, type ValidationSummary, } from "../core/validation/messages.js";
 export { validateOpenAIJsonl } from "../core/dataset.js";
+export { validateDatasetExample, type StagedValidationIssue, type StagedValidationReport, type ValidationIssueCode, type ValidationStage, } from "./canonical.js";
 ```
 
 ## dist/generation/index.d.ts
