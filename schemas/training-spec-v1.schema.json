@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/finetuning/training-spec-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trainingSpecVersion", "runId", "dataset", "recipeId", "outputDirectory", "objective", "seed"],
+  "properties": {
+    "trainingSpecVersion": { "const": "1.0.0" },
+    "runId": { "type": "string", "minLength": 1 },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifestPath", "recordsHash"],
+      "properties": {
+        "manifestPath": { "type": "string" },
+        "recordsHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "recipeId": { "type": "string" },
+    "outputDirectory": { "type": "string" },
+    "objective": { "const": "sft" },
+    "seed": { "type": "integer", "minimum": 0 }
+  }
+}

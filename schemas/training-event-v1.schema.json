@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/finetuning/training-event-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trainingEventVersion", "sequence", "timestamp", "runId", "type"],
+  "properties": {
+    "trainingEventVersion": { "const": "1.0.0" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "timestamp": { "type": "string" },
+    "runId": { "type": "string" },
+    "type": { "enum": ["started", "preflight", "progress", "artifact", "completed", "failed"] },
+    "data": { "type": "object" }
+  }
+}

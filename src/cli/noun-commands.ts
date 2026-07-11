@@ -14,10 +14,13 @@ import {
   type DistillationRunState,
 } from "../distillation/index.js";
 import { atomicWrite } from "../node/storage.js";
+import { inspectRecipe, inspectTemplate, preflightRecipe } from "../templates/index.js";
+import { trainingSpecVersion, type TrainingSpecV1 } from "../training/index.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
-  if (noun !== "dataset" && noun !== "pipeline" && noun !== "distill") return false;
+  if (noun !== "dataset" && noun !== "pipeline" && noun !== "distill" && noun !== "template" && noun !== "training")
+    return false;
   const [verb, ...verbArgs] = rawArgs;
   if (!verb || verb === "--help" || verb === "-h") {
     printNounHelp(noun);
@@ -42,6 +45,49 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
   }
   if (noun === "distill" && ["init", "plan", "responses", "resume", "status", "freeze"].includes(verb)) {
     await distillCommand(verb, args);
+    return true;
+  }
+  if (noun === "template" && ["inspect", "render", "audit"].includes(verb)) {
+    const id = readRequiredStringFlag(args, "id");
+    if (verb === "render")
+      throw new Error("Template rendering is Python-only and requires tokenizer.apply_chat_template");
+    const descriptor = inspectTemplate(id);
+    printResult(
+      verb === "audit"
+        ? {
+            templateId: id,
+            status: descriptor.liveAudit,
+            executable: descriptor.expectedTemplateHash.status === "pinned",
+            reason:
+              descriptor.expectedTemplateHash.status === "unresolved"
+                ? descriptor.expectedTemplateHash.reason
+                : undefined,
+          }
+        : descriptor,
+      args,
+    );
+    return true;
+  }
+  if (noun === "training" && verb === "prepare") {
+    const recipeId = readRequiredStringFlag(args, "recipe"),
+      dryRun = readBooleanFlag(args, "dry-run");
+    if (!dryRun) preflightRecipe(recipeId);
+    else inspectRecipe(recipeId);
+    const spec: TrainingSpecV1 = {
+      trainingSpecVersion,
+      runId: readRequiredStringFlag(args, "run-id"),
+      dataset: {
+        manifestPath: readRequiredStringFlag(args, "dataset-manifest"),
+        recordsHash: readRequiredStringFlag(args, "records-hash"),
+      },
+      recipeId,
+      outputDirectory: readRequiredStringFlag(args, "out"),
+      objective: "sft",
+      seed: Number(readOptionalStringFlag(args, "seed") ?? 0),
+    };
+    const specPath = readRequiredStringFlag(args, "spec-out");
+    await atomicWrite(specPath, `${JSON.stringify(spec, null, 2)}\n`);
+    printResult({ specPath, dryRun, executable: !dryRun }, args);
     return true;
   }
   throw new Error(`Unknown command: ${noun} ${verb}`);
@@ -124,7 +170,7 @@ async function pipelineResume(args: ReturnType<typeof parseArgs>): Promise<void>
 
 export function printNounRootHelp(): void {
   console.log(
-    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.",
+    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare     Prepare a versioned TrainingSpecV1.",
   );
 }
 function printNounHelp(noun: string): void {
@@ -133,7 +179,11 @@ function printNounHelp(noun: string): void {
       ? "Usage: finetuning dataset freeze <canonical.jsonl> --out <directory> [--force] [--json]"
       : noun === "distill"
         ? "Usage: finetuning distill init|plan|responses|resume|status|freeze [options]"
-        : "Usage: finetuning pipeline status|resume [options]",
+        : noun === "template"
+          ? "Usage: finetuning template inspect|render|audit --id <template> [--json]"
+          : noun === "training"
+            ? "Usage: finetuning training prepare [options]"
+            : "Usage: finetuning pipeline status|resume [options]",
   );
 }
 

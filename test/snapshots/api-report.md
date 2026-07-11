@@ -325,15 +325,97 @@ export { createDeterministicPersonaGenerator, createDeterministicSimulationRunne
 ## dist/templates/index.d.ts
 
 ```ts
-/** Reserved stable namespace for late-bound chat templates (Phase 6). */
-export declare const templateApiVersion: "0";
+import type { CanonicalRoleV1 } from "../core/canonical.js";
+export declare const templateApiVersion: "1.0.0";
+export type Resolution = {
+    status: "pinned";
+    value: string;
+} | {
+    status: "unresolved";
+    reason: string;
+};
+export interface ChatTemplateDescriptorV1 {
+    id: string;
+    family: "qwen3-dense" | "qwen3-moe" | "nemotron-cascade" | "nemotron-nano" | "olmo-instruct" | "olmo-think";
+    modelId: string;
+    modelRevision: Resolution;
+    tokenizerId: string;
+    tokenizerRevision: Resolution;
+    expectedTemplateHash: Resolution;
+    supportedRoles: CanonicalRoleV1[];
+    tools: boolean;
+    reasoningPolicy: "strip" | "preserve" | "none";
+    bos: "exactly-one" | "tokenizer";
+    eos: "assistant-turn";
+    generationPrompt: boolean;
+    liveAudit: "not-run" | "passed" | "failed";
+}
+export interface ModelRecipeV1 {
+    id: string;
+    production: boolean;
+    templateId: string;
+    modelId: string;
+    architectureFamily: string;
+    modelRevision: Resolution;
+    tokenizerRevision: Resolution;
+    licenseSnapshot: Resolution;
+    testedDependencies: Record<string, string>;
+    loraTargetDiscovery: string;
+    quantization: ("bf16" | "8bit" | "4bit")[];
+    minimumHardware: string;
+    task: "sft";
+    limitations: string[];
+}
+export declare const templateRegistry: readonly ChatTemplateDescriptorV1[];
+export declare const recipeRegistry: readonly ModelRecipeV1[];
+export declare function inspectTemplate(id: string): ChatTemplateDescriptorV1;
+export declare function inspectRecipe(id: string): ModelRecipeV1;
+export declare function preflightRecipe(id: string): ModelRecipeV1;
 ```
 
 ## dist/training/index.d.ts
 
 ```ts
-/** Reserved stable namespace for training contracts (Phase 6). */
-export declare const trainingApiVersion: "0";
+export declare const trainingApiVersion: "1.0.0";
+export declare const trainingSpecVersion: "1.0.0";
+export declare const trainingEventVersion: "1.0.0";
+export declare const artifactManifestVersion: "1.0.0";
+export interface TrainingSpecV1 {
+    trainingSpecVersion: typeof trainingSpecVersion;
+    runId: string;
+    dataset: {
+        manifestPath: string;
+        recordsHash: string;
+    };
+    recipeId: string;
+    outputDirectory: string;
+    objective: "sft";
+    seed: number;
+}
+export interface TrainingEventV1 {
+    trainingEventVersion: typeof trainingEventVersion;
+    sequence: number;
+    timestamp: string;
+    runId: string;
+    type: "started" | "preflight" | "progress" | "artifact" | "completed" | "failed";
+    data?: Record<string, unknown>;
+}
+export interface ArtifactManifestV1 {
+    artifactManifestVersion: typeof artifactManifestVersion;
+    runId: string;
+    createdAt: string;
+    artifacts: Array<{
+        path: string;
+        sha256: string;
+        bytes: number;
+        kind: string;
+    }>;
+    trainingSpecHash: string;
+}
+export declare function assertCompatibleMajor(actual: string, expected: string, contract: string): void;
+export declare function parseTrainingSpec(value: unknown): TrainingSpecV1;
+export declare function parseTrainingEvent(value: unknown): TrainingEventV1;
+export declare function parseArtifactManifest(value: unknown): ArtifactManifestV1;
 ```
 
 ## dist/orchestration/index.d.ts
@@ -509,4 +591,5 @@ export declare function distillationDataset(state: DistillationRunState): Datase
 export type { DatasetWriter, FileSystemAdapter, PersistenceAdapter } from "../simulation/index.js";
 export { redactSecrets } from "./redaction.js";
 export { atomicWrite, ContentAddressedBlobStore, ScopedLock } from "./storage.js";
+export { runPythonTrainer, type TrainerBridgeOptions, type TrainerRunResult } from "./trainer.js";
 ```

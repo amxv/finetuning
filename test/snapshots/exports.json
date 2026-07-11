@@ -196,10 +196,22 @@
     "createModelBackedSimulationRunner"
   ],
   "@amxv/finetuning/templates": [
-    "templateApiVersion"
+    "inspectRecipe",
+    "inspectTemplate",
+    "preflightRecipe",
+    "recipeRegistry",
+    "templateApiVersion",
+    "templateRegistry"
   ],
   "@amxv/finetuning/training": [
-    "trainingApiVersion"
+    "artifactManifestVersion",
+    "assertCompatibleMajor",
+    "parseArtifactManifest",
+    "parseTrainingEvent",
+    "parseTrainingSpec",
+    "trainingApiVersion",
+    "trainingEventVersion",
+    "trainingSpecVersion"
   ],
   "@amxv/finetuning/orchestration": [
     "AttemptLedger",
@@ -228,6 +240,7 @@
     "ContentAddressedBlobStore",
     "ScopedLock",
     "atomicWrite",
-    "redactSecrets"
+    "redactSecrets",
+    "runPythonTrainer"
   ]
 }

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/finetuning/artifact-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifactManifestVersion", "runId", "createdAt", "artifacts", "trainingSpecHash"],
+  "properties": {
+    "artifactManifestVersion": { "const": "1.0.0" },
+    "runId": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "kind": { "type": "string" }
+        }
+      }
+    },
+    "trainingSpecHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
