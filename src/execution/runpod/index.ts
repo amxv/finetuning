@@ -195,6 +195,7 @@ export function requireReconcileBeforeRetry(state: RunPodProviderStateV1): void 
 }
 export * from "./lifecycle.js";
 export * from "./hardening.js";
+export * from "./serverless.js";
 function parsePods(v: unknown) {
   if (!Array.isArray(v)) throw incompatible("pod list");
   return v.map(parsePod);

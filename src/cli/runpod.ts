@@ -9,6 +9,32 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
   const [verb, ...rest] = raw;
   if (!verb || verb === "--help" || verb === "-h") return help();
   const args = parseArgs(rest);
+  if (verb === "serverless" || verb === "fleet") {
+    const subcommand = args.positionals[0];
+    const allowed =
+      verb === "serverless"
+        ? ["evaluate", "infer", "status", "cancel", "cleanup"]
+        : ["plan", "status", "orphans", "cancel", "cleanup"];
+    if (!subcommand || !allowed.includes(subcommand))
+      throw new Error(`Usage: finetuning runpod ${verb} ${allowed.join("|")}`);
+    if (readOptionalStringFlag(args, "operation") === "training" || readBooleanFlag(args, "checkpointed-training"))
+      throw new Error("SERVERLESS_TRAINING_REJECTED: use one Pod per run for checkpointed or long-running training");
+    return print(
+      {
+        version: "1.0.0",
+        operation: `${verb} ${subcommand}`,
+        status: "unavailable",
+        liveEvidence: false,
+        dryRun: readBooleanFlag(args, "dry-run"),
+        evidenceDate: "2026-07-12",
+        reason:
+          verb === "serverless"
+            ? "Dedicated endpoint, bounded worker, scale/cancel/cost and cleanup evidence not run."
+            : "Fleet remains a fake isolation/dispatcher contract; one Pod per run is the reference.",
+      },
+      args,
+    );
+  }
   if (verb === "init") {
     const out = readRequiredStringFlag(args, "out");
     await atomicWrite(
@@ -75,6 +101,13 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
           fallbacks: "ranked and confirmation-required; no silent model/precision/quantization/GPU/mode changes",
           spot: "unavailable; simulated eviction does not qualify support",
           productionRecipes: "unavailable",
+          serverless: {
+            status: "unavailable",
+            operationsRevalidated: ["run", "runsync", "status", "cancel", "purge-queue"],
+            training: false,
+            liveEvidence: false,
+          },
+          fleet: { status: "unavailable", reference: "one-pod-per-run", multiNode: false },
         },
       },
       args,
