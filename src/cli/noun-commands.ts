@@ -291,6 +291,7 @@ async function distillCommand(verb: string, args: ReturnType<typeof parseArgs>):
   const providers = readBooleanFlag(args, "offline-fake") ? deterministicProvider() : providerDistillation(project.config, {
     network: true, generationCredentialEnv: readRequiredStringFlag(args,"generation-credential-env"), judgingCredentialEnv: readRequiredStringFlag(args,"judging-credential-env"),
     generationBudget: Number(readRequiredStringFlag(args,"generation-budget-usd")), judgingBudget: Number(readRequiredStringFlag(args,"judging-budget-usd")),
+    generationInputPerMillion:Number(readRequiredStringFlag(args,"generation-input-per-million-usd")),generationOutputPerMillion:Number(readRequiredStringFlag(args,"generation-output-per-million-usd")),judgingInputPerMillion:Number(readRequiredStringFlag(args,"judging-input-per-million-usd")),judgingOutputPerMillion:Number(readRequiredStringFlag(args,"judging-output-per-million-usd")),generationSpent:previous?.costs.generator.cost??0,judgingSpent:previous?.costs.judge.cost??0,
   });
   const pipeline = new DistillationPipeline(
     providers.generator,
@@ -351,8 +352,8 @@ function printVerbHelp(noun: string, verb: string): void {
   const usage: Record<string, string> = {
     "distill.init": "Usage: finetuning distill init --root <dir> --config <config.json> --input <canonical.jsonl> [--force] [--json]",
     "distill.plan": "Usage: finetuning distill plan --root <dir> [--json]",
-    "distill.responses": "Usage: finetuning distill responses --root <dir> --offline-fake [--json]",
-    "distill.resume": "Usage: finetuning distill resume --root <dir> --offline-fake [--json]",
+    "distill.responses": "Usage: finetuning distill responses --root <dir> (--offline-fake | --allow-network --generation-credential-env <ENV> --judging-credential-env <ENV> --generation-budget-usd <USD> --judging-budget-usd <USD> --generation-input-per-million-usd <USD> --generation-output-per-million-usd <USD> --judging-input-per-million-usd <USD> --judging-output-per-million-usd <USD>) [--json]",
+    "distill.resume": "Usage: finetuning distill resume --root <dir> (--offline-fake | --allow-network --generation-credential-env <ENV> --judging-credential-env <ENV> --generation-budget-usd <USD> --judging-budget-usd <USD> --generation-input-per-million-usd <USD> --generation-output-per-million-usd <USD> --judging-input-per-million-usd <USD> --judging-output-per-million-usd <USD>) [--json]",
     "distill.status": "Usage: finetuning distill status --root <dir> [--json]",
     "distill.freeze": "Usage: finetuning distill freeze --root <dir> --out <dir> [--force] [--json]",
     "training.prepare": "Usage: finetuning training prepare --spec <training-spec.json> [--json]",

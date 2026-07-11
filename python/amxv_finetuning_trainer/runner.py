@@ -2,16 +2,22 @@ from __future__ import annotations
 import json,sys
 from pathlib import Path
 from .contracts import parse_spec
-from .engine import classify_checkpoint,export_artifacts,preflight,train
-def main()->int:
+from .engine import classify_checkpoint,export_artifacts,preflight,train,execute_production
+from .framework import HuggingFaceFramework
+def main(framework_factory=HuggingFaceFramework)->int:
     spec=parse_spec(json.loads(Path(sys.argv[1]).read_text()));sequence=0
     def emit(kind:str,data:dict|None=None)->None:
         nonlocal sequence;print(json.dumps({"trainingEventVersion":"1.0.0","sequence":sequence,"timestamp":"1970-01-01T00:00:00Z","runId":spec["runId"],"type":kind,**({"data":data} if data else {})}),flush=True);sequence+=1
     emit("started");operation=spec.get("operation","run")
     try:
-        info=preflight(spec);emit("preflight",info)
+        production=spec["recipeId"]!="cpu-tiny-fixture"
+        info={"mode":"production-gated","recipeId":spec["recipeId"],"network":False,"uploads":False} if production else preflight(spec);emit("preflight",info)
         if operation=="prepare":result=info
-        elif operation in ("run","resume"):result=train(spec,Path(spec["checkpointPath"]) if operation=="resume" and spec.get("checkpointPath") else None);emit("progress",result)
+        elif operation in ("run","resume"):
+            if production:
+                records=Path(spec["dataset"]["manifestPath"]).parent/"records.jsonl";rows=[json.loads(x) for x in records.read_text().splitlines() if x.strip()];result=execute_production(spec,rows,framework_factory())
+            else:result=train(spec,Path(spec["checkpointPath"]) if operation=="resume" and spec.get("checkpointPath") else None)
+            emit("progress",result)
         elif operation=="status":result={"checkpointClassification":classify_checkpoint(Path(spec["checkpointPath"])) if spec.get("checkpointPath") else "none"}
         elif operation=="evaluate":result=json.loads((Path(spec["outputDirectory"])/"evaluation.json").read_text())
         else:result=export_artifacts(spec);emit("artifact",{"manifest":"artifact-manifest.json"})

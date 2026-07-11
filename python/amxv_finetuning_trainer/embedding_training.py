@@ -12,7 +12,9 @@ def parse_spec(v):
  if v["embeddingTrainingSpecVersion"].split(".v")[-1]!=SPEC_VERSION.split(".v")[-1]:raise ValueError(f"EMBED_SPEC_VERSION: expected {SPEC_VERSION}")
  for k in ("runId","datasetManifest","recipeId","objective","outputDirectory","effectiveBatchSize","immutableIdentity"):
   if k not in v:raise ValueError(f"EMBED_SPEC_INVALID: missing $.{k}")
- if v["recipeId"]!="cpu-tiny-embedding-fixture":raise ValueError(f"EMBED_RECIPE_UNAVAILABLE: {v['recipeId']} lacks model-specific smoke/reload/export evidence")
+ if v["recipeId"]!="cpu-tiny-embedding-fixture":
+  from .framework import resolve_recipe
+  resolve_recipe(v["recipeId"],"embedding")
  if v["effectiveBatchSize"]<2:raise ValueError("EMBED_EFFECTIVE_BATCH: use effectiveBatchSize >= 2 for in-batch negatives")
  required=("modelRevision","tokenizerRevision","configRevision","dataHash","splitHash","taskMapping","prompts","pooling","padding","normalization","dimensions","objective","seed")
  for k in required:
@@ -80,14 +82,23 @@ def verify(path):
   if resolved.stat().st_size!=x["bytes"] or hashlib.sha256(resolved.read_bytes()).hexdigest()!=x["sha256"]:raise ValueError(f"EMBED_ARTIFACT_TAMPER: {x['path']}")
  return m
 def _tuple(v):return tuple(_tuple(x) for x in v) if isinstance(v,list) else v
-def main():
+def main(framework_factory=None):
  spec=parse_spec(json.loads(Path(sys.argv[1]).read_text()));seq=0
  def emit(kind,data=None):
   nonlocal seq;print(json.dumps({"embeddingTrainingEventVersion":EVENT_VERSION,"sequence":seq,"timestamp":"1970-01-01T00:00:00Z","runId":spec["runId"],"type":kind,**({"data":data} if data is not None else {})}),flush=True);seq+=1
  emit("started");op=spec.get("operation","run")
  try:
   emit("preflight",{"recipe":spec["recipeId"],"device":"cpu","estimatedPeakBytes":1048576,"network":False})
-  if op in ("run","resume"):result=train(spec,Path(spec["checkpointPath"]) if op=="resume" and spec.get("checkpointPath") else None);emit("progress",result)
+  if op in ("run","resume"):
+   if spec["recipeId"]=="cpu-tiny-embedding-fixture":result=train(spec,Path(spec["checkpointPath"]) if op=="resume" and spec.get("checkpointPath") else None)
+   else:
+    from .framework import HuggingFaceFramework
+    root=Path(spec["datasetManifest"]).parent;rows=[]
+    for line in (root/"records.jsonl").read_text().splitlines():
+     if line.strip():
+      row=json.loads(line);rows.append({"query":row["query"]["text"] if isinstance(row.get("query"),dict) else row["query"],"document":row["document"]["text"] if isinstance(row.get("document"),dict) else row["document"]})
+    result=execute_production(spec,rows,(framework_factory or HuggingFaceFramework)())
+   emit("progress",result)
   elif op=="status":result={"checkpointClassification":checkpoint_classification(Path(spec["checkpointPath"]),digest(spec["immutableIdentity"])) if spec.get("checkpointPath") else "none"}
   elif op=="export":result=export(spec);emit("artifact",{"manifest":"embedding-artifact-manifest.json"})
   elif op=="inspect":result=verify(Path(spec["artifactPath"]))

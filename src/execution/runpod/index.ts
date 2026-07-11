@@ -62,19 +62,23 @@ export interface RunPodConfig {
   apiKeyEnv: string;
   baseUrl: string;
   timeoutMs: number;
+  maxResponseBytes: number;
 }
 export function parseRunPodConfig(value: unknown = {}): RunPodConfig {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new RunPodError("RUNPOD_INCOMPATIBLE", "config must be an object");
   const v = value as Record<string, unknown>;
-  const allowed = ["apiKeyEnv", "baseUrl", "timeoutMs"];
+  const allowed = ["apiKeyEnv", "baseUrl", "timeoutMs", "maxResponseBytes"];
   const unknown = Object.keys(v).filter((k) => !allowed.includes(k));
   if (unknown.length) throw new RunPodError("RUNPOD_INCOMPATIBLE", `unknown config keys: ${unknown.join(", ")}`);
   if ("apiKey" in v) throw new RunPodError("RUNPOD_INCOMPATIBLE", "persisted API key values are forbidden");
+  const baseUrl=typeof v.baseUrl === "string" ? v.baseUrl : "https://rest.runpod.io/v1";
+  if(baseUrl!=="https://rest.runpod.io/v1")throw new RunPodError("RUNPOD_INCOMPATIBLE","RunPod base URL must equal the pinned REST v1 origin");
   return {
     apiKeyEnv: typeof v.apiKeyEnv === "string" ? v.apiKeyEnv : "RUNPOD_API_KEY",
-    baseUrl: typeof v.baseUrl === "string" ? v.baseUrl : "https://rest.runpod.io/v1",
+    baseUrl,
     timeoutMs: typeof v.timeoutMs === "number" ? v.timeoutMs : 15_000,
+    maxResponseBytes: typeof v.maxResponseBytes === "number" ? v.maxResponseBytes : 1_048_576,
   };
 }
 export class RunPodTransport {
@@ -95,7 +99,8 @@ export class RunPodTransport {
         headers: { accept: "application/json", authorization: `Bearer ${key}`, ...init.headers },
         signal: ctl.signal,
       });
-      const body: unknown = await response.json().catch(() => null);
+      const raw=await response.text();if(Buffer.byteLength(raw)>this.config.maxResponseBytes)throw new RunPodError("RUNPOD_INCOMPATIBLE","RunPod response exceeds configured size bound");
+      const body: unknown = raw ? JSON.parse(raw) : null;
       if (!response.ok) throw classify(response.status, body);
       return body;
     } catch (e) {

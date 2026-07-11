@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { parseExecutionJob } from "../execution/index.js";
 import { planRunPodJob } from "../execution/runpod/index.js";
+import { RunPodTransport } from "../execution/runpod/index.js";
+import { RestRunPodLifecycleBackend,RunPodLifecycleController } from "../execution/runpod/lifecycle.js";
 import { atomicWrite } from "../node/storage.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 const reads = new Set(["status", "orphans", "cost"]),
@@ -139,8 +141,15 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
   if (reads.has(verb))
     return print({ operation: verb, readOnly: true, requiresState: true, productionMutation: false }, args);
   if (mutations.has(verb)) {
-    if (!readBooleanFlag(args, "dry-run"))
-      throw new Error("RUNPOD_MUTATION_UNAVAILABLE: use --dry-run; pinned live mutation evidence is not qualified");
+    if (!readBooleanFlag(args, "dry-run")) {
+      if(!readBooleanFlag(args,"allow-live")||!readBooleanFlag(args,"i-accept-billing")||!readBooleanFlag(args,"i-own-resources"))throw new Error("RUNPOD_LIVE_OPT_IN_REQUIRED: require --allow-live --i-accept-billing --i-own-resources");
+      const authorizationEnv=readRequiredStringFlag(args,"authorization-env");if(process.env[authorizationEnv]!=="AUTHORIZED")throw new Error(`RUNPOD_LIVE_AUTHORIZATION_MISSING: ${authorizationEnv}`);
+      const state=readRequiredStringFlag(args,"state"),ownership=readRequiredStringFlag(args,"ownership-marker");
+      const controller=new RunPodLifecycleController(new RestRunPodLifecycleBackend(new RunPodTransport({apiKeyEnv:readRequiredStringFlag(args,"api-key-env"),baseUrl:"https://rest.runpod.io/v1",timeoutMs:Number(readOptionalStringFlag(args,"timeout-ms")??15000),maxResponseBytes:1048576}),true),state,ownership);
+      if(verb==="stop")return print(await controller.stop(false),args);
+      if(verb==="terminate")return print(await controller.terminate(readBooleanFlag(args,"yes"),false),args);
+      throw new Error(`RUNPOD_LIVE_OPERATION_REQUIRES_SAVED_CONTROLLER_INPUT: ${verb}`);
+    }
     const destructive = ["terminate", "cleanup"].includes(verb);
     return print(
       {

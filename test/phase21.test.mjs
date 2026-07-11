@@ -130,7 +130,7 @@ test("cleanup refuses foreign volume and fetch verifies hashes", async () => {
 async function statMode(path) {
   return (await import("node:fs/promises")).stat(path).then((x) => x.mode);
 }
-test("CLI exposes every lifecycle verb and keeps mutations dry-run only", async () => {
+test("CLI exposes every lifecycle verb and requires strict live opt-in", async () => {
   const { spawnSync } = await import("node:child_process");
   const help = spawnSync(process.execPath, ["dist/cli/index.js", "runpod", "--help"], { encoding: "utf8" });
   assert.equal(help.status, 0);
@@ -156,7 +156,7 @@ test("CLI exposes every lifecycle verb and keeps mutations dry-run only", async 
     encoding: "utf8",
   });
   assert.notEqual(blocked.status, 0);
-  assert.match(blocked.stderr, /MUTATION_UNAVAILABLE/);
+  assert.match(blocked.stderr, /LIVE_OPT_IN_REQUIRED/);
   const dry = spawnSync(process.execPath, ["dist/cli/index.js", "runpod", "terminate", "--dry-run", "--json"], {
     encoding: "utf8",
   });
