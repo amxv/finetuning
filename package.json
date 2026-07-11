@@ -88,6 +88,7 @@
   "files": [
     "dist",
     "schemas",
+    "locks",
     "docs",
     "examples",
     "CONTRIBUTING.md",
