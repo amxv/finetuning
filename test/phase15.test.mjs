@@ -76,6 +76,22 @@ test("embedding protocol, five-recipe honesty, and CPU CLI train/resume/export",
         ])
       ).stdout,
     );
+  await assert.rejects(run("resume"), /checkpoint/i);
+  await assert.rejects(access(join(out, ".embedding-resume.json")));
+  await assert.rejects(run("inspect"), /artifact/i);
+  await assert.rejects(access(join(out, ".embedding-inspect.json")));
+
+  const directOut = join(root, "direct-out"),
+    directSpec = join(root, "direct-resume.json");
+  await writeFile(directSpec, JSON.stringify({ ...base, outputDirectory: directOut, operation: "resume" }));
+  const direct = await runPythonEmbeddingTrainer({
+    pythonExecutable: "python3",
+    specPath: directSpec,
+    cwd: resolve("python"),
+  });
+  assert.equal(direct.exitCode, 2);
+  assert.match(direct.events.at(-1).data.message, /CHECKPOINT_REQUIRED/);
+  await assert.rejects(access(directOut));
   assert.equal((await run("run")).execution.exitCode, 0);
   const checkpoint = join(out, "checkpoint-4.json");
   assert.equal(

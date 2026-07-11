@@ -33,6 +33,13 @@ def main(framework_factory=HuggingFaceFramework) -> int:
     emit("started")
     operation = spec.get("operation", "run")
     try:
+        if operation == "resume":
+            checkpoint = spec.get("checkpointPath")
+            if not checkpoint:
+                raise ValueError("CHECKPOINT_REQUIRED: resume requires checkpointPath")
+            classification = classify_checkpoint(Path(checkpoint))
+            if classification != "full-resume":
+                raise ValueError(f"CHECKPOINT_NOT_FULL_RESUME: {classification}")
         production = spec["recipeId"] != "cpu-tiny-fixture"
         info = (
             {"mode": "production-gated", "recipeId": spec["recipeId"], "network": False, "uploads": False}
@@ -48,9 +55,7 @@ def main(framework_factory=HuggingFaceFramework) -> int:
                 rows = [json.loads(x) for x in records.read_text().splitlines() if x.strip()]
                 result = execute_production(spec, rows, framework_factory())
             else:
-                result = train(
-                    spec, Path(spec["checkpointPath"]) if operation == "resume" and spec.get("checkpointPath") else None
-                )
+                result = train(spec, Path(spec["checkpointPath"]) if operation == "resume" else None)
             emit("progress", result)
         elif operation == "status":
             result = {

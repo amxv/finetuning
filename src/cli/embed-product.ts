@@ -65,16 +65,22 @@ export async function runEmbedProduct(raw: string[]): Promise<boolean> {
   const config = await resolveEmbedConfig(`${noun}.${verb}`, a),
     value = config.resolved;
   if (noun === "train") {
-    if (verb === "inspect" && readOptionalStringFlag(a, "artifact")) {
-      print(await inspectEmbeddingArtifact(readRequiredStringFlag(a, "artifact")));
+    const checkpoint = typeof value.checkpoint === "string" && value.checkpoint ? value.checkpoint : undefined;
+    const artifact = typeof value.artifact === "string" && value.artifact ? value.artifact : undefined;
+    if (verb === "resume" && !checkpoint)
+      throw new Error("Embedding training resume requires --checkpoint <path> or config checkpoint.");
+    if (verb === "inspect" && !artifact)
+      throw new Error("Embedding training inspect requires --artifact <path> or config artifact.");
+    if (verb === "inspect") {
+      print(await inspectEmbeddingArtifact(artifact!));
       return true;
     }
     const runner = async (trainingSpec: EmbeddingTrainingSpecV1) => {
       const spec = {
         ...trainingSpec,
         operation: verb,
-        ...(typeof value["checkpoint"] === "string" ? { checkpointPath: value["checkpoint"] } : {}),
-        ...(typeof value["artifact"] === "string" ? { artifactPath: value["artifact"] } : {}),
+        ...(checkpoint ? { checkpointPath: checkpoint } : {}),
+        ...(artifact ? { artifactPath: artifact } : {}),
       };
       const specPath = join(String(value.outputDirectory), `.embedding-${verb}.json`);
       await atomicWrite(specPath, JSON.stringify(spec, null, 2) + "\n");

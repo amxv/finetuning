@@ -276,14 +276,23 @@ def main(framework_factory=None):
     emit("started")
     op = spec.get("operation", "run")
     try:
+        if op == "resume":
+            checkpoint = spec.get("checkpointPath")
+            if not checkpoint:
+                raise ValueError("EMBED_CHECKPOINT_REQUIRED: resume requires checkpointPath")
+            classification = checkpoint_classification(Path(checkpoint), digest(spec["immutableIdentity"]))
+            if classification != "full-resume":
+                raise ValueError(f"EMBED_CHECKPOINT_NOT_FULL_RESUME: {classification}")
+        if op == "inspect":
+            artifact = spec.get("artifactPath")
+            if not artifact:
+                raise ValueError("EMBED_ARTIFACT_REQUIRED: inspect requires artifactPath")
         emit(
             "preflight", {"recipe": spec["recipeId"], "device": "cpu", "estimatedPeakBytes": 1048576, "network": False}
         )
         if op in ("run", "resume"):
             if spec["recipeId"] == "cpu-tiny-embedding-fixture":
-                result = train(
-                    spec, Path(spec["checkpointPath"]) if op == "resume" and spec.get("checkpointPath") else None
-                )
+                result = train(spec, Path(spec["checkpointPath"]) if op == "resume" else None)
             else:
                 from .framework import HuggingFaceFramework
 

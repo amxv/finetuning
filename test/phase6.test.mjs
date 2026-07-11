@@ -221,3 +221,31 @@ test("template and training prepare CLI surfaces are additive and fail closed", 
     (error) => error.stderr.includes("unresolved"),
   );
 });
+test("direct chat runner rejects resume without checkpoint before output mutation", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "phase6-resume-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const outputDirectory = join(root, "out"),
+    specPath = join(root, "resume.json");
+  await writeFile(
+    specPath,
+    JSON.stringify({
+      trainingSpecVersion,
+      runId: "missing-checkpoint",
+      dataset: { manifestPath: join(root, "manifest.json"), recordsHash: "a".repeat(64) },
+      recipeId: "cpu-tiny-fixture",
+      outputDirectory,
+      objective: "sft",
+      seed: 0,
+      operation: "resume",
+    }),
+  );
+  const result = await runPythonTrainer({
+    pythonExecutable: "python3",
+    module: "amxv_finetuning_trainer.runner",
+    specPath,
+    cwd: resolve("python"),
+  });
+  assert.equal(result.exitCode, 2);
+  assert.match(result.events.at(-1).data.message, /CHECKPOINT_REQUIRED/);
+  await assert.rejects(access(outputDirectory));
+});

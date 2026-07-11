@@ -113,6 +113,7 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
       spec = JSON.parse(await readFile(specPath, "utf8")) as TrainingSpecV1;
     const runtimePath = `${specPath}.${verb}.json`;
     const checkpoint = readOptionalStringFlag(args, "checkpoint");
+    if (verb === "resume" && !checkpoint) throw new Error("Training resume requires --checkpoint <path>.");
     await atomicWrite(
       runtimePath,
       `${JSON.stringify({ ...spec, operation: verb, ...(checkpoint ? { checkpointPath: checkpoint } : {}) }, null, 2)}\n`,

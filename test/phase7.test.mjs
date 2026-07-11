@@ -62,6 +62,8 @@ test("training CLI prepare run resume status evaluate export executes CPU fixtur
         ])
       ).stdout,
     );
+  await assert.rejects(command("resume"), /checkpoint/i);
+  await assert.rejects(readFile(`${spec}.resume.json`));
   assert.equal((await command("run")).exitCode, 0);
   const checkpoint = join(out, "checkpoint-1.json");
   assert.equal(

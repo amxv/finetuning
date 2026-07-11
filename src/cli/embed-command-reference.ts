@@ -148,8 +148,8 @@ export const embedCommandReference: readonly EmbedCommandReference[] = [
   ),
   ref(
     "embed train resume",
-    "--config <path> --checkpoint <path> [--json] [--quiet] [--dry-run]",
-    configured("--config and --checkpoint for resume", "non-dry resume writes within configured output"),
+    "--config <path> [--checkpoint <path>] [--json] [--quiet] [--dry-run]",
+    configured("--config and a checkpoint from CLI or config", "non-dry resume writes within configured output"),
   ),
   ref(
     "embed train status",
@@ -163,8 +163,8 @@ export const embedCommandReference: readonly EmbedCommandReference[] = [
   ),
   ref(
     "embed train inspect",
-    "--config <path> --artifact <path> [--json] [--quiet] [--dry-run]",
-    configured("--config and --artifact", "verifies artifact; runner path is read-only"),
+    "--config <path> [--artifact <path>] [--json] [--quiet] [--dry-run]",
+    configured("--config and an artifact from CLI or config", "verifies artifact; runner path is read-only"),
   ),
   ref(
     "embed evaluate run",
