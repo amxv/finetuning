@@ -1,6 +1,7 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readFile, realpath, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { canonicalSha256 } from "../core/canonical.js";
-import { parseArtifactManifest, type ArtifactManifestV1 } from "../training/index.js";
 import { EmbeddingSdkError, TypedRegistry, type EmbeddingServiceDependencies } from "./sdk.js";
 export const embeddingTrainingSpecVersion = "embedding.training.v1" as const;
 export const embeddingTrainingEventVersion = "embedding.training.event.v1" as const;
@@ -16,7 +17,11 @@ export interface EmbeddingTrainingSpecV1 {
   dimension?: number;
   adapter?: "lora" | "full";
   seed?: number;
-  immutableIdentity?: Record<string, unknown>;
+  immutableIdentity: {
+    modelRevision: string; tokenizerRevision: string; configRevision: string; dataHash: string; splitHash: string;
+    taskMapping: unknown; prompts: unknown; pooling: string; padding: string; normalization: unknown;
+    dimensions: number[]; objective: string; seed: number;
+  };
   allowedRuntimeChanges?: string[];
 }
 export interface EmbeddingTrainingEventV1 {
@@ -152,6 +157,14 @@ export function validateEmbeddingTrainingSpec(value: EmbeddingTrainingSpecV1) {
       path: "$.effectiveBatchSize",
       remediation: "Use an effective batch size of at least 2; larger in-batch-negative batches are recommended.",
     });
+  const required = ["runId", "datasetManifest", "recipeId", "objective", "outputDirectory"] as const;
+  for (const key of required) if (typeof value[key] !== "string" || !value[key])
+    throw new EmbeddingSdkError("EMBED_CONFIG_INVALID", `Missing $.${key}`, { path: `$.${key}`, remediation: `Provide ${key}.` });
+  const identity = value.immutableIdentity as Record<string, unknown> | undefined;
+  for (const key of ["modelRevision","tokenizerRevision","configRevision","dataHash","splitHash","taskMapping","prompts","pooling","padding","normalization","dimensions","objective","seed"])
+    if (!identity || !(key in identity)) throw new EmbeddingSdkError("EMBED_CONFIG_INVALID", `Missing $.immutableIdentity.${key}`, { path: `$.immutableIdentity.${key}`, remediation: `Provide immutableIdentity.${key}.` });
+  const recipe = embeddingRecipeRegistry.get(value.recipeId);
+  if (recipe.status !== "available") throw new EmbeddingSdkError("EMBED_UNAVAILABLE", `Recipe is unavailable: ${value.recipeId}`, { path: "$.recipeId", remediation: recipe.reason });
   return value;
 }
 export class EmbeddingTrainingRun {
@@ -173,16 +186,24 @@ export class EmbeddingTrainingRun {
       planHash: canonicalSha256(this.spec as never),
     };
   }
-  async run(): Promise<never> {
-    await this.dependencies.emit?.({ type: "warning", operation: "train", message: "Trainer unavailable" });
-    throw new EmbeddingSdkError("EMBED_UNAVAILABLE", "Embedding training execution is unavailable in this release", {
-      remediation: "Use the dry-run plan; execution is gated until Phase 15.",
-    });
+  async run(): Promise<unknown> {
+    if (!this.dependencies.runTraining) throw new EmbeddingSdkError("EMBED_UNAVAILABLE", "No embedding trainer runner was injected", { remediation: "Inject the local Python runner; network and uploads remain disabled." });
+    return this.dependencies.runTraining(this.spec);
   }
 }
 export async function inspectEmbeddingArtifact(
   path: string,
-): Promise<{ manifest: ArtifactManifestV1; verified: boolean }> {
-  const manifest = parseArtifactManifest(JSON.parse(await readFile(path, "utf8")));
-  return { manifest, verified: manifest.artifacts.every((x) => /^[a-f0-9]{64}$/.test(x.sha256)) };
+): Promise<{ manifest: EmbeddingArtifactManifestV1; verified: boolean }> {
+  const manifest = JSON.parse(await readFile(path, "utf8")) as EmbeddingArtifactManifestV1;
+  if (manifest.embeddingArtifactVersion !== embeddingArtifactVersion || !Array.isArray(manifest.artifacts))
+    throw new Error(`Unsupported embedding artifact manifest: ${manifest.embeddingArtifactVersion ?? "missing"}`);
+  const root = await realpath(dirname(path)); const seen = new Set<string>();
+  for (const item of manifest.artifacts) {
+    if (isAbsolute(item.path) || item.path.split(/[\\/]/).includes("..") || seen.has(item.path)) throw new Error(`Unsafe artifact path: ${item.path}`);
+    seen.add(item.path); const candidate = resolve(root, item.path); const info = await lstat(candidate);
+    if (info.isSymbolicLink() || !info.isFile()) throw new Error(`Artifact is not a regular file: ${item.path}`);
+    const actual = await realpath(candidate); if (relative(root, actual).startsWith("..")) throw new Error(`Artifact escapes root: ${item.path}`);
+    const bytes = await readFile(actual); if ((await stat(actual)).size !== item.bytes || createHash("sha256").update(bytes).digest("hex") !== item.sha256) throw new Error(`Artifact verification failed: ${item.path}`);
+  }
+  return { manifest, verified: true };
 }

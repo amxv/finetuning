@@ -15,6 +15,7 @@ def parse_spec(v):
  required=("modelRevision","tokenizerRevision","configRevision","dataHash","splitHash","taskMapping","prompts","pooling","padding","normalization","dimensions","objective","seed")
  for k in required:
   if k not in v["immutableIdentity"]:raise ValueError(f"EMBED_RESUME_IDENTITY: missing $.immutableIdentity.{k}")
+ if "seed" in v and (not isinstance(v["seed"],int) or v["seed"]!=v["immutableIdentity"]["seed"]):raise ValueError("EMBED_RESUME_IDENTITY: $.seed must equal $.immutableIdentity.seed")
  return v
 def losses(kind,pred,target):
  if len(pred)!=len(target):raise ValueError("EMBED_LOSS_SHAPE: prediction/target length mismatch")
@@ -65,9 +66,16 @@ def export(spec):
 def verify(path):
  m=json.loads(path.read_text())
  if m.get("embeddingArtifactVersion")!=ARTIFACT_VERSION:raise ValueError("EMBED_ARTIFACT_VERSION")
+ root=path.parent.resolve();seen=set()
  for x in m["artifacts"]:
-  p=path.parent/x["path"]
-  if not p.exists() or p.stat().st_size!=x["bytes"] or hashlib.sha256(p.read_bytes()).hexdigest()!=x["sha256"]:raise ValueError(f"EMBED_ARTIFACT_TAMPER: {x['path']}")
+  rel=Path(x["path"])
+  if rel.is_absolute() or ".." in rel.parts or x["path"] in seen:raise ValueError(f"EMBED_ARTIFACT_PATH: {x['path']}")
+  seen.add(x["path"]);p=path.parent/rel
+  if p.is_symlink():raise ValueError(f"EMBED_ARTIFACT_SYMLINK: {x['path']}")
+  try:resolved=p.resolve(strict=True)
+  except FileNotFoundError:raise ValueError(f"EMBED_ARTIFACT_MISSING: {x['path']}")
+  if root not in resolved.parents or not resolved.is_file():raise ValueError(f"EMBED_ARTIFACT_PATH: {x['path']}")
+  if resolved.stat().st_size!=x["bytes"] or hashlib.sha256(resolved.read_bytes()).hexdigest()!=x["sha256"]:raise ValueError(f"EMBED_ARTIFACT_TAMPER: {x['path']}")
  return m
 def _tuple(v):return tuple(_tuple(x) for x in v) if isinstance(v,list) else v
 def main():

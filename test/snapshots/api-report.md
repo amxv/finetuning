@@ -872,7 +872,6 @@ export declare function loadEmbeddingDistillationState(path: string): Promise<Em
 ## dist/embeddings/training.d.ts
 
 ```ts
-import { type ArtifactManifestV1 } from "../training/index.js";
 import { TypedRegistry, type EmbeddingServiceDependencies } from "./sdk.js";
 export declare const embeddingTrainingSpecVersion: "embedding.training.v1";
 export declare const embeddingTrainingEventVersion: "embedding.training.event.v1";
@@ -888,7 +887,21 @@ export interface EmbeddingTrainingSpecV1 {
     dimension?: number;
     adapter?: "lora" | "full";
     seed?: number;
-    immutableIdentity?: Record<string, unknown>;
+    immutableIdentity: {
+        modelRevision: string;
+        tokenizerRevision: string;
+        configRevision: string;
+        dataHash: string;
+        splitHash: string;
+        taskMapping: unknown;
+        prompts: unknown;
+        pooling: string;
+        padding: string;
+        normalization: unknown;
+        dimensions: number[];
+        objective: string;
+        seed: number;
+    };
     allowedRuntimeChanges?: string[];
 }
 export interface EmbeddingTrainingEventV1 {
@@ -941,10 +954,10 @@ export declare class EmbeddingTrainingRun {
         trustRemoteCode: boolean;
         planHash: string;
     };
-    run(): Promise<never>;
+    run(): Promise<unknown>;
 }
 export declare function inspectEmbeddingArtifact(path: string): Promise<{
-    manifest: ArtifactManifestV1;
+    manifest: EmbeddingArtifactManifestV1;
     verified: boolean;
 }>;
 ```

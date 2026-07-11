@@ -28,6 +28,7 @@ export class EmbeddingSdkError extends Error {
 export interface EmbeddingServiceDependencies {
   now?: () => string;
   emit?: (event: EmbeddingSdkEvent) => void | Promise<void>;
+  runTraining?: (spec: import("./training.js").EmbeddingTrainingSpecV1) => Promise<unknown>;
 }
 export interface EmbeddingSdkEvent {
   type: "progress" | "warning";

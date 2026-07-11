@@ -18,4 +18,8 @@ class Phase7(unittest.TestCase):
     def test_production_and_hardware_preflight_are_actionable(self):
         with tempfile.TemporaryDirectory() as d:
             spec=self.fixture(Path(d),"x");spec["recipeId"]="qwen3.6-27b";self.assertRaisesRegex(RuntimeError,"UNRESOLVED_RECIPE",preflight,spec)
+    def test_artifact_paths_fail_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);outside=root/"outside";outside.write_text("secret");art=root/"art";art.mkdir();manifest={"artifactManifestVersion":"1.0.0","runId":"r","createdAt":"x","trainingSpecHash":"a"*64,"artifacts":[{"path":"../outside","sha256":"a"*64,"bytes":6,"kind":"file"}]};path=art/"artifact-manifest.json";path.write_text(json.dumps(manifest));self.assertRaisesRegex(ValueError,"unsafe artifact path",verify_artifacts,path)
+            target=art/"target";target.write_text("ok");(art/"link").symlink_to(target);manifest["artifacts"][0]={"path":"link","sha256":"a"*64,"bytes":2,"kind":"file"};path.write_text(json.dumps(manifest));self.assertRaisesRegex(ValueError,"symlink",verify_artifacts,path)
 if __name__=="__main__":unittest.main()

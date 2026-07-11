@@ -48,10 +48,11 @@ test("distill CLI init, plan, responses, status, resume, freeze and overwrite ru
     e.stderr.includes("--force"),
   );
   assert.equal(JSON.parse((await run(["distill", "plan", ...base])).stdout).generationCount, 1);
-  assert.equal(JSON.parse((await run(["distill", "responses", ...base])).stdout).candidateCount, 1);
+  await assert.rejects(run(["distill", "responses", ...base]), (e) => e.stderr.includes("DISTILL_PROVIDER_GATE"));
+  assert.equal(JSON.parse((await run(["distill", "responses", ...base, "--offline-fake"])).stdout).candidateCount, 1);
   const status = JSON.parse((await run(["distill", "status", ...base])).stdout);
   assert.equal(status.candidateCount, 1);
-  const resumed = JSON.parse((await run(["distill", "resume", ...base])).stdout);
+  const resumed = JSON.parse((await run(["distill", "resume", ...base, "--offline-fake"])).stdout);
   assert.equal(resumed.costs.totalCost, status.costs.totalCost);
   assert.equal(JSON.parse((await run(["distill", "freeze", ...base, "--out", frozen])).stdout).recordCount, 1);
   await assert.rejects(run(["distill", "freeze", ...base, "--out", frozen]), (e) => e.stderr.includes("--force"));

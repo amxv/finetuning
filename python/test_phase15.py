@@ -32,6 +32,10 @@ class Phase15(unittest.TestCase):
                 verify(root / "out" / "embedding-artifact-manifest.json")
             with self.assertRaisesRegex(ValueError, "VERSION"):
                 parse_spec({**spec, "embeddingTrainingSpecVersion": "embedding.training.v2"})
+            manifest["artifacts"] = [{"path": "../records.jsonl", "sha256": "a" * 64, "bytes": 1, "kind": "file"}]
+            (root / "out" / "embedding-artifact-manifest.json").write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "PATH"):
+                verify(root / "out" / "embedding-artifact-manifest.json")
 
 if __name__ == "__main__":
     unittest.main()

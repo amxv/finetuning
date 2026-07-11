@@ -55,8 +55,15 @@ def export_artifacts(spec:dict[str,Any])->dict[str,Any]:
     manifest={"artifactManifestVersion":"1.0.0","runId":spec["runId"],"createdAt":"1970-01-01T00:00:00Z","artifacts":artifacts,"trainingSpecHash":hashlib.sha256(json.dumps(spec,sort_keys=True,separators=(",",":")).encode()).hexdigest()};(out/"artifact-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n");return manifest
 def verify_artifacts(path:Path)->dict[str,Any]:
     manifest=parse_artifact_manifest(json.loads(path.read_text()));root=path.parent
+    root_resolved=root.resolve();seen=set()
     for item in manifest["artifacts"]:
-        payload=(root/item["path"]).read_bytes()
+        relative=Path(item["path"])
+        if relative.is_absolute() or ".." in relative.parts or item["path"] in seen:raise ValueError(f"unsafe artifact path: {item['path']}")
+        seen.add(item["path"]);candidate=root/relative
+        if candidate.is_symlink():raise ValueError(f"artifact symlink refused: {item['path']}")
+        resolved=candidate.resolve(strict=True)
+        if root_resolved not in resolved.parents or not resolved.is_file():raise ValueError(f"artifact escapes root or is not regular: {item['path']}")
+        payload=resolved.read_bytes()
         if len(payload)!=item["bytes"] or hashlib.sha256(payload).hexdigest()!=item["sha256"]:raise ValueError(f"artifact hash mismatch: {item['path']}")
     return manifest
 def _list_to_tuple(value:Any)->Any:return tuple(_list_to_tuple(x) for x in value) if isinstance(value,list) else value

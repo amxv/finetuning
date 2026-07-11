@@ -22,7 +22,18 @@
     "effectiveBatchSize": { "type": "integer", "minimum": 2 },
     "dimension": { "type": "integer", "minimum": 1 },
     "adapter": { "enum": ["lora", "full"] },
-    "immutableIdentity": { "type": "object" },
+    "seed": { "type": "integer" },
+    "immutableIdentity": {
+      "type": "object",
+      "required": ["modelRevision", "tokenizerRevision", "configRevision", "dataHash", "splitHash", "taskMapping", "prompts", "pooling", "padding", "normalization", "dimensions", "objective", "seed"],
+      "properties": {
+        "modelRevision": { "type": "string", "minLength": 1 }, "tokenizerRevision": { "type": "string", "minLength": 1 }, "configRevision": { "type": "string", "minLength": 1 },
+        "dataHash": { "type": "string", "minLength": 1 }, "splitHash": { "type": "string", "minLength": 1 }, "taskMapping": {}, "prompts": {},
+        "pooling": { "type": "string", "minLength": 1 }, "padding": { "type": "string", "minLength": 1 }, "normalization": {},
+        "dimensions": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 1 } }, "objective": { "type": "string", "minLength": 1 }, "seed": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
     "allowedRuntimeChanges": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": true

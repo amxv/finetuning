@@ -285,6 +285,8 @@ async function distillCommand(verb: string, args: ReturnType<typeof parseArgs>):
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
+  if (!readBooleanFlag(args, "offline-fake"))
+    throw new Error("DISTILL_PROVIDER_GATE: choose --offline-fake explicitly; provider execution requires the network/credential/budget-gated adapter");
   const fake = deterministicProvider();
   const pipeline = new DistillationPipeline(
     fake.generator,
@@ -320,8 +322,8 @@ function deterministicProvider(): { generator: DistillationProvider; judge: Dist
       return {
         requestId: request.requestId,
         sampleId: request.sampleId,
-        provider: request.provider,
-        model: request.model,
+        provider: "custom",
+        model: "offline-fake",
         candidates: [
           {
             response: { kind: "text", content },
@@ -342,6 +344,21 @@ function printResult(value: unknown, args: ReturnType<typeof parseArgs>): void {
 }
 function printVerbHelp(noun: string, verb: string): void {
   if (noun === "dataset" && verb === "freeze") return printNounHelp(noun);
+  const usage: Record<string, string> = {
+    "distill.init": "Usage: finetuning distill init --root <dir> --config <config.json> --input <canonical.jsonl> [--force] [--json]",
+    "distill.plan": "Usage: finetuning distill plan --root <dir> [--json]",
+    "distill.responses": "Usage: finetuning distill responses --root <dir> --offline-fake [--json]",
+    "distill.resume": "Usage: finetuning distill resume --root <dir> --offline-fake [--json]",
+    "distill.status": "Usage: finetuning distill status --root <dir> [--json]",
+    "distill.freeze": "Usage: finetuning distill freeze --root <dir> --out <dir> [--force] [--json]",
+    "training.prepare": "Usage: finetuning training prepare --spec <training-spec.json> [--json]",
+    "training.run": "Usage: finetuning training run --spec <training-spec.json> --python <executable> [--json]",
+    "training.resume": "Usage: finetuning training resume --spec <training-spec.json> --checkpoint <path> [--json]",
+    "training.status": "Usage: finetuning training status --spec <training-spec.json> [--json]",
+    "training.evaluate": "Usage: finetuning training evaluate --spec <training-spec.json> [--json]",
+    "training.export": "Usage: finetuning training export --spec <training-spec.json> [--json]",
+  };
+  if (usage[`${noun}.${verb}`]) { console.log(usage[`${noun}.${verb}`]); return; }
   if (verb === "status")
     console.log(
       "Usage: finetuning pipeline status --ledger <path> --run-id <id> --stage-id <id> --record-id <id> [--json]",
