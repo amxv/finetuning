@@ -67,6 +67,15 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
           "direct-secrets-resource",
         ],
         warnings: ["No live resource is created by doctor."],
+        trainingHardening: {
+          qlora: "offline-contract-only",
+          distributedModes: { singleNode: ["single", "ddp", "fsdp"], productionQualified: [] },
+          topology: "real visible-device and NCCL evidence not run",
+          checkpoint: "complete compatible state only; world-size reshard unavailable",
+          fallbacks: "ranked and confirmation-required; no silent model/precision/quantization/GPU/mode changes",
+          spot: "unavailable; simulated eviction does not qualify support",
+          productionRecipes: "unavailable",
+        },
       },
       args,
     );
@@ -78,6 +87,19 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
           "Use verified SSH/Jupyter/IDE port mappings from the Pod response.",
           "Read durable events under /workspace/runs/<run-id>/events.",
         ],
+      },
+      args,
+    );
+  if (verb === "cost")
+    return print(
+      {
+        version: "1.0.0",
+        operation: "cost",
+        estimated: "requires saved plan evidence",
+        observed: "requires elapsed watchdog state",
+        billed: "requires read-only billing history and may lag",
+        retainedResources: "reported separately",
+        hardCap: false,
       },
       args,
     );
@@ -101,6 +123,14 @@ export async function runRunPodCommand(raw: string[]): Promise<void> {
             ]
           : [],
         warnings: ["maxUsd is not a provider hard cap.", "Storage billing may continue after stopped compute."],
+        ...(verb === "resume"
+          ? {
+              recovery: "select newest complete hash-valid compatible checkpoint",
+              lossWindow: "bounded and reported",
+              worldSizeChange: "refused; reshard is unavailable",
+              warmStart: "weights-only is not full resume",
+            }
+          : {}),
       },
       args,
     );
