@@ -23,6 +23,10 @@ export interface EmbeddingTrainingSpecV1 {
     dimensions: number[]; objective: string; seed: number;
   };
   allowedRuntimeChanges?: string[];
+  trustRemoteCode?: boolean;
+  executionGates?: { allowModelLoad:boolean; licenseApproved:boolean; revisionPinned:boolean; remoteCodeReviewed:boolean; gpuQualified:boolean };
+  recipeIdentity?: { modelRevision:string; tokenizerRevision:string };
+  trainingArguments?: Record<string, unknown>;
 }
 export interface EmbeddingTrainingEventV1 {
   embeddingTrainingEventVersion: typeof embeddingTrainingEventVersion;

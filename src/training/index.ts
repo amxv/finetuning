@@ -14,6 +14,11 @@ export interface TrainingSpecV1 {
   operation?: "prepare" | "run" | "resume" | "status" | "evaluate" | "export";
   checkpointPath?: string;
   quantization?: "4bit" | "8bit" | "bf16";
+  adapter?: "lora" | "qlora" | "full";
+  trustRemoteCode?: boolean;
+  executionGates?: { allowModelLoad:boolean; licenseApproved:boolean; revisionPinned:boolean; remoteCodeReviewed:boolean; gpuQualified:boolean };
+  recipeIdentity?: { modelRevision:string; tokenizerRevision:string; templateHash?:string; reasoningPolicy?:string };
+  trainingArguments?: Record<string, unknown>;
 }
 export interface TrainingEventV1 {
   trainingEventVersion: typeof trainingEventVersion;

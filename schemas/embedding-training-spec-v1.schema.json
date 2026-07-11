@@ -22,6 +22,10 @@
     "effectiveBatchSize": { "type": "integer", "minimum": 2 },
     "dimension": { "type": "integer", "minimum": 1 },
     "adapter": { "enum": ["lora", "full"] },
+    "trustRemoteCode": { "type": "boolean" },
+    "executionGates": { "type":"object", "additionalProperties":false, "required":["allowModelLoad","licenseApproved","revisionPinned","remoteCodeReviewed","gpuQualified"], "properties":{"allowModelLoad":{"type":"boolean"},"licenseApproved":{"type":"boolean"},"revisionPinned":{"type":"boolean"},"remoteCodeReviewed":{"type":"boolean"},"gpuQualified":{"type":"boolean"}} },
+    "recipeIdentity": { "type":"object", "additionalProperties":false, "required":["modelRevision","tokenizerRevision"], "properties":{"modelRevision":{"type":"string","pattern":"^[a-f0-9]{40}$"},"tokenizerRevision":{"type":"string","pattern":"^[a-f0-9]{40}$"}} },
+    "trainingArguments": { "type":"object" },
     "seed": { "type": "integer" },
     "immutableIdentity": {
       "type": "object",

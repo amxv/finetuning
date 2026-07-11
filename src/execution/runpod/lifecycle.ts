@@ -102,6 +102,9 @@ export interface LifecyclePod {
   ownershipMarker: string;
   specHash: string;
   volumeId: string;
+  gpuType?: string;
+  gpuCount?: 1;
+  containerDiskGiB?: number;
 }
 export interface LifecycleVolume {
   id: string;
@@ -124,7 +127,7 @@ export class RestRunPodLifecycleBackend implements RunPodLifecycleBackend {
   constructor(private transport:RunPodMutationTransport,private liveAuthorized=false){}
   private gate(){if(!this.liveAuthorized)throw new RunPodError("RUNPOD_FORBIDDEN","live RunPod mutations require explicit allowLive authorization")}
   async listPods(){const v=await this.transport.request("/pods");if(!Array.isArray(v))throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown Pod list response");return v.map(parseLifecyclePod)}
-  async createPod(input:Omit<LifecyclePod,"id"|"state">){this.gate();return parseLifecyclePod(await this.transport.request("/pods",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:input.name,imageName:input.imageDigest,networkVolumeId:input.volumeId,env:{AMXV_OWNERSHIP_MARKER:input.ownershipMarker,AMXV_SPEC_HASH:input.specHash}})}))}
+  async createPod(input:Omit<LifecyclePod,"id"|"state">){this.gate();return parseLifecyclePod(await this.transport.request("/pods",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:input.name,imageName:input.imageDigest,networkVolumeId:input.volumeId,computeType:"GPU",cloudType:"SECURE",interruptible:false,gpuCount:input.gpuCount??1,gpuTypeIds:input.gpuType?[input.gpuType]:undefined,containerDiskInGb:input.containerDiskGiB,volumeMountPath:"/workspace",env:{AMXV_OWNERSHIP_MARKER:input.ownershipMarker,AMXV_SPEC_HASH:input.specHash}})}))}
   async stopPod(id:string){this.gate();await this.transport.request(`/pods/${encodeURIComponent(id)}/stop`,{method:"POST"})}
   async deletePod(id:string){this.gate();await this.transport.request(`/pods/${encodeURIComponent(id)}`,{method:"DELETE"})}
   async listVolumes(){const v=await this.transport.request("/networkvolumes");if(!Array.isArray(v))throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown volume list response");return v.map(parseLifecycleVolume)}
@@ -249,6 +252,9 @@ export class RunPodLifecycleController {
       ownershipMarker: this.ownershipMarker,
       specHash: plan.specHash,
       volumeId: plan.volume.id,
+      gpuType: plan.gpu.type,
+      gpuCount: 1,
+      containerDiskGiB: plan.disk.containerGiB,
     });
     state = { ...state, status: "running", providerPodId: pod.id, updatedAt: this.now() };
     await this.writeState(state);
