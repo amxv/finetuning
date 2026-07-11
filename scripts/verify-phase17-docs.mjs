@@ -41,6 +41,7 @@ for (const verb of ["run","evaluate","export","status"]) assert.equal(JSON.parse
 assert.equal(JSON.parse(await run("training","resume","--spec","examples/chat-offline/training.json","--python","python3","--python-root","python","--checkpoint","../tmp/chat-offline/train/checkpoint-1.json","--json")).exitCode,0);
 const chatManifest=JSON.parse(await readFile(join(root,"tmp/chat-offline/train/artifact-manifest.json"),"utf8"));
 for(const item of chatManifest.artifacts)await access(join(root,"tmp/chat-offline/train",item.path));
+for (const verb of ["run","resume","evaluate","export","status"]) await rm(join(root,`examples/chat-offline/training.json.${verb}.json`),{force:true});
 
 // Parse every retained JSON/config fixture and reject common credential material.
 for (const file of ["records.jsonl", "manifest.json", "training.json", "evaluation.json"]) {
