@@ -2,7 +2,7 @@
 
 Date: 2026-07-11  
 Status: implementation-ready planning handoff  
-Scope basis: `tmp/gg/model-selection-research.md`, `tmp/gg/distillation-research.md`, `tmp/gg/codebase-cli-sdk-research.md`, plus the current non-Markdown source and configuration.  
+Scope basis: `tmp/gg/model-selection-research.md`, `tmp/gg/distillation-research.md`, `tmp/gg/codebase-cli-sdk-research.md`, `tmp/gg/embedding-models-training-distillation-research.md`, plus the current non-Markdown source and configuration.
 Execution constraint: all implementation and review agents use model preset `low`, overriding the normal `rpi-fast` model guidance.
 
 ## Executive Recommendation
@@ -12,7 +12,7 @@ Build the product as two separately versioned but contract-tested packages:
 1. The existing TypeScript package, `@amxv/finetuning`, becomes the stable SDK and `finetuning` CLI for canonical datasets, codecs, validation, provider-neutral teacher generation, distillation, manifests, resumability, cost/policy controls, training preparation, and subprocess orchestration.
 2. A new Python distribution, tentatively `amxv-finetuning-trainer`, owns Hugging Face tokenizer chat templates, tokenization, assistant-only masks, Transformers/Datasets/TRL/PEFT/Accelerate execution, QLoRA/LoRA/SFT, evaluation, checkpoint resume, and model artifacts.
 
-Ship the MVP around response distillation and SFT/QLoRA for `Qwen/Qwen3.6-27B`, while implementing and smoke-testing recipes for all five recommended variants behind explicit capability/preflight gates. First prove the pipeline cheaply with `Qwen/Qwen3.5-9B`; it is a pilot fixture, not one of the five supported production variants. Keep canonical records free of student control tokens and apply the exact pinned tokenizer template only in Python at export/training time.
+Ship the first MVP around response distillation and SFT/QLoRA for `Qwen/Qwen3.6-27B`, while implementing and smoke-testing recipes for all five recommended chat variants behind explicit capability/preflight gates. First prove that pipeline cheaply with `Qwen/Qwen3.5-9B`; it is a pilot fixture, not one of the five supported production variants. Then ship first-class embedding training as the next ordered MVP track, led by `Qwen/Qwen3-Embedding-0.6B`, with canonical embedding records, vector/score/ranking distillation, retrieval-aware evaluation, and five locked recipes. Keep canonical chat records free of student control tokens and canonical embedding records free of destructively baked query/document prefixes; apply pinned chat templates or embedding prompt/pooling conventions only in Python at export/training time.
 
 ## Product Scope
 
@@ -27,6 +27,10 @@ Ship the MVP around response distillation and SFT/QLoRA for `Qwen/Qwen3.6-27B`, 
 - Executable SFT plus LoRA/QLoRA recipes for the five selected variants, with dry-run/preflight, checkpoint/resume, evaluation, and artifact manifests.
 - Migration compatibility for current imports, OpenAI helpers, deterministic fixtures, and flat CLI commands.
 - Package/tarball/API/CLI/contract/integration tests and alpha NPM release readiness.
+- A separately versioned canonical embedding dataset family covering retrieval pairs, positive/negative sets, triplets, scored pairs, STS, classification, clustering, instruction-aware examples, and vector/score/ranking teacher targets with immutable provenance and leakage groups.
+- Streaming Sentence Transformers/Hugging Face embedding codecs, deterministic IDs, contamination/dedupe and group-aware split gates, embedding teacher/scorer/reranker boundaries, synthetic query/document generation, hard-negative mining, and resumable/costed distillation.
+- Stable embedding SDK exports and `embed` CLI nouns for data creation/import/generation/mining/distillation/validation/evaluation/training/status/resume/export/inspection.
+- Versioned TS-to-Python embedding job contracts and executable recipes for the five embedding variants, with architecture-specific pooling, prompts, objectives, preflight, smoke tests, evaluation, checkpoint/resume, and portable export.
 
 ### Later extensions
 
@@ -34,6 +38,7 @@ Ship the MVP around response distillation and SFT/QLoRA for `Qwen/Qwen3.6-27B`, 
 - Local logit distillation and feature distillation as Python plugins with explicit tokenizer/layer alignment contracts.
 - Provider batch APIs, remote/Docker/Slurm/cloud runners, Parquet, distributed dedupe, human-review UI, and production-log ingestion.
 - Full fine-tuning where hardware permits, multimodal training, long-context expansion, and automated Hub publishing.
+- Unified dense+sparse+multi-vector BGE-M3 training, sparse-head GTE portability, online/epoch-refresh negative mining, learned cross-dimensional projection distillation, large-scale distributed MTEB evaluation, and remote embedding-teacher batch providers after the dense embedding MVP is stable.
 
 ### Non-goals
 
@@ -45,6 +50,7 @@ Ship the MVP around response distillation and SFT/QLoRA for `Qwen/Qwen3.6-27B`, 
 - Silently converting unsupported roles, tools, multimodal content, metadata, or reasoning conventions.
 - Enabling real production-log ingestion before redaction, consent, retention, lineage deletion, and privacy fixtures exist.
 - Treating provider/model licensing or distillation permission as globally static.
+- Treating chat-response distillation and embedding geometry/relevance distillation as interchangeable, coercing scored relevance to Boolean without a declared threshold, or truncating teacher vectors unless the teacher explicitly supports that Matryoshka dimension.
 
 ## State of Current System
 
@@ -59,7 +65,7 @@ The strongest reusable core is already present:
 - `src/translation/index.ts` preserves schema-bearing fields while translating content.
 - Existing executable verification scripts cover fixtures, CLI behavior, provider config/mapping, persona generation, simulation/tool flows, translation, README workflow, and the deferred log boundary.
 
-The system is not yet a training core. There is no canonical `Dataset`/`DatasetExample`, schema discriminator, generalized codec registry, streaming data plane, dataset lineage, run DAG/state, immutable manifests, idempotency ledger, split/contamination model, distillation candidate/decision model, provider capabilities, structured generation contract, usage/cost model, retry/rate/concurrency policy, Python bridge, training specification, evaluation model, checkpoint/artifact model, conventional unit test runner, public API report, tarball consumer test, or release automation. OpenAI-format assumptions permeate validation/translation. Root exports include fixtures and experimental helpers. `simulation/index.ts`, provider mappers, validation, translation, and the CLI are large and will impede safe extension.
+The system is not yet a training core. There is no canonical `Dataset`/`DatasetExample` or `EmbeddingRecord`, schema discriminator, generalized codec registry, streaming data plane, dataset lineage, run DAG/state, immutable manifests, idempotency ledger, split/contamination model, chat or embedding distillation record, embedding teacher/scorer/reranker boundary, hard-negative miner, provider capabilities, structured generation contract, usage/cost model, retry/rate/concurrency policy, Python bridge, chat or embedding training specification, retrieval/STS/classification/clustering evaluation model, checkpoint/artifact model, conventional unit test runner, public API report, tarball consumer test, or release automation. OpenAI-format assumptions permeate validation/translation, and no Sentence Transformers/Hugging Face embedding format is modeled. Root exports include fixtures and experimental helpers. `simulation/index.ts`, provider mappers, validation, translation, and the CLI are large and will impede safe extension.
 
 ## State of Ideal System
 
@@ -68,6 +74,8 @@ The ideal system has a stable, browser-compatible TypeScript semantic core and N
 Canonical messages retain semantic roles, typed tool calls/results, optional content parts, provenance, quality annotations, grouping, and split assignment—never target-model tokens. Codecs translate external dataset shapes to/from this IR with explicit loss reports. Python loads the pinned tokenizer revision, validates its exact chat template, renders/inspects tokens, constructs assistant-only masks, and trains from a `TrainingSpec` whose JSON Schema is shared with TypeScript. The trainer streams structured JSONL events and writes a hash-verifiable artifact manifest.
 
 Provider adapters advertise capabilities and retain native envelopes without leaking secrets. Response distillation is a reproducible dataset-production workflow; judging is separately budgeted and attributable. Compliance checks fail closed when source rights, provider terms review, intended use, retention, or student license metadata are missing.
+
+The same product treats embedding training as a distinct first-class workflow over shared manifests, provenance, orchestration, providers, and packaging. Canonical embedding records preserve semantic roles (query/document/text), positives, negatives, scores, labels, instructions, teacher vectors/scores/rankings, corpus and candidate-set identity, group/split lineage, and scale/normalization metadata. Model adapters late-bind prompts, pooling, padding, normalization, dimensions, and native dense/sparse/multi-vector heads. Distillation transfers geometry or relevance, not prose. Evaluation reproduces pinned retrieval, STS, classification, clustering, multilingual, instruction-aware, long-context, efficiency, and dimensionality slices against untuned-base and no-distillation baselines.
 
 ## Compatibility Strategy
 
@@ -82,6 +90,8 @@ Provider adapters advertise capabilities and retain native envelopes without lea
 
 ## Recommended Five Student Model Variants
 
+### Chat students
+
 1. `Qwen/Qwen3.6-27B`: primary dense production student and first full MVP recipe. Use the official unified post-trained checkpoint for response distillation. Default to QLoRA; validate exact license and pinned revision at run time.
 2. `Qwen/Qwen3.6-35B-A3B`: primary efficiency/MoE experiment. Use QLoRA only after target-module discovery and adapter save/reload parity pass.
 3. `nvidia/Nemotron-Cascade-2-30B-A3B`: reasoning/agentic challenger. Preserve its ChatML and deliberate thinking/non-thinking policy; require a framework/kernel compatibility preflight.
@@ -89,6 +99,16 @@ Provider adapters advertise capabilities and retain native envelopes without lea
 5. `allenai/Olmo-3.1-32B-Instruct` with an explicit recipe variant for `allenai/Olmo-3.1-32B-Think`: openness/control choice. Never conflate Instruct, Think, and Base templates/objectives.
 
 The recipe registry must pin model/tokenizer revisions, license snapshot/hash, architecture family, expected template hash, reasoning policy, supported task, tested dependency set, LoRA target discovery rules, quantization allowances, minimum hardware class, and known limitations. `Qwen/Qwen3.5-9B` is the low-cost pipeline smoke model only.
+
+### Embedding students
+
+1. `Qwen/Qwen3-Embedding-0.6B`: default community embedding student; decoder-only bi-encoder, last-token/EOS pooling, instruction-aware retrieval, 32–1024 Matryoshka dimensions, and LoRA-first training.
+2. `Snowflake/snowflake-arctic-embed-m-v2.0` (Arctic Embed M v2.0): conventional multilingual encoder default; 768 dimensions with published 256-dimensional Matryoshka support, asymmetric retrieval prompts, and full-tuning or LoRA paths.
+3. `BAAI/bge-m3`: long-context multilingual specialist with dense, learned-sparse, and ColBERT-style outputs; dense-only is MVP and unified multi-head training is a gated later recipe.
+4. `nomic-ai/nomic-embed-text-v2-moe` (Nomic Embed v2 MoE): efficient MoE/reproducibility choice with required task prefixes, masked-mean pooling, 768/256 dimensions, router/load-balancing gates, and native Contrastors fallback.
+5. `Alibaba-NLP/gte-multilingual-base` (GTE multilingual base): compact long-context multilingual foundation with dense plus optional sparse output; remote code is never implicit and requires a pinned, reviewed commit.
+
+During Phase 11 preflight, resolve and lock the exact repository ID, immutable model/tokenizer commit SHA, config and remote-code revisions, actual repository `LICENSE`/NOTICE snapshot and digest, architecture metadata, dependency lock, prompt/pooling/padding/normalization conventions, allowed dimensions, and intended-use/license attestation. Research reports Apache-2.0 for all five, but implementation must verify this at the pinned revisions and fail closed on absence, mismatch, ambiguity, or incompatible use. No mutable branch/tag or family-name inference is acceptable.
 
 ## Public TypeScript SDK Architecture and Stable Exports
 
@@ -107,12 +127,18 @@ Target exports:
 @amxv/finetuning/providers/anthropic
 @amxv/finetuning/templates       template identities, inspection, compatibility
 @amxv/finetuning/training        TrainingSpec, events, artifacts, runner contract
+@amxv/finetuning/embeddings      embedding records, builders, validators, split/dedupe
+@amxv/finetuning/embeddings/formats embedding codec registry and ST/HF adapters
+@amxv/finetuning/embeddings/distillation vector/score/ranking teachers and mining
+@amxv/finetuning/embeddings/training embedding specs, recipes, runner facade
+@amxv/finetuning/embeddings/evaluation retrieval/STS/classification/clustering reports
 @amxv/finetuning/orchestration   manifests, DAG, checkpoints, resume
 @amxv/finetuning/node            filesystem, subprocess, locks, secret/env adapters
 @amxv/finetuning/experimental/*  unstable logit/feature/remote extensions
 ```
 
 Core contracts should include `DatasetExampleV1`, `CanonicalMessageV1`, `ContentPartV1`, `ProvenanceV1`, `TransformationV1`, `DecisionV1`, `DatasetManifestV1`, `RunManifestV1`, `StageStateV1`, `TeacherProvider`, `ProviderCapabilities`, `DatasetCodec`, `ChatTemplateDescriptor`, `TrainingSpecV1`, `TrainingEventV1`, `ArtifactManifestV1`, and stable error/issue codes. Public operations accept injected dependencies and return values/reports; only CLI adapters print or exit.
+Embedding contracts add `EmbeddingRecordV1`, `EmbeddingDatasetManifestV1`, `EmbeddingTeacher`, `EmbeddingScorer`, `EmbeddingRanker`, `NegativeMiner`, `EmbeddingTrainingSpecV1`, `EmbeddingRecipeLockV1`, `EmbeddingEvaluationSpecV1`, and task-specific typed builders without weakening the chat contracts.
 
 ## CLI Hierarchy and End-to-End Workflows
 
@@ -126,6 +152,14 @@ finetuning formats list|inspect
 finetuning template inspect|render|audit
 finetuning training prepare|run|resume|status|evaluate|export
 finetuning pipeline plan|run|resume|status
+finetuning embed data create|import|convert|validate|inspect|split|dedupe|freeze|export
+finetuning embed generate queries|documents|pairs
+finetuning embed mine negatives
+finetuning embed distill vectors|scores|rankings|plan|run|resume|status
+finetuning embed models list|info|license|compat
+finetuning embed recipes list|show|lock
+finetuning embed train init|validate|estimate|run|resume|status|evaluate|export|inspect
+finetuning embed evaluate run|compare|inspect
 ```
 
 All commands support consistent `--config`, `--json`, `--quiet`, `--dry-run`, `--force`, stdin/stdout `-`, and structured exit codes. Precedence is CLI > environment references/secret resolver > project config > defaults. Persist environment-variable names, never secret values.
@@ -257,7 +291,7 @@ Docs and examples should cover canonical data, OpenAI/HF conversion, a fake-prov
 
 ## Ordered Plan Phases
 
-Phases 0-7 are MVP. Phases 8-10 are post-MVP hardening/extensions. Every implementing agent must use model preset `low`.
+Phases 0-7 are the chat MVP, Phase 8 completes its alpha release, and Phases 9-10 are chat/general post-MVP extensions. Phases 11-17 are the first-class embedding MVP and Phase 18 completes the unified chat + embedding alpha release; explicitly marked items within those phases are later embedding extensions. Preserve this order under the existing fast-supervisor: assign one phase at a time, use model preset `low` for every implementation/review/acceptance agent, trust reported passing checks per the supervisor contract, and rotate implementers only under its context rule.
 
 ### Phase 0 — Freeze Behavior and Establish Publication Guardrails (MVP)
 
@@ -413,6 +447,173 @@ Phases 0-7 are MVP. Phases 8-10 are post-MVP hardening/extensions. Every impleme
 
 **Dependencies/concurrency:** After Phases 3-8. Remote runners and governed ingestion are separate tracks but share manifest/storage contracts.
 
+### Phase 11 — Embedding Model Locks, Canonical Schemas, and Fail-Closed Preflight (Embedding MVP)
+
+**Goal and definition of done:** Establish the immutable model facts and canonical data contracts on which all embedding work depends. Done when the five embedding recipes have generated lock records (not mutable hand-written claims), every supported record shape validates through a discriminated versioned schema, and preflight refuses unresolved revisions, licenses, remote code, prompt/pooling conventions, dimensions, data rights, or split lineage.
+
+**Files/file areas to read before starting:** Phase 2 canonical schema, hashing, provenance, validation, and manifest modules; Phase 3 run/dataset manifests and stage identity; Phase 6 cross-language schema/version negotiation and recipe registry; Phase 7 Python configuration/preflight/artifact areas; package export maps and generated schema directories. Also read the five embedding model cards/repository metadata at implementation time through the approved documentation tool, but persist only pinned facts and archived license/NOTICE digests.
+
+**Precise implementation work:**
+
+- Add `EmbeddingRecordV1` as a discriminated union, not an optional-field bag: query-document pairs; query with one or more positives/negatives; explicit triplets; Boolean/categorical pairs; scored pairs with scale/direction metadata; STS text pairs; classification/clustering text+label records; instruction-aware records with instruction stored separately; and teacher-vector, teacher-score/margin, or teacher-ranking targets.
+- Require deterministic record/content IDs, text/entity/document/corpus IDs, `splitGroup`, optional parent/translation/synthetic-variant groups, task/language/domain, source and source revision, source license/rights attestation, transformations, generator/teacher provenance, hashes, and explicit split state. Model candidate-pool/corpus identity so rankings cannot be detached from what was ranked.
+- Define `EmbeddingDatasetManifestV1`, schema IDs, JSON Schema and generated TS/Python bindings. Store large vectors in typed content-addressed shards referenced by digest when inline JSON would be impractical; record dtype, shape, normalization, dimension, model/revision, pooling, prompt, and projection/PCA identity.
+- Create a recipe-lock resolver for exactly `Qwen/Qwen3-Embedding-0.6B`, `Snowflake/snowflake-arctic-embed-m-v2.0`, `BAAI/bge-m3`, `nomic-ai/nomic-embed-text-v2-moe`, and `Alibaba-NLP/gte-multilingual-base`. Resolve exact immutable model/tokenizer/config/remote-code commits, actual license/NOTICE files and hashes, dependency constraints, architecture, prompt/pooling/padding/normalization, MRL-safe dimensions, maximum context, native heads, trust policy, hardware class, and known limitations.
+- Make preflight fail closed on mutable/unresolved revisions, missing or changed license artifacts, incompatible intended use, missing dataset/teacher-output rights, absent groups/splits/provenance, unreviewed pinned remote code, unknown pooling/prompt/padding/normalization, unsafe requested dimension, incompatible dependencies, or missing contamination scan. Emit stable codes and remediation.
+
+**Required checks and acceptance tests:** Cross-language schema goldens for every record variant; property tests proving stable IDs/hashes independent of object key order; rejection tests for ambiguous pairs, unscaled scores, vector shape/norm errors, ranking IDs outside the candidate pool, missing groups/provenance/licenses, and invalid teacher metadata; mocked repository-lock tests including license mutation and branch/tag rejection; real opt-in pin resolution for all five; JSON/human preflight snapshots; backward-compatibility tests proving chat schemas and Phase 0 exports remain unchanged.
+
+**Risks/fallbacks:** Repository metadata, licenses, or remote code may change; archive digests and block until a reviewed new lock is created. Vector payload size can overwhelm JSONL; keep JSONL metadata canonical and content-address large arrays without changing semantics. If a model cannot be pinned or its rights/conventions cannot be verified, mark that recipe unavailable rather than substituting a sibling.
+
+**Dependencies and concurrency:** Depends on Phases 2, 3, and 6; does not rewrite completed chat phases. Schema/provenance and lock/preflight work can proceed concurrently after names/version rules freeze. This phase blocks Phases 12-18.
+
+### Phase 12 — Embedding Codecs, Streaming Validation, Splits, Dedupe, and Contamination (Embedding MVP)
+
+**Goal and definition of done:** Users can losslessly import, validate, transform, split, freeze, and export embedding datasets at scale. Done when canonical, Sentence Transformers, and Hugging Face-compatible forms round-trip where semantics permit, conversions report every loss, large inputs stream with bounded memory, and leakage/contamination gates deterministically protect evaluation splits.
+
+**Files/file areas to read before starting:** Phase 11 embedding schemas/manifests; Phase 2 codec registry, async sources/sinks, loss reports, OpenAI compatibility wrappers, and validation engine; Phase 3 content-addressed storage/freeze; Phase 5 dedupe, group split, contamination, and compliance rules; CLI context/config/IO/error modules from Phase 1.
+
+**Precise implementation work:**
+
+- Add codecs for canonical embedding JSONL; ST/HF pair columns (`anchor|query`, `positive|document`, optional `negative`); triplet columns; scored/labelled pairs; STS; classification/clustering; multi-positive/multi-negative retrieval records; and teacher-vector/score/ranking sidecars. Format detection must require disambiguation when columns could mean multiple tasks.
+- Implement streaming import/export over async iterables, bounded vector/shard IO, immutable manifests, canonical serialization, deterministic IDs, resumable conversion, line/source locations, explicit loss reports, and preservation of unknown external fields in namespaced metadata where safe.
+- Implement task-aware validation: required roles, nonempty text, finite score/vector values, score scale/direction, label domain, unique/global IDs, candidate-ranking consistency, positive/negative conflicts, false-negative warnings, dimension/norm consistency, instruction separation, and teacher/model metadata.
+- Implement deterministic salted group splits over document/source/entity/time/translation/synthetic lineage, with related items forced together; forbid deriving classification pairs across splits. Add exact hash, normalization-aware text hash, MinHash/near-text and pluggable semantic dedupe, preserving cluster membership and representative rationale.
+- Scan train against validation/test and pinned benchmark fixtures; exclude public benchmark queries/corpora from generation/mining pools; write contamination evidence and thresholds to the frozen manifest. Provide `embed data create|import|convert|validate|inspect|split|dedupe|freeze|export` SDK equivalents and CLI commands.
+
+**Required checks and acceptance tests:** Golden ST/HF imports and exports for each data shape; canonical lossless round trips; explicit-loss failures for unsupported conversions; malformed streaming line locations; bounded-memory/backpressure fixture; deterministic IDs/splits across process/OS; no cross-split groups or dedupe clusters; translation/synthetic family grouping; benchmark-canary contamination detection; score/vector invariants; frozen-manifest tamper detection; dry-run/JSON/stdin/stdout/overwrite/error snapshots.
+
+**Risks/fallbacks:** External libraries infer loss inputs from column order; codecs must emit named, locked mappings and never rely on position. Semantic dedupe can be costly/nondeterministic; ship exact+MinHash MVP and gate the pluggable semantic pass with a recorded model lock. If grouping evidence is incomplete, block freeze rather than random-split.
+
+**Dependencies and concurrency:** Depends on Phase 11 and reuses Phases 2-3. Codec adapters, validation rules, and split/dedupe work may run concurrently over frozen schemas; freeze waits for all reports.
+
+### Phase 13 — Embedding Teachers, Synthetic Data, Hard Negatives, and Distillation (Embedding MVP)
+
+**Goal and definition of done:** Vector, relevance-score, and ranking knowledge can be generated or imported through provider-neutral, resumable, costed workflows, and synthetic data/hard negatives are provenance-safe. Done when an offline end-to-end fixture generates queries, mines candidates, obtains teacher targets, filters false negatives, resumes without duplicate paid work, and freezes a train-only distillation dataset without evaluation leakage.
+
+**Files/file areas to read before starting:** Phase 4 provider registry/capabilities/retry/rate/cost/idempotency; Phase 5 distillation stages, judging, filters, compliance and held-out protections; Phase 3 DAG/ledger; Phases 11-12 embedding contracts/manifests/splits; existing provider adapters and redaction/error areas; Python projection/objective contract area from Phase 6.
+
+**Precise implementation work:**
+
+- Define distinct `EmbeddingTeacher` (vectors), `EmbeddingScorer` (scalar/pair margins), `EmbeddingRanker` (ordered/listwise candidates), `SyntheticEmbeddingGenerator`, `NegativeMiner`, and verifier/judge interfaces with capability negotiation. Never route embedding targets through chat-response semantics.
+- Vector distillation records teacher dimension, dtype, normalization, pooling/prompt, revision and storage rights; support MSE/cosine targets, learned projection, or training-only PCA. Reject arbitrary truncation unless the teacher lock declares that Matryoshka dimension.
+- Score/margin distillation stores calibrated query-candidate scores and scale; support MarginMSE, pairwise logistic/KL, and listwise softmax KL with explicit temperature. Ranking distillation stores corpus/candidate generator/revision, candidate IDs, reranker prompt/config, scores/ranking, calibration, and exclusions.
+- Build an immutable pipeline: freeze corpus and groups; split before generation/mining; generate diverse train-only queries/documents/pairs by intent, language, answerability and length; verify document support; dedupe; retrieve candidates; exclude positives, same-group and near-duplicate false negatives; teacher-score/rerank; filter/judge; mine hard-but-wrong negatives; optionally refresh only at declared checkpoint/epoch boundaries; freeze.
+- Add independent generation/scoring/judging/mining budgets, request/record IDs, raw-envelope references with redaction, cost/usage, prompts/sampling, source/provider terms attestations, retries, checkpoints and resume. Add dimensionality/Matryoshka multi-loss configuration and provenance for projections.
+- Expose SDK builders/services plus `embed generate queries|documents|pairs`, `embed mine negatives`, and `embed distill vectors|scores|rankings|plan|run|resume|status` with dry-run estimates and train/eval boundary reports.
+
+**Required checks and acceptance tests:** Deterministic fake vector/scorer/ranker/generator pipeline; vector shape/norm/projection-fit-on-train-only tests; score calibration and margin/listwise numerical fixtures; candidate/ranking consistency; no held-out content sent to any teacher/miner; false-negative/same-group exclusion; unsupported-query verifier rejection; separate budget accounting; retry/idempotent resume; interrupted mining reconciliation; rights/compliance fail-closed; teacher API capability and retention-policy rejection; JSON event/error snapshots.
+
+**Risks/fallbacks:** Teacher APIs may forbid storage or competitive training; require explicit reviewed terms/rights before calls. LLM-generated queries can be unsupported and rerankers contaminated; retain verifier/audit evidence and disclose limitations. Hard negatives can be false negatives; fall back to conservative thresholded negatives or in-batch-only training. Projection adds hidden training state; hash and export it as a first-class artifact.
+
+**Dependencies and concurrency:** Depends on Phases 3-5 and 11-12. Provider boundaries, deterministic mining, and synthetic generation can proceed concurrently once records/stage contracts freeze; paid/live integrations remain opt-in and cannot precede compliance gates.
+
+### Phase 14 — Embedding TypeScript SDK and CLI Product Surface (Embedding MVP)
+
+**Goal and definition of done:** Embedding workflows are powerful programmatically and discoverable from the terminal without breaking chat users. Done when the stable SDK supports typed composition from dataset creation through export, CLI help demonstrates the common workflows, automation receives stable JSON/events/exit codes, and legacy chat imports/commands remain compatible.
+
+**Files/file areas to read before starting:** Public barrels/export maps/API reports; CLI argv/context/config/IO/help/error/alias modules; Phases 11-13 embedding services; Phase 6 training runner facade; Phase 8 documentation/example test harness; package tarball fixtures.
+
+**Precise implementation work:**
+
+- Publish additive subpaths `./embeddings`, `./embeddings/formats`, `./embeddings/distillation`, `./embeddings/training`, and `./embeddings/evaluation`; root exposes only a small stable happy path. Provide typed `EmbeddingDatasetBuilder`, streaming `EmbeddingRecordValidator`, `EmbeddingSplitPlanner`, codec registry, model/recipe registry, teacher/scorer/ranker/miner registries, `EmbeddingTrainingRun`, evaluator, and artifact inspector.
+- Make service APIs accept injected IO/providers/clocks/event sinks and async iterables; return reports/results rather than print/exit. Use stable discriminated errors with record/path/remediation and no secrets.
+- Implement the `finetuning embed ...` hierarchy specified above. Every mutating command supports `--dry-run`; every command supports `--config`, `--json`, `--quiet`, deterministic exit codes, progress on stderr, stdin/stdout where meaningful, safe overwrite/resume semantics, and CLI > env references > project config > defaults. Add `--help` examples for pair import, hard-negative mining, score distillation, LoRA training, evaluation, resume, and export.
+- Validate config against versioned JSON Schema before side effects; show resolved non-secret config and estimates in plan/dry-run; never make network, download, trust-remote-code, upload, or overwrite behavior implicit. Offer actionable messages for wrong loss/data shape, missing prompts/groups/rights, unsafe dimensions, inadequate effective batch, OOM estimates, and incomplete checkpoints.
+- Preserve all existing chat commands, aliases, imports, exit codes, and config precedence. If a future top-level `embed` binary alias is desired, make it an additive wrapper over the same command modules, not a second behavior surface.
+
+**Required checks and acceptance tests:** API declaration snapshots; clean packed-consumer imports for every new subpath; typed SDK examples; CLI process tests for every noun/subcommand, help and examples, config precedence/schema errors, dry-run no-side-effects, JSON parseability, stdout/stderr separation, quiet mode, stdin/stdout, redaction, signal/resume, overwrite protection, and actionable stable errors; complete Phase 0 chat compatibility suite.
+
+**Risks/fallbacks:** A broad API creates compatibility debt; keep provider/native-head details behind registries and experimental extensions. CLI depth can overwhelm users; provide task-led examples and aliases only where unambiguous. Do not introduce a framework migration unless existing modular parsing cannot meet golden behavior.
+
+**Dependencies and concurrency:** Depends on Phases 11-13 interfaces; can overlap late Phase 13 using fake services. SDK barrels, CLI commands, and help/examples can proceed concurrently with disjoint ownership. Blocks public embedding docs/release.
+
+### Phase 15 — Embedding Job Protocol, Python Trainer, and Five Executable Recipes (Embedding MVP)
+
+**Goal and definition of done:** TypeScript and Python execute reproducible embedding jobs for all five locked models. Done when `EmbeddingTrainingSpecV1` is validated on both sides, the Qwen3 embedding LoRA path completes end to end, and every other recipe passes its declared architecture smoke, checkpoint/resume, clean reload, and export gate before being advertised.
+
+**Files/file areas to read before starting:** Phase 6 version negotiation, generated bindings, subprocess/events/artifacts; Phase 7 trainer package, checkpoint/resume and model-card machinery; Phase 11 recipe locks/preflight; Phase 12 manifests; Phase 13 objective metadata; Phase 14 SDK/CLI training facade; Python packaging/lock/config/test areas.
+
+**Precise implementation work:**
+
+- Add independently versioned `embedding.training.v1`, embedding event and artifact schemas with major-version negotiation. Immutable resume fields include model/tokenizer/config/remote-code revisions, data and split hashes, task/column mapping, prompts/pooling/padding/normalization/dimensions, loss/objective, projection, and seed policy; record all allowed runtime changes.
+- Python validates again, writes resolved spec/environment/package/GPU manifests, emits structured JSONL events, marks checkpoints atomically, handles signals, restores optimizer/scheduler/scaler/RNG/sampler/global step, and distinguishes full resume from weights-only warm start. Export adapter and optional merged/full model, tokenizer, ST modules, pooling/prompt/normalization/dimension config, native heads, projection, license/NOTICE, evaluation, hashes, and model-card draft.
+- Implement common Sentence Transformers/Transformers/Datasets/PEFT/Accelerate paths with BF16, gradient checkpointing, deterministic sampling, `NO_DUPLICATES` batching, accumulation and verified cross-device negatives. Provide MNRL/InfoNCE and cached variants, MarginMSE, cosine/MSE, CoSENT, triplet families, pairwise/listwise KL, and multi-dimensional Matryoshka objectives with data-shape compatibility gates.
+- Lock `qwen3-embed-0.6b-lora`: last non-padding/EOS pooling, left padding, instruction on queries (normally not documents), normalized 32–1024 MRL-safe outputs, attention-projection LoRA first, effective-batch checks, optional Flash Attention 2, adapter and merged ST reload.
+- Lock `arctic-m-v2-full`: exact asymmetric prompts, encoder pooling, 768 and published 256 dimensions evaluated separately, full BF16 default at ordinary lengths with LoRA fallback, long-context memory probe.
+- Lock `bge-m3-dense`: dense 1024-dimensional MVP using the pinned native/FlagEmbedding-compatible path, no invented query instruction, dense native-vs-Transformers/ST parity. Gate unified dense+sparse+ColBERT training/export as a later extension until each head and fusion pass independent tests.
+- Lock `nomic-v2-moe-native`: exact `search_query:`, `search_document:`, `classification:`, and `clustering:` prefixes, masked-mean pooling, 768/256 outputs, Contrastors/native fallback, expert-wide LoRA target audit, router determinism/utilization/aux-loss/all-to-all checks and complete expert/router save/load.
+- Lock `gte-multilingual-base-full`: exact card formatting/pooling, 768 dense MVP, full BF16 at ordinary lengths with LoRA fallback, explicit pinned reviewed `trust_remote_code` only, clean offline reload. Gate optional sparse output as a later extension until portable export parity exists.
+- Add per-recipe precision/LoRA/full-tune/quantization allowances, mixed-precision and distributed behavior, minimum/estimated hardware with one-step memory probe, sequence-length buckets, OOM remediation, checkpoint cadence, and architecture-specific unsupported-state errors. Never equate MoE active parameters with optimizer memory.
+
+**Required checks and acceptance tests:** Cross-language schemas/version mismatch; loss-shape and numerical goldens; tiny offline CPU fixtures; one-step GPU common smoke; Qwen3-Embedding-0.6B LoRA overfit/held-out and interrupt/resume equivalence; opt-in pinned smoke matrix for Arctic/BGE/Nomic/GTE; prompt/pooling/padding/norm/dimension goldens; effective-batch/global-ID false-negative checks; distributed determinism tolerance; adapter/full/native-head save/reload; native-vs-ST cosine agreement; clean-process offline export reload; artifact tamper detection; actionable OOM/incompatibility classification. CI downloads no multi-GB model by default.
+
+**Risks/fallbacks:** Library and architecture support is volatile; use exact tested locks and mark recipes unavailable when gates fail. Full tuning and 8K/32K contexts may exceed community hardware; shorten sequences, use LoRA, accumulation/checkpointing/sharding, or require higher-memory hardware, with estimates labeled as estimates. For Nomic expert targeting or BGE/GTE native heads, prefer the pinned official stack over pretending generic portability.
+
+**Dependencies and concurrency:** Depends on Phases 11-14 and Phase 6 protocol foundation. Common trainer/protocol, evaluation hooks, and model adapters can proceed concurrently after schemas freeze; land Qwen first, then advertise each recipe only after its own gate. Later unified/sparse recipes do not block dense embedding MVP.
+
+### Phase 16 — Embedding Evaluation, Baselines, and Regression Gates (Embedding MVP)
+
+**Goal and definition of done:** Quality claims are reproducible, task-appropriate, contamination-aware, and tied to baselines. Done when deterministic offline fixtures exercise all metric families, pinned MTEB-compatible suites run where practical, multilingual/instruction/dimension slices are reported, and release gates prevent material regression from the untuned base or accepted prior artifact.
+
+**Files/file areas to read before starting:** Phase 12 split/contamination/frozen manifests; Phase 13 teacher/mining provenance; Phase 15 evaluator hooks/artifacts; Phase 5 evaluation/compliance conventions; CLI/SDK evaluation surfaces from Phase 14; generated recipe locks and offline fixture directories.
+
+**Precise implementation work:**
+
+- Define `EmbeddingEvaluationSpecV1` and reports for retrieval (Recall@k, nDCG@10, MRR and declared variants), STS (Spearman/Pearson where appropriate), classification (accuracy/F1), clustering (V-measure and declared metrics), multilingual/language slices, instruction-aware prompt-on/off checks, long-context buckets, output-dimension truncations, latency/throughput/memory and artifact size.
+- Integrate a pinned MTEB revision and raw per-task outputs where practical; never compare headline aggregates across incompatible MTEB versions/task sets/evaluator revisions. Keep network/large-corpus suites opt-in and normal CI deterministic/offline.
+- Evaluate untuned pinned base, tuned artifact, no-distillation ablation, and random/trivial sanity baseline on identical frozen splits. Add bootstrap/significance intervals for principal retrieval/STS metrics and store exact evaluator/dataset revisions, config and raw results.
+- Define recipe/task-specific acceptance thresholds before production runs: no invalid-vector/prompt/pooling regressions; primary metric minimum improvement or bounded non-regression versus base; per-language and dimension floors; no unacceptable loss on protected tasks; resource ceilings. Threshold overrides require recorded rationale/approval, never silent pass.
+- Enforce contamination safeguards: benchmark queries/corpora and eval near-neighbors excluded from generation/mining; train-only PCA/projection fitting; canary/hash/semantic scans; teacher contamination limitation disclosed; evaluation fixtures immutable and never used for tuning decisions beyond declared validation.
+- Expose `embed evaluate run|compare|inspect` and SDK evaluators returning machine-readable reports and human summaries. Make model-card generation consume signed/hash-verified reports, not copied benchmark text.
+
+**Required checks and acceptance tests:** Hand-computed metric fixtures; deterministic ranking/tie handling; multilingual and prompt-ablation slices; 768/256 and Qwen dimension checks; empty/duplicate/cross-language edge cases; baseline/no-distillation comparison; bootstrap reproducibility; regression pass/fail fixtures; MTEB adapter contract pinned to a tiny local suite; contamination canaries; no eval IDs in generation/mining ledgers; latency/memory schema tests; CLI JSON/comparison snapshots.
+
+**Risks/fallbacks:** MTEB and datasets evolve or are contaminated; pin revisions, preserve raw task results, provide deterministic internal suites, and state comparability limits. Statistical improvements may be noisy; use confidence intervals and minimum effect sizes rather than leaderboard rounding. Do not block local experimentation on production thresholds, but label artifacts non-releasable until gates pass.
+
+**Dependencies and concurrency:** Depends on Phase 12 and Phase 15; evaluation fixtures/specs can be built concurrently with trainer adapters, but final thresholds require baseline runs. Blocks Phase 18 release claims.
+
+### Phase 17 — Unified Documentation and Runnable Chat + Embedding Examples (Embedding MVP)
+
+**Goal and definition of done:** A new user can complete both chat and embedding workflows from data creation through distillation, training, evaluation, resume, and export using CLI or SDK. Done when every documented command/code sample runs in clean offline fixtures, provider/model downloads are explicit, hardware and rights requirements are visible before execution, and migration preserves existing chat guidance.
+
+**Files/file areas to read before starting:** Phase 8 docs/migration/example harness; Phase 14 CLI help and SDK public API; Phases 11-16 schemas, recipes, artifacts and reports; both package manifests/exports; existing docs source only as authorized by the implementation lead; runnable example configs/data/tests.
+
+**Precise implementation work:**
+
+- Restructure navigation around two first-class tracks—chat and embeddings—with a shared concepts section for manifests, providers, compliance, reproducibility and resume. Retain existing chat walkthroughs and add a concise comparison explaining response versus vector/score/ranking distillation.
+- Provide a 10-minute offline retrieval LoRA walkthrough, CLI and TypeScript SDK equivalents, exact input rows and output trees, Qwen query/document instruction handling, dry-run/estimate, interruption/resume, evaluation comparison and clean reload/export. Use tiny fixtures in CI; show pinned production recipe locks separately.
+- Add runnable examples for scored-pair/margin distillation, vector distillation/projection, synthetic multilingual query generation, hard-negative mining/false-negative filtering, STS and classification/clustering data, Arctic prompts, BGE dense and later hybrid boundary, Nomic task prefixes/MoE cautions, GTE remote-code security, dimensions/Matryoshka, air-gapped operation, and artifact inspection.
+- Document every CLI noun/subcommand and stable SDK subpath with config schemas, precedence, JSON/quiet/dry-run/stdin/stdout, exit/error codes, provider credentials by environment reference, cost/budget/resume, and explicit network/download/upload/trust behavior.
+- Add loss-by-data-shape chooser; query-vs-document prompt and pooling guide; hardware table with estimated GPU class/disk/time ranges and mandatory one-step probe; mixed precision/distributed/effective-batch/OOM troubleshooting; checkpoint taxonomy; provider/teacher rights, source licensing, Apache license/NOTICE, privacy/compliance and model-card checklist.
+- Add NPM/Python version compatibility matrix, schema/protocol migration, legacy chat command/import migration, experimental recipe stability, benchmark caveats, and reproducibility checklist. State that model license does not clear data, teacher-output, privacy, trademark, or regulated-use rights.
+
+**Required checks and acceptance tests:** Execute all offline CLI examples and typecheck/run SDK examples from clean packed NPM plus installed Python wheel; validate links/configs/JSON snippets; snapshot help; verify expected file trees and hashes; secret scanner; documentation accessibility/readability review; migration suite for chat examples; opt-in pinned provider/GPU docs smoke; hardware/license tables generated or checked against recipe locks to prevent drift.
+
+**Risks/fallbacks:** Examples rot as APIs evolve; make them executable acceptance fixtures and derive reference tables from locks/schemas where possible. Production examples are expensive; keep tiny deterministic defaults and clearly gated pinned commands. Avoid claiming exact time/memory; publish ranges and the probe workflow.
+
+**Dependencies and concurrency:** Depends on stable Phase 14 surfaces and Phases 15-16 outputs; docs skeleton and offline examples can begin earlier but final commands/claims wait for acceptance. Chat and embedding docs can proceed concurrently with shared terminology ownership.
+
+### Phase 18 — Unified Packaging, Compatibility, Tests, and Release Readiness (Embedding MVP Completion)
+
+**Goal and definition of done:** Chat and embedding capabilities ship as one coherent, compatible TypeScript product plus a separately versioned Python trainer. Done when packed artifacts install cleanly, public exports and CLIs behave as documented, all five embedding recipes have honest support status, release artifacts contain required licenses/manifests but no secrets or unintended weights, and an independent acceptance review passes the unified plan.
+
+**Files/file areas to read before starting:** NPM/Python manifests, locks, export maps, build/prepack/wheel/sdist scripts, API reports, CLI bin/command registration, generated contracts, CI/release configuration, package-content allowlists, all chat and embedding tests/examples/docs checks, Phase 8 compatibility/release machinery.
+
+**Precise implementation work:**
+
+- Add new stable subpaths and CLI commands additively; curate NPM `files`, types/import export conditions and optional provider dependencies. Keep Python/CUDA outside NPM, publish the trainer wheel/sdist separately, and encode a tested NPM↔Python protocol compatibility matrix.
+- Generate/package JSON Schemas, recipe-lock format, tiny offline fixtures, license/NOTICE inventories and artifact inspectors. Do not package large model weights, paid-provider envelopes, secrets, caches, or evaluation corpora lacking redistribution rights.
+- Expand unit/property/contract/integration matrices: schemas/hashes/codecs; split/dedupe/contamination; teacher/miner budgets/resume; CLI/API; cross-language protocol; objectives/pooling/prompts/dimensions; evaluation/regression; checkpoint/export; clean offline install/reload. Keep large-model/network/GPU tests opt-in but require recorded pinned results for advertised recipe support.
+- Add API/declaration and schema compatibility reports, Node/OS and supported Python/platform matrices, lint/format/type/build/docs, dependency/license/security scans, reproducible pack/build checks, alpha changelog/migration/support policy, and release provenance/SBOM where existing release policy permits.
+- Classify each recipe as `supported`, `experimental`, or `unavailable` from machine-readable gates. MVP requires supported dense recipes for all five; unified BGE and optional GTE sparse remain later/experimental. Prevent docs/CLI from claiming support inconsistent with gate evidence.
+
+**Required checks and acceptance tests:** Full existing chat suite; full embedding offline suite; clean `npm pack` consumer for root/all subpaths/bin; clean wheel/sdist installs and protocol handshake across supported versions; CLI help/workflows; packed-content and secret audits; license/NOTICE/provenance inventory; deterministic build/hash where feasible; schema/API backward-compatibility checks; gated pinned smoke evidence for all five; Qwen embedding end-to-end/restart; evaluation regression gates; independent acceptance reviewer using model preset `low`.
+
+**Risks/fallbacks:** Native stacks may force conflicting Python dependencies; isolate adapters/extras or publish a tested compatibility range instead of weakening locks. Package size/export breadth can grow; keep heavy fixtures/native adapters optional and narrow root exports. If any model lacks current smoke evidence, release the framework alpha with that recipe marked unavailable—not as supported—and do not call the five-model MVP complete.
+
+**Dependencies and concurrency:** Depends on Phases 11-17 and reuses Phase 8 release foundations. NPM packaging, Python packaging, CI matrices, and acceptance audit can proceed concurrently once schemas/APIs freeze. This is the embedding MVP completion gate; later distributed/native-head extensions follow without blocking the coherent dense product.
+
 ## Global Acceptance Gate
 
-The initiative is ready for stable promotion only when: current public workflows remain compatible; the canonical schema and contracts have documented version rules; OpenAI/canonical/HF codecs have round-trip/loss coverage; retries and resume cannot duplicate paid successful calls; compliance fails closed; locked held-out data never enters teacher generation; the Qwen3.6-27B primary path trains and resumes end to end; each other advertised model has passed its declared hardware smoke gate; clean packed NPM/Python artifacts install and run; and a separate acceptance reviewer validates the implementation against this plan. All implementation, supervision, and acceptance work must use model preset `low` per the initiative override.
+The initiative is ready for stable promotion only when: current public workflows remain compatible; chat and embedding canonical schemas and contracts have documented version rules; OpenAI/canonical/HF chat and ST/HF embedding codecs have round-trip/loss coverage; retries and resume cannot duplicate paid successful calls; compliance fails closed; locked held-out chat or embedding evaluation data never enters teacher generation, mining, or candidate pools; the Qwen3.6-27B primary chat path and Qwen3-Embedding-0.6B primary embedding path train and resume end to end; each other advertised model has passed its declared hardware smoke gate; embedding evaluation clears declared regression thresholds against pinned baselines; clean packed NPM/Python artifacts install and run; and a separate acceptance reviewer validates the implementation against this plan. All implementation, supervision, and acceptance work must use model preset `low` per the initiative override.
