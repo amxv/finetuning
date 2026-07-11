@@ -391,6 +391,9 @@ export interface TrainingSpecV1 {
     outputDirectory: string;
     objective: "sft";
     seed: number;
+    operation?: "prepare" | "run" | "resume" | "status" | "evaluate" | "export";
+    checkpointPath?: string;
+    quantization?: "4bit" | "8bit" | "bf16";
 }
 export interface TrainingEventV1 {
     trainingEventVersion: typeof trainingEventVersion;

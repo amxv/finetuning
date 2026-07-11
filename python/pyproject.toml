@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=75,<81", "wheel>=0.44,<1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amxv-finetuning-trainer"
+version = "0.0.0"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+training = [
+  "transformers>=4.57,<5",
+  "datasets>=4,<5",
+  "trl>=0.24,<1",
+  "peft>=0.17,<1",
+  "accelerate>=1.10,<2",
+  "tokenizers>=0.22,<1",
+  "bitsandbytes>=0.47,<1; platform_system == 'Linux'",
+]
+build = ["build>=1.2,<2"]
+
+[project.scripts]
+amxv-finetuning-trainer = "amxv_finetuning_trainer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["amxv_finetuning_trainer*"]

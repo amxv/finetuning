@@ -19,6 +19,9 @@
     "recipeId": { "type": "string" },
     "outputDirectory": { "type": "string" },
     "objective": { "const": "sft" },
-    "seed": { "type": "integer", "minimum": 0 }
+    "seed": { "type": "integer", "minimum": 0 },
+    "operation": { "enum": ["prepare", "run", "resume", "status", "evaluate", "export"] },
+    "checkpointPath": { "type": "string" },
+    "quantization": { "enum": ["4bit", "8bit", "bf16"] }
   }
 }

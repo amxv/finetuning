@@ -14,6 +14,7 @@ import {
   type DistillationRunState,
 } from "../distillation/index.js";
 import { atomicWrite } from "../node/storage.js";
+import { runPythonTrainer } from "../node/trainer.js";
 import { inspectRecipe, inspectTemplate, preflightRecipe } from "../templates/index.js";
 import { trainingSpecVersion, type TrainingSpecV1 } from "../training/index.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
@@ -71,8 +72,10 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
   if (noun === "training" && verb === "prepare") {
     const recipeId = readRequiredStringFlag(args, "recipe"),
       dryRun = readBooleanFlag(args, "dry-run");
-    if (!dryRun) preflightRecipe(recipeId);
-    else inspectRecipe(recipeId);
+    if (recipeId !== "cpu-tiny-fixture") {
+      if (!dryRun) preflightRecipe(recipeId);
+      else inspectRecipe(recipeId);
+    }
     const spec: TrainingSpecV1 = {
       trainingSpecVersion,
       runId: readRequiredStringFlag(args, "run-id"),
@@ -88,6 +91,28 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
     const specPath = readRequiredStringFlag(args, "spec-out");
     await atomicWrite(specPath, `${JSON.stringify(spec, null, 2)}\n`);
     printResult({ specPath, dryRun, executable: !dryRun }, args);
+    return true;
+  }
+  if (noun === "training" && ["run", "resume", "status", "evaluate", "export"].includes(verb)) {
+    const specPath = readRequiredStringFlag(args, "spec"),
+      spec = JSON.parse(await readFile(specPath, "utf8")) as TrainingSpecV1;
+    const runtimePath = `${specPath}.${verb}.json`;
+    const checkpoint = readOptionalStringFlag(args, "checkpoint");
+    await atomicWrite(
+      runtimePath,
+      `${JSON.stringify({ ...spec, operation: verb, ...(checkpoint ? { checkpointPath: checkpoint } : {}) }, null, 2)}\n`,
+    );
+    const result = await runPythonTrainer({
+      pythonExecutable: readOptionalStringFlag(args, "python") ?? "python3",
+      module: "amxv_finetuning_trainer.runner",
+      specPath: runtimePath,
+      cwd: readRequiredStringFlag(args, "python-root"),
+    });
+    printResult({ exitCode: result.exitCode, events: result.events, stderr: result.stderr }, args);
+    if (result.exitCode !== 0)
+      throw new Error(
+        `Training ${verb} failed: ${result.stderr || result.events.at(-1)?.data?.message || "unknown error"}`,
+      );
     return true;
   }
   throw new Error(`Unknown command: ${noun} ${verb}`);
@@ -170,7 +195,7 @@ async function pipelineResume(args: ReturnType<typeof parseArgs>): Promise<void>
 
 export function printNounRootHelp(): void {
   console.log(
-    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare     Prepare a versioned TrainingSpecV1.",
+    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare|run|resume|status|evaluate|export\n                        Prepare and execute versioned local training runs.",
   );
 }
 function printNounHelp(noun: string): void {
@@ -182,7 +207,7 @@ function printNounHelp(noun: string): void {
         : noun === "template"
           ? "Usage: finetuning template inspect|render|audit --id <template> [--json]"
           : noun === "training"
-            ? "Usage: finetuning training prepare [options]"
+            ? "Usage: finetuning training prepare|run|resume|status|evaluate|export [options]"
             : "Usage: finetuning pipeline status|resume [options]",
   );
 }

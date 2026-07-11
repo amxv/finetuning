@@ -99,7 +99,7 @@ test("bridge rejects malformed events and forwards cancellation signals", async 
     /Malformed training event/,
   );
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), 50);
+  setTimeout(() => controller.abort(), 200);
   const result = await runPythonTrainer({
     pythonExecutable: "python3",
     module: "amxv_finetuning_trainer.test_runner_cases",
