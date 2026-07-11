@@ -587,6 +587,373 @@ export declare function loadDistillationState(root: string): Promise<Distillatio
 export declare function distillationDataset(state: DistillationRunState): DatasetExampleV1[];
 ```
 
+## dist/embeddings/index.d.ts
+
+```ts
+export * from "../experimental/embeddings-phase11.js";
+export * from "./formats.js";
+export * from "./data.js";
+export * from "./distillation.js";
+export * from "./sdk.js";
+export { embeddingModelRegistry, embeddingRecipeRegistry, EmbeddingTrainingRun, inspectEmbeddingArtifact, } from "./training.js";
+export { EmbeddingEvaluator } from "./evaluation.js";
+export type { EmbeddingTrainingSpecV1, EmbeddingModelDescriptor, EmbeddingRecipeDescriptor } from "./training.js";
+export type { EmbeddingEvaluationSpecV1, EmbeddingEvaluationReport } from "./evaluation.js";
+```
+
+## dist/embeddings/formats.d.ts
+
+```ts
+import { type DatasetSplitV1 } from "../core/canonical.js";
+import { type EmbeddingRecordV1 } from "../experimental/embeddings-phase11.js";
+export type EmbeddingFormat = "canonical-embedding-jsonl" | "sentence-transformers" | "hugging-face";
+export type EmbeddingTaskMapping = "pair" | "triplet" | "retrieval-set" | "scored-pair" | "sts" | "boolean-pair" | "categorical-pair" | "classification" | "clustering" | "instruction-aware" | "teacher-vector" | "teacher-score" | "teacher-ranking";
+export interface EmbeddingColumnMapping {
+    task: EmbeddingTaskMapping;
+    columns: Record<string, string>;
+}
+export interface EmbeddingCodecOptions {
+    mapping?: EmbeddingColumnMapping;
+    source?: {
+        name: string;
+        revision: string;
+        license: string;
+        rights: string;
+    };
+    split?: DatasetSplitV1;
+    splitGroupColumn?: string;
+    language?: string;
+    domain?: string;
+}
+export interface EmbeddingLoss {
+    code: string;
+    path: string;
+    message: string;
+    severity: "warning" | "error";
+}
+export interface EmbeddingConversion<T> {
+    value?: T;
+    losses: EmbeddingLoss[];
+    supported: boolean;
+}
+export declare function detectEmbeddingTask(row: Record<string, unknown>, mapping?: EmbeddingColumnMapping): EmbeddingTaskMapping;
+export declare function decodeEmbeddingRow(row: Record<string, unknown>, options?: EmbeddingCodecOptions): EmbeddingConversion<EmbeddingRecordV1>;
+export declare function encodeEmbeddingRow(record: EmbeddingRecordV1, format: EmbeddingFormat, mapping?: EmbeddingColumnMapping): EmbeddingConversion<Record<string, unknown>>;
+```
+
+## dist/embeddings/distillation.d.ts
+
+```ts
+import { type EmbeddingRecordV1, type EmbeddingTextV1 } from "../experimental/embeddings-phase11.js";
+export declare const embeddingDistillationVersion: "1.0.0";
+export interface EmbeddingServiceCapabilities {
+    tasks: string[];
+    storageAllowed: boolean;
+    retention: "none" | "temporary" | "persistent";
+    competitiveTrainingAllowed: boolean;
+    maxDimension?: number;
+    matryoshkaDimensions?: number[];
+}
+export interface ServiceUsage {
+    requests: number;
+    units: number;
+    cost: number;
+    currency: string;
+    rawRequestRef?: string;
+    rawResponseRef?: string;
+}
+export interface EmbeddingTeacher {
+    readonly id: string;
+    readonly model: string;
+    readonly revision: string;
+    capabilities(): EmbeddingServiceCapabilities;
+    embed(input: {
+        requestId: string;
+        texts: EmbeddingTextV1[];
+        dimension: number;
+    }): Promise<{
+        vectors: number[][];
+        dtype: "float16" | "float32" | "bfloat16";
+        norm: "l2" | "none";
+        pooling: string;
+        prompt: string;
+        usage: ServiceUsage;
+    }>;
+}
+export interface EmbeddingScorer {
+    readonly id: string;
+    readonly model: string;
+    readonly revision: string;
+    capabilities(): EmbeddingServiceCapabilities;
+    score(input: {
+        requestId: string;
+        query: EmbeddingTextV1;
+        candidates: EmbeddingTextV1[];
+    }): Promise<{
+        scores: number[];
+        scale: {
+            min: number;
+            max: number;
+            direction: "higher-is-more-relevant" | "lower-is-more-relevant";
+        };
+        usage: ServiceUsage;
+    }>;
+}
+export interface EmbeddingRanker {
+    readonly id: string;
+    readonly model: string;
+    readonly revision: string;
+    capabilities(): EmbeddingServiceCapabilities;
+    rank(input: {
+        requestId: string;
+        query: EmbeddingTextV1;
+        candidates: EmbeddingTextV1[];
+    }): Promise<{
+        ranking: string[];
+        scores: number[];
+        prompt: string;
+        configuration: Record<string, unknown>;
+        usage: ServiceUsage;
+    }>;
+}
+export interface SyntheticEmbeddingGenerator {
+    readonly id: string;
+    capabilities(): EmbeddingServiceCapabilities;
+    generate(input: {
+        requestId: string;
+        document: EmbeddingTextV1;
+        intent: string;
+        language: string;
+    }): Promise<{
+        query: string;
+        usage: ServiceUsage;
+    }>;
+}
+export interface NegativeMiner {
+    readonly id: string;
+    readonly revision: string;
+    mine(input: {
+        requestId: string;
+        query: EmbeddingTextV1;
+        corpus: EmbeddingTextV1[];
+        limit: number;
+    }): Promise<{
+        candidateIds: string[];
+        usage: ServiceUsage;
+    }>;
+}
+export interface EmbeddingVerifier {
+    verify(input: {
+        query: EmbeddingTextV1;
+        document: EmbeddingTextV1;
+    }): Promise<{
+        supported: boolean;
+        reason: string;
+    }>;
+}
+export interface EmbeddingJudge {
+    judge(input: {
+        query: EmbeddingTextV1;
+        document: EmbeddingTextV1;
+        score: number;
+    }): Promise<{
+        accepted: boolean;
+        reason: string;
+        usage: ServiceUsage;
+    }>;
+}
+export type DistillationObjective = {
+    kind: "mse" | "cosine";
+    projection?: {
+        kind: "learned" | "pca";
+        fitSplit: "train";
+        artifactHash: string;
+    };
+    dimensions?: number[];
+} | {
+    kind: "margin-mse" | "pairwise-logistic" | "pairwise-kl";
+} | {
+    kind: "listwise-kl";
+    temperature: number;
+};
+export interface EmbeddingDistillationCompliance {
+    datasetRights: string;
+    teacherOutputRights: string;
+    terms: {
+        url: string;
+        version: string;
+        reviewedAt: string;
+        approver: string;
+    };
+    retentionAllowed: "none" | "temporary" | "persistent";
+    intendedUse: string;
+    contaminationHash: string;
+}
+export interface StageBudget {
+    limit: number;
+    spent: number;
+    usage: ServiceUsage;
+}
+export type BudgetStage = "generation" | "scoring" | "judging" | "mining" | "vectors" | "ranking";
+export interface EmbeddingDistillationConfig {
+    runId: string;
+    dimension: number;
+    objective: DistillationObjective;
+    budgets: Record<BudgetStage, number>;
+    compliance: EmbeddingDistillationCompliance;
+    nearDuplicateThreshold: number;
+    candidateLimit: number;
+    refresh?: {
+        kind: "checkpoint" | "epoch";
+        values: number[];
+    };
+    teacherStorageRights: string;
+    seed: string;
+}
+export interface PaidResult {
+    identity: string;
+    stage: BudgetStage;
+    requestId: string;
+    result: unknown;
+    usage: ServiceUsage;
+}
+export interface EmbeddingDistillationState {
+    version: typeof embeddingDistillationVersion;
+    configHash: string;
+    completedStages: string[];
+    records: EmbeddingRecordV1[];
+    paidSuccesses: Record<string, PaidResult>;
+    budgets: Record<BudgetStage, StageBudget>;
+    events: Array<{
+        sequence: number;
+        stage: string;
+        kind: string;
+        recordId?: string;
+    }>;
+    exclusions: Array<{
+        queryId: string;
+        candidateId: string;
+        reason: string;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+}
+export declare function validateEmbeddingDistillationConfig(config: EmbeddingDistillationConfig, services: EmbeddingServiceCapabilities[]): void;
+export declare function marginMse(studentPositive: number, studentNegative: number, teacherPositive: number, teacherNegative: number): number;
+export declare function pairwiseLogisticLoss(positive: number, negative: number): number;
+export declare function listwiseKl(student: number[], teacher: number[], temperature: number): number;
+export declare class EmbeddingDistillationPipeline {
+    readonly services: {
+        teacher: EmbeddingTeacher;
+        scorer: EmbeddingScorer;
+        ranker: EmbeddingRanker;
+        generator: SyntheticEmbeddingGenerator;
+        miner: NegativeMiner;
+        verifier: EmbeddingVerifier;
+        judge: EmbeddingJudge;
+    };
+    readonly now: () => string;
+    readonly checkpoint?: ((s: EmbeddingDistillationState) => Promise<void>) | undefined;
+    constructor(services: {
+        teacher: EmbeddingTeacher;
+        scorer: EmbeddingScorer;
+        ranker: EmbeddingRanker;
+        generator: SyntheticEmbeddingGenerator;
+        miner: NegativeMiner;
+        verifier: EmbeddingVerifier;
+        judge: EmbeddingJudge;
+    }, now?: () => string, checkpoint?: ((s: EmbeddingDistillationState) => Promise<void>) | undefined);
+    run(input: EmbeddingRecordV1[], config: EmbeddingDistillationConfig, previous?: EmbeddingDistillationState): Promise<EmbeddingDistillationState>;
+}
+export declare function saveEmbeddingDistillationState(path: string, state: EmbeddingDistillationState): Promise<void>;
+export declare function loadEmbeddingDistillationState(path: string): Promise<EmbeddingDistillationState>;
+```
+
+## dist/embeddings/training.d.ts
+
+```ts
+import { type ArtifactManifestV1 } from "../training/index.js";
+import { TypedRegistry, type EmbeddingServiceDependencies } from "./sdk.js";
+export declare const embeddingTrainingSpecVersion: "1.0.0";
+export interface EmbeddingTrainingSpecV1 {
+    embeddingTrainingSpecVersion: typeof embeddingTrainingSpecVersion;
+    runId: string;
+    datasetManifest: string;
+    recipeId: string;
+    objective: "contrastive" | "multiple-negatives" | "cosine" | "margin";
+    outputDirectory: string;
+    effectiveBatchSize: number;
+    dimension?: number;
+    adapter?: "lora" | "full";
+}
+export interface EmbeddingModelDescriptor {
+    id: string;
+    status: "unavailable" | "available";
+    reason: string;
+    evidence: string[];
+    dimensions: readonly number[];
+}
+export interface EmbeddingRecipeDescriptor {
+    id: string;
+    modelId: string;
+    status: "unavailable" | "available";
+    reason: string;
+    objective: string;
+}
+export declare const embeddingModelRegistry: TypedRegistry<EmbeddingModelDescriptor>;
+export declare const embeddingRecipeRegistry: TypedRegistry<EmbeddingRecipeDescriptor>;
+export declare function validateEmbeddingTrainingSpec(value: EmbeddingTrainingSpecV1): EmbeddingTrainingSpecV1;
+export declare class EmbeddingTrainingRun {
+    readonly spec: EmbeddingTrainingSpecV1;
+    private readonly dependencies;
+    constructor(spec: EmbeddingTrainingSpecV1, dependencies?: EmbeddingServiceDependencies);
+    plan(): {
+        spec: EmbeddingTrainingSpecV1;
+        recipe: EmbeddingRecipeDescriptor;
+        executable: boolean;
+        network: boolean;
+        uploads: boolean;
+        trustRemoteCode: boolean;
+        planHash: string;
+    };
+    run(): Promise<never>;
+}
+export declare function inspectEmbeddingArtifact(path: string): Promise<{
+    manifest: ArtifactManifestV1;
+    verified: boolean;
+}>;
+```
+
+## dist/embeddings/evaluation.d.ts
+
+```ts
+import { type EmbeddingServiceDependencies } from "./sdk.js";
+export interface EmbeddingEvaluationSpecV1 {
+    embeddingEvaluationSpecVersion: "1.0.0";
+    runId: string;
+    datasetManifest: string;
+    artifactManifest: string;
+    tasks: Array<"retrieval" | "sts" | "classification" | "clustering">;
+}
+export interface EmbeddingEvaluationReport {
+    runId: string;
+    status: "unavailable" | "complete";
+    metrics: Record<string, number>;
+    reason?: string;
+}
+export declare class EmbeddingEvaluator {
+    private readonly dependencies;
+    constructor(dependencies?: EmbeddingServiceDependencies);
+    plan(spec: EmbeddingEvaluationSpecV1): {
+        spec: EmbeddingEvaluationSpecV1;
+        executable: boolean;
+        network: boolean;
+        reason: string;
+    };
+    evaluate(_spec: EmbeddingEvaluationSpecV1): Promise<EmbeddingEvaluationReport>;
+}
+```
+
 ## dist/node/index.d.ts
 
 ```ts

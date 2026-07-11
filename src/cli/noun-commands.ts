@@ -20,9 +20,15 @@ import { trainingSpecVersion, type TrainingSpecV1 } from "../training/index.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { runEmbedCommand } from "./embed-data.js";
 import { runEmbedPhase13 } from "./embed-distill.js";
+import { printEmbedHelp, runEmbedProduct } from "./embed-product.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
-  if (noun === "embed") { if (rawArgs[0] === "data") await runEmbedCommand(rawArgs); else await runEmbedPhase13(rawArgs); return true; }
+  if (noun === "embed") {
+    if (!rawArgs.length || rawArgs[0] === "--help" || rawArgs[0] === "-h") printEmbedHelp();
+    else if (rawArgs[0] === "data") await runEmbedCommand(rawArgs);
+    else if (!(await runEmbedProduct(rawArgs))) await runEmbedPhase13(rawArgs);
+    return true;
+  }
   if (noun !== "dataset" && noun !== "pipeline" && noun !== "distill" && noun !== "template" && noun !== "training")
     return false;
   const [verb, ...verbArgs] = rawArgs;

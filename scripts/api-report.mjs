@@ -18,6 +18,11 @@ const declarations = [
   "dist/training/index.d.ts",
   "dist/orchestration/index.d.ts",
   "dist/distillation/index.d.ts",
+  "dist/embeddings/index.d.ts",
+  "dist/embeddings/formats.d.ts",
+  "dist/embeddings/distillation.d.ts",
+  "dist/embeddings/training.d.ts",
+  "dist/embeddings/evaluation.d.ts",
   "dist/node/index.d.ts",
 ];
 
