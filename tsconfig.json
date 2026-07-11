@@ -17,6 +17,15 @@
     "src/core/**/*.ts",
     "src/providers/**/*.ts",
     "src/simulation/**/*.ts",
-    "src/translation/**/*.ts"
+    "src/translation/**/*.ts",
+    "src/examples/**/*.ts",
+    "src/formats/**/*.ts",
+    "src/validation/**/*.ts",
+    "src/generation/**/*.ts",
+    "src/templates/**/*.ts",
+    "src/training/**/*.ts",
+    "src/orchestration/**/*.ts",
+    "src/distillation/**/*.ts",
+    "src/node/**/*.ts"
   ]
 }

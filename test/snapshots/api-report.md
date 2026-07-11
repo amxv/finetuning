@@ -207,8 +207,8 @@ export declare function loadScenarioSource(input: ScenarioSourceInput, filesyste
 ## dist/translation/index.d.ts
 
 ```ts
-import { type OpenAIChatFineTuningRow } from "../core/index.js";
-import { type ModelClient, type ModelProviderKind } from "../providers/index.js";
+import type { OpenAIChatFineTuningRow } from "../core/openai.js";
+import type { ModelClient, ModelProviderKind } from "../providers/index.js";
 export type TranslationWorkflowStatus = "experimental";
 export type TranslationRequestPath = "local-pseudo" | "provider-adapter";
 export type TranslationProviderKind = ModelProviderKind | "local-pseudo";
@@ -263,4 +263,85 @@ export declare function translateOpenAIJsonl(contents: string, options: Translat
     provider: TranslationProviderKind;
     requestPath: TranslationRequestPath;
 }>;
+```
+
+## dist/examples/testing.d.ts
+
+```ts
+/**
+ * Compatibility fixtures intended for examples and tests.
+ *
+ * Production consumers should prefer the semantic contracts exported from
+ * `@amxv/finetuning/core` and avoid depending on these fixed sample values.
+ */
+export { bookAppointmentTool, bookAppointmentToolTrajectoryFixture, checkAvailabilityTool, checkAvailabilityToolTrajectoryFixture, fullToolTrajectoryConversationFixture, noToolConversationFixture, representativeTrajectories, searchTool, searchToolTrajectoryFixture, toolDecisionConversationFixture, toolTrajectoryFixtures, } from "../core/fixtures.js";
+```
+
+## dist/formats/index.d.ts
+
+```ts
+/** Stable dataset-format namespace. Codecs are introduced in Phase 2. */
+export type { OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow } from "../core/openai.js";
+export { serializeOpenAIJsonlRows, validateOpenAIJsonl } from "../core/dataset.js";
+```
+
+## dist/formats/openai.d.ts
+
+```ts
+/** OpenAI chat JSONL compatibility surface. */
+export type { BuildOpenAIRowOptions, OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow, OpenAIToolCall, OpenAIToolDefinition, } from "../core/openai.js";
+export { buildOpenAIFineTuningRow, buildOpenAIFineTuningRows } from "../core/openai.js";
+export { serializeOpenAIJsonlRows, summarizeOpenAIJsonlRows, validateOpenAIJsonl } from "../core/dataset.js";
+export { assertValidOpenAIFineTuningRow, validateOpenAIFineTuningRow } from "../core/validation/messages.js";
+```
+
+## dist/validation/index.d.ts
+
+```ts
+/** Stable validation namespace. */
+export { assertValidOpenAIFineTuningRow, validateOpenAIFineTuningRow, type ValidationIssue, type ValidationResult, type ValidationSummary, } from "../core/validation/messages.js";
+export { validateOpenAIJsonl } from "../core/dataset.js";
+```
+
+## dist/generation/index.d.ts
+
+```ts
+/** Stable generation namespace backed by the current simulation compatibility layer. */
+export type { ModelBackedPersonaGeneratorOptions, ModelBackedSimulationRunnerOptions, PersonaGenerationRequest, PersonaGenerator, SimulationRequest, SimulationRunner, } from "../simulation/index.js";
+export { createDeterministicPersonaGenerator, createDeterministicSimulationRunner, createModelBackedPersonaGenerator, createModelBackedSimulationRunner, } from "../simulation/index.js";
+```
+
+## dist/templates/index.d.ts
+
+```ts
+/** Reserved stable namespace for late-bound chat templates (Phase 6). */
+export declare const templateApiVersion: "0";
+```
+
+## dist/training/index.d.ts
+
+```ts
+/** Reserved stable namespace for training contracts (Phase 6). */
+export declare const trainingApiVersion: "0";
+```
+
+## dist/orchestration/index.d.ts
+
+```ts
+/** Reserved stable namespace for orchestration contracts (Phase 3). */
+export declare const orchestrationApiVersion: "0";
+```
+
+## dist/distillation/index.d.ts
+
+```ts
+/** Reserved stable namespace for distillation contracts (Phase 5). */
+export declare const distillationApiVersion: "0";
+```
+
+## dist/node/index.d.ts
+
+```ts
+/** Node-specific operational adapters. */
+export type { DatasetWriter, FileSystemAdapter, PersistenceAdapter } from "../simulation/index.js";
 ```

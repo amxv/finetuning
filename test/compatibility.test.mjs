@@ -15,6 +15,16 @@ test("root and subpath exports match the compatibility snapshot", async () => {
     "../dist/providers/index.js",
     "../dist/simulation/index.js",
     "../dist/translation/index.js",
+    "../dist/examples/testing.js",
+    "../dist/formats/index.js",
+    "../dist/formats/openai.js",
+    "../dist/validation/index.js",
+    "../dist/generation/index.js",
+    "../dist/templates/index.js",
+    "../dist/training/index.js",
+    "../dist/orchestration/index.js",
+    "../dist/distillation/index.js",
+    "../dist/node/index.js",
   ];
   const actual = {};
   for (const specifier of specifiers)

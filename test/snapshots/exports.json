@@ -136,5 +136,55 @@
     "experimentalTranslationRules",
     "translateOpenAIFineTuningRow",
     "translateOpenAIJsonl"
-  ]
+  ],
+  "@amxv/finetuning/examples/testing": [
+    "bookAppointmentTool",
+    "bookAppointmentToolTrajectoryFixture",
+    "checkAvailabilityTool",
+    "checkAvailabilityToolTrajectoryFixture",
+    "fullToolTrajectoryConversationFixture",
+    "noToolConversationFixture",
+    "representativeTrajectories",
+    "searchTool",
+    "searchToolTrajectoryFixture",
+    "toolDecisionConversationFixture",
+    "toolTrajectoryFixtures"
+  ],
+  "@amxv/finetuning/formats": [
+    "serializeOpenAIJsonlRows",
+    "validateOpenAIJsonl"
+  ],
+  "@amxv/finetuning/formats/openai": [
+    "assertValidOpenAIFineTuningRow",
+    "buildOpenAIFineTuningRow",
+    "buildOpenAIFineTuningRows",
+    "serializeOpenAIJsonlRows",
+    "summarizeOpenAIJsonlRows",
+    "validateOpenAIFineTuningRow",
+    "validateOpenAIJsonl"
+  ],
+  "@amxv/finetuning/validation": [
+    "assertValidOpenAIFineTuningRow",
+    "validateOpenAIFineTuningRow",
+    "validateOpenAIJsonl"
+  ],
+  "@amxv/finetuning/generation": [
+    "createDeterministicPersonaGenerator",
+    "createDeterministicSimulationRunner",
+    "createModelBackedPersonaGenerator",
+    "createModelBackedSimulationRunner"
+  ],
+  "@amxv/finetuning/templates": [
+    "templateApiVersion"
+  ],
+  "@amxv/finetuning/training": [
+    "trainingApiVersion"
+  ],
+  "@amxv/finetuning/orchestration": [
+    "orchestrationApiVersion"
+  ],
+  "@amxv/finetuning/distillation": [
+    "distillationApiVersion"
+  ],
+  "@amxv/finetuning/node": []
 }

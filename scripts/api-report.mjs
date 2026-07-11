@@ -9,6 +9,16 @@ const declarations = [
   "dist/providers/index.d.ts",
   "dist/simulation/index.d.ts",
   "dist/translation/index.d.ts",
+  "dist/examples/testing.d.ts",
+  "dist/formats/index.d.ts",
+  "dist/formats/openai.d.ts",
+  "dist/validation/index.d.ts",
+  "dist/generation/index.d.ts",
+  "dist/templates/index.d.ts",
+  "dist/training/index.d.ts",
+  "dist/orchestration/index.d.ts",
+  "dist/distillation/index.d.ts",
+  "dist/node/index.d.ts",
 ];
 
 let report = "# Public API declaration report\n\nGenerated from the public package entry points.\n";

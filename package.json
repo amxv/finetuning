@@ -31,6 +31,54 @@
       "types": "./dist/translation/index.d.ts",
       "import": "./dist/translation/index.js"
     },
+    "./examples/testing": {
+      "types": "./dist/examples/testing.d.ts",
+      "import": "./dist/examples/testing.js"
+    },
+    "./formats": {
+      "types": "./dist/formats/index.d.ts",
+      "import": "./dist/formats/index.js"
+    },
+    "./formats/openai": {
+      "types": "./dist/formats/openai.d.ts",
+      "import": "./dist/formats/openai.js"
+    },
+    "./validation": {
+      "types": "./dist/validation/index.d.ts",
+      "import": "./dist/validation/index.js"
+    },
+    "./generation": {
+      "types": "./dist/generation/index.d.ts",
+      "import": "./dist/generation/index.js"
+    },
+    "./providers/openai": {
+      "types": "./dist/providers/openai.d.ts",
+      "import": "./dist/providers/openai.js"
+    },
+    "./providers/anthropic": {
+      "types": "./dist/providers/anthropic.d.ts",
+      "import": "./dist/providers/anthropic.js"
+    },
+    "./templates": {
+      "types": "./dist/templates/index.d.ts",
+      "import": "./dist/templates/index.js"
+    },
+    "./training": {
+      "types": "./dist/training/index.d.ts",
+      "import": "./dist/training/index.js"
+    },
+    "./orchestration": {
+      "types": "./dist/orchestration/index.d.ts",
+      "import": "./dist/orchestration/index.js"
+    },
+    "./distillation": {
+      "types": "./dist/distillation/index.d.ts",
+      "import": "./dist/distillation/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

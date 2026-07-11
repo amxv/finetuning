@@ -1,16 +1,9 @@
-import {
-  assertValidOpenAIFineTuningRow,
-  serializeOpenAIJsonlRows,
-  validateOpenAIJsonl,
-  type JsonObject,
-  type OpenAIChatFineTuningMessage,
-  type OpenAIChatFineTuningRow,
-} from "../core/index.js";
-import {
-  ProviderResponseError,
-  type ModelClient,
-  type ModelProviderKind,
-} from "../providers/index.js";
+import { serializeOpenAIJsonlRows, validateOpenAIJsonl } from "../core/dataset.js";
+import type { JsonObject } from "../core/model.js";
+import type { OpenAIChatFineTuningMessage, OpenAIChatFineTuningRow } from "../core/openai.js";
+import { assertValidOpenAIFineTuningRow } from "../core/validation.js";
+import { ProviderResponseError } from "../providers/errors.js";
+import type { ModelClient, ModelProviderKind } from "../providers/index.js";
 
 export type TranslationWorkflowStatus = "experimental";
 export type TranslationRequestPath = "local-pseudo" | "provider-adapter";
@@ -289,11 +282,7 @@ async function translateTextField(
   return translated;
 }
 
-function buildTextRequest(
-  text: string,
-  options: TranslateOpenAIRowOptions,
-  path: string,
-): TranslationTextRequest {
+function buildTextRequest(text: string, options: TranslateOpenAIRowOptions, path: string): TranslationTextRequest {
   const request: TranslationTextRequest = {
     text,
     targetLocale: options.targetLocale,
@@ -369,15 +358,12 @@ function validateProviderTranslatedText(
 function isWrappedInQuotes(value: string): boolean {
   return (
     value.length >= 2 &&
-    ((value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'")))
+    ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
   );
 }
 
 function looksLikeJsonWrapper(value: string): boolean {
-  if (
-    !((value.startsWith("{") && value.endsWith("}")) || (value.startsWith("[") && value.endsWith("]")))
-  ) {
+  if (!((value.startsWith("{") && value.endsWith("}")) || (value.startsWith("[") && value.endsWith("]")))) {
     return false;
   }
 
@@ -403,11 +389,7 @@ function assertTranslationPreservedSchemaFields(
 
     if (originalMessage.role === "assistant") {
       const translatedAssistant = translatedMessage.role === "assistant" ? translatedMessage : undefined;
-      assertJsonEqual(
-        translatedAssistant?.tool_calls,
-        originalMessage.tool_calls,
-        `messages[${index}].tool_calls`,
-      );
+      assertJsonEqual(translatedAssistant?.tool_calls, originalMessage.tool_calls, `messages[${index}].tool_calls`);
     }
 
     if (originalMessage.role === "tool") {

@@ -1,7 +1,25 @@
 #!/usr/bin/env node
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import process from "node:process";
+import {
+  parseArgs,
+  readBooleanFlag,
+  readOptionalIntegerFlag,
+  readOptionalStringFlag,
+  readRequiredStringFlag,
+  type ParsedArgs,
+} from "./argv.js";
+import type {
+  CliContext,
+  CliProviderKind,
+  CliProviderRuntimeConfigInput,
+  CliWorkflowConfig,
+  DeterministicProviderChoice,
+  ProviderRuntimePrefix,
+  TranslationStrategyChoice,
+} from "./context.js";
+import { printDatasetSummary, writeBatchFile } from "./io.js";
 import {
   buildOpenAIFineTuningRow,
   bundledScenarioProfiles,
@@ -29,37 +47,6 @@ import {
   type ScenarioSource,
   type SimulationRunner,
 } from "../index.js";
-
-interface ParsedArgs {
-  positionals: string[];
-  flags: Record<string, string | boolean>;
-}
-
-interface CliContext {
-  args: ParsedArgs;
-  config: CliWorkflowConfig;
-}
-
-type CliProviderKind = "openai" | "anthropic";
-type DeterministicProviderChoice = CliProviderKind | "deterministic";
-type TranslationStrategyChoice = "local-pseudo" | "openai" | "anthropic";
-type ProviderRuntimePrefix = "persona" | "simulation" | "translation";
-
-interface CliProviderRuntimeConfigInput {
-  provider?: string;
-  model?: string;
-  apiKeyEnv?: string;
-  baseUrl?: string;
-  temperature?: number;
-  maxOutputTokens?: number;
-  headers?: Record<string, string>;
-  metadata?: JsonObject;
-}
-
-interface CliWorkflowConfig {
-  scenario?: unknown;
-  providers: Partial<Record<ProviderRuntimePrefix, CliProviderRuntimeConfigInput>>;
-}
 
 void main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
@@ -128,7 +115,12 @@ async function simulateDataset({ args, config }: CliContext): Promise<void> {
   const mode = readExportMode(args) ?? "full_tool_trajectory";
   const force = readBooleanFlag(args, "force");
   const count = readOptionalIntegerFlag(args, "limit") ?? scenario.definition.personaSource.count;
-  const provider = readDeterministicProviderChoice(args, "simulation-provider", "deterministic", config.providers.simulation);
+  const provider = readDeterministicProviderChoice(
+    args,
+    "simulation-provider",
+    "deterministic",
+    config.providers.simulation,
+  );
 
   const runner = createCliSimulationRunner(args, config, provider);
   const trajectories = await runner.run({ scenario, outputDirectory: dirname(outputPath), limit: count, mode });
@@ -295,7 +287,8 @@ function parseCliProviderRuntimeConfig(value: unknown, prefix: ProviderRuntimePr
 
   const provider = readOptionalConfigString(value, "provider", prefix);
   if (provider !== undefined && !isAllowedProviderForPrefix(provider, prefix)) {
-    const allowed = prefix === "translation" ? "local-pseudo, openai, or anthropic" : "deterministic, openai, or anthropic";
+    const allowed =
+      prefix === "translation" ? "local-pseudo, openai, or anthropic" : "deterministic, openai, or anthropic";
     throw new Error(`Provider config for ${prefix}.provider must be ${allowed}.`);
   }
 
@@ -418,65 +411,6 @@ function isJsonValue(value: unknown): boolean {
   return isJsonObject(value);
 }
 
-async function writeBatchFile(outputPath: string, contents: string, force: boolean): Promise<void> {
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, contents, { flag: force ? "w" : "wx" });
-}
-
-function printDatasetSummary(summary: {
-  rowCount: number;
-  validRowCount: number;
-  invalidRowCount: number;
-  messageCount: number;
-  toolCallCount: number;
-  toolResultCount: number;
-  rowsWithTools: number;
-  averageMessagesPerRow: number;
-  languageCounts: Record<string, number>;
-}): void {
-  console.log(`Rows: ${summary.rowCount}`);
-  console.log(`Valid rows: ${summary.validRowCount}`);
-  console.log(`Invalid rows: ${summary.invalidRowCount}`);
-  console.log(`Messages: ${summary.messageCount}`);
-  console.log(`Tool calls: ${summary.toolCallCount}`);
-  console.log(`Tool results: ${summary.toolResultCount}`);
-  console.log(`Rows with tools: ${summary.rowsWithTools}`);
-  console.log(`Average messages per row: ${summary.averageMessagesPerRow.toFixed(2)}`);
-
-  const languageEntries = Object.entries(summary.languageCounts);
-  if (languageEntries.length > 0) {
-    console.log(`Languages: ${languageEntries.map(([locale, count]) => `${locale}=${count}`).join(", ")}`);
-  }
-}
-
-function parseArgs(rawArgs: string[]): ParsedArgs {
-  const positionals: string[] = [];
-  const flags: Record<string, string | boolean> = {};
-
-  for (let index = 0; index < rawArgs.length; index += 1) {
-    const arg = rawArgs[index];
-    if (!arg) {
-      continue;
-    }
-
-    if (!arg.startsWith("--")) {
-      positionals.push(arg);
-      continue;
-    }
-
-    const flag = arg.slice(2);
-    const next = rawArgs[index + 1];
-    if (next && !next.startsWith("--")) {
-      flags[flag] = next;
-      index += 1;
-    } else {
-      flags[flag] = true;
-    }
-  }
-
-  return { positionals, flags };
-}
-
 function readExportMode(args: ParsedArgs): ExportMode | undefined {
   const value = readOptionalStringFlag(args, "mode");
   if (!value) {
@@ -554,11 +488,7 @@ function createCliSimulationRunner(
   });
 }
 
-function createCliTranslationAdapter(
-  args: ParsedArgs,
-  config: CliWorkflowConfig,
-  strategy: TranslationStrategyChoice,
-) {
+function createCliTranslationAdapter(args: ParsedArgs, config: CliWorkflowConfig, strategy: TranslationStrategyChoice) {
   if (strategy === "local-pseudo") {
     return undefined;
   }
@@ -606,38 +536,6 @@ function validateExplicitProviderRuntime(
 
   resolveProviderClientOptions(runtimeConfig);
   return runtimeConfig;
-}
-
-function readRequiredStringFlag(args: ParsedArgs, name: string): string {
-  const value = readOptionalStringFlag(args, name);
-  if (!value) {
-    throw new Error(`Missing required --${name} <value>.`);
-  }
-
-  return value;
-}
-
-function readOptionalStringFlag(args: ParsedArgs, name: string): string | undefined {
-  const value = args.flags[name];
-  return typeof value === "string" ? value : undefined;
-}
-
-function readBooleanFlag(args: ParsedArgs, name: string): boolean {
-  return args.flags[name] === true;
-}
-
-function readOptionalIntegerFlag(args: ParsedArgs, name: string): number | undefined {
-  const value = readOptionalStringFlag(args, name);
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new Error(`--${name} must be a non-negative integer.`);
-  }
-
-  return parsed;
 }
 
 function printHelp(): void {
