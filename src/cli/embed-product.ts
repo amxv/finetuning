@@ -1,5 +1,6 @@
 import {
   EmbeddingEvaluator,
+  verifyEmbeddingEvaluationReport,
   embeddingModelRegistry,
   embeddingRecipeRegistry,
   EmbeddingTrainingRun,
@@ -102,13 +103,27 @@ export async function runEmbedProduct(raw: string[]): Promise<boolean> {
   }
   const evaluator = new EmbeddingEvaluator(),
     plan = evaluator.plan(value as unknown as EmbeddingEvaluationSpecV1);
-  if (verb === "run" && !dry) await evaluator.evaluate(value as unknown as EmbeddingEvaluationSpecV1);
+  let result;
+  if (verb === "inspect") result = await verifyEmbeddingEvaluationReport(readRequiredStringFlag(a, "report"));
+  else if (verb === "compare") {
+    const left = await verifyEmbeddingEvaluationReport(readRequiredStringFlag(a, "left")),
+      right = await verifyEmbeddingEvaluationReport(readRequiredStringFlag(a, "right"));
+    if (JSON.stringify(left.revisions) !== JSON.stringify(right.revisions))
+      throw new Error("EMBED_EVAL_INCOMPARABLE_REVISIONS");
+    result = {
+      comparable: true,
+      deltas: Object.fromEntries(
+        Object.keys(right.metrics).map((k) => [k, right.metrics[k]! - (left.metrics[k] ?? 0)]),
+      ),
+    };
+  } else if (verb === "run" && !dry) result = await evaluator.evaluate(value as unknown as EmbeddingEvaluationSpecV1);
   print({
     operation: verb,
     dryRun: dry,
     resolvedConfig: value,
     environmentReferences: config.environmentReferences,
     ...plan,
+    ...(result ? { result } : {}),
   });
   return true;
 }

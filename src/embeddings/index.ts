@@ -9,6 +9,17 @@ export {
   EmbeddingTrainingRun,
   inspectEmbeddingArtifact,
 } from "./training.js";
-export { EmbeddingEvaluator } from "./evaluation.js";
+export {
+  EmbeddingEvaluator,
+  evaluateEmbeddingSpec,
+  verifyEmbeddingEvaluationReport,
+  evaluationForModelCard,
+  retrievalMetrics,
+  pearson,
+  spearman,
+  classificationMetrics,
+  vMeasure,
+  bootstrap,
+} from "./evaluation.js";
 export type { EmbeddingTrainingSpecV1, EmbeddingModelDescriptor, EmbeddingRecipeDescriptor } from "./training.js";
 export type { EmbeddingEvaluationSpecV1, EmbeddingEvaluationReport } from "./evaluation.js";

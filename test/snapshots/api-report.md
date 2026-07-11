@@ -596,7 +596,7 @@ export * from "./data.js";
 export * from "./distillation.js";
 export * from "./sdk.js";
 export { embeddingModelRegistry, embeddingRecipeRegistry, EmbeddingTrainingRun, inspectEmbeddingArtifact, } from "./training.js";
-export { EmbeddingEvaluator } from "./evaluation.js";
+export { EmbeddingEvaluator, evaluateEmbeddingSpec, verifyEmbeddingEvaluationReport, evaluationForModelCard, retrievalMetrics, pearson, spearman, classificationMetrics, vMeasure, bootstrap, } from "./evaluation.js";
 export type { EmbeddingTrainingSpecV1, EmbeddingModelDescriptor, EmbeddingRecipeDescriptor } from "./training.js";
 export type { EmbeddingEvaluationSpecV1, EmbeddingEvaluationReport } from "./evaluation.js";
 ```
@@ -953,19 +953,137 @@ export declare function inspectEmbeddingArtifact(path: string): Promise<{
 
 ```ts
 import { type EmbeddingServiceDependencies } from "./sdk.js";
+export declare const embeddingEvaluationSpecVersion: "embedding.evaluation.v1", embeddingEvaluationReportVersion: "embedding.evaluation.report.v1";
+export interface RankedQuery {
+    id: string;
+    relevantIds: string[];
+    candidates: Array<{
+        id: string;
+        score: number;
+    }>;
+    language?: string;
+    prompt?: "on" | "off";
+    length?: number;
+    dimension?: number;
+}
 export interface EmbeddingEvaluationSpecV1 {
-    embeddingEvaluationSpecVersion: "1.0.0";
+    embeddingEvaluationSpecVersion: typeof embeddingEvaluationSpecVersion;
     runId: string;
-    datasetManifest: string;
-    artifactManifest: string;
-    tasks: Array<"retrieval" | "sts" | "classification" | "clustering">;
+    datasetRevision: string;
+    evaluatorRevision: string;
+    mteb?: {
+        revision: string;
+        taskSet: string;
+        offlineFixture: boolean;
+    };
+    frozenSplitHash: string;
+    contaminationHash: string;
+    artifactManifest?: string;
+    outputPath?: string;
+    retrieval?: RankedQuery[];
+    sts?: Array<{
+        predicted: number;
+        expected: number;
+        language?: string;
+    }>;
+    classification?: Array<{
+        predicted: string;
+        expected: string;
+        language?: string;
+    }>;
+    clustering?: Array<{
+        predicted: string;
+        expected: string;
+        language?: string;
+    }>;
+    baselines?: Record<string, Record<string, number>>;
+    thresholds?: Array<{
+        metric: string;
+        baseline: string;
+        minimumDelta?: number;
+        minimum?: number;
+        maximum?: number;
+    }>;
+    resources?: {
+        latencyMs: number;
+        throughputPerSecond: number;
+        peakMemoryBytes: number;
+        artifactBytes: number;
+    };
+    contamination?: {
+        evalIds: string[];
+        generationLedgerIds: string[];
+        miningLedgerIds: string[];
+        canaries: string[];
+        projectionFitSplit: "train";
+    };
+    bootstrap?: {
+        seed: number;
+        samples: number;
+    };
+}
+export interface MetricInterval {
+    value: number;
+    low: number;
+    high: number;
 }
 export interface EmbeddingEvaluationReport {
+    embeddingEvaluationReportVersion: typeof embeddingEvaluationReportVersion;
     runId: string;
-    status: "unavailable" | "complete";
+    status: "complete";
+    comparable: boolean;
     metrics: Record<string, number>;
-    reason?: string;
+    intervals: Record<string, MetricInterval>;
+    slices: Record<string, Record<string, number>>;
+    baselines: Record<string, Record<string, number>>;
+    regression: {
+        passed: boolean;
+        failures: string[];
+    };
+    resources?: EmbeddingEvaluationSpecV1["resources"];
+    revisions: {
+        dataset: string;
+        evaluator: string;
+        mteb?: string;
+        taskSet?: string;
+    };
+    raw: {
+        retrieval?: RankedQuery[];
+    };
+    contamination: {
+        passed: boolean;
+        teacherLimitation: string;
+    };
+    reportHash: string;
 }
+export declare function retrievalMetrics(rows: RankedQuery[], k?: number): {
+    [x: string]: number;
+    mrr: number;
+    "ndcg@10": number;
+};
+export declare function pearson(a: number[], b: number[]): number;
+export declare const spearman: (a: number[], b: number[]) => number;
+export declare function classificationMetrics(rows: Array<{
+    predicted: string;
+    expected: string;
+}>): {
+    accuracy: number;
+    "macro-f1": number;
+};
+export declare function vMeasure(rows: Array<{
+    predicted: string;
+    expected: string;
+}>): number;
+export declare function bootstrap(values: number[], seed: number, samples: number): MetricInterval;
+export declare function evaluateEmbeddingSpec(spec: EmbeddingEvaluationSpecV1): EmbeddingEvaluationReport;
+export declare function verifyEmbeddingEvaluationReport(path: string): Promise<EmbeddingEvaluationReport>;
+export declare function evaluationForModelCard(path: string): Promise<{
+    reportHash: string;
+    evaluatorRevision: string;
+    datasetRevision: string;
+    metrics: Record<string, number>;
+    regressionPassed: boolean;
+}>;
 export declare class EmbeddingEvaluator {
     private readonly dependencies;
     constructor(dependencies?: EmbeddingServiceDependencies);
@@ -973,9 +1091,8 @@ export declare class EmbeddingEvaluator {
         spec: EmbeddingEvaluationSpecV1;
         executable: boolean;
         network: boolean;
-        reason: string;
     };
-    evaluate(_spec: EmbeddingEvaluationSpecV1): Promise<EmbeddingEvaluationReport>;
+    evaluate(spec: EmbeddingEvaluationSpecV1): Promise<EmbeddingEvaluationReport>;
 }
 ```
 
