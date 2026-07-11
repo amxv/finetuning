@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "embedding.training.artifact.v1",
+  "type": "object",
+  "required": ["embeddingArtifactVersion", "runId", "specHash", "artifacts"],
+  "properties": {
+    "embeddingArtifactVersion": { "const": "embedding.training.artifact.v1" },
+    "runId": { "type": "string" },
+    "specHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "bytes", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "kind": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

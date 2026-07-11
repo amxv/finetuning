@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "embedding.training.event.v1",
+  "type": "object",
+  "required": ["embeddingTrainingEventVersion", "sequence", "timestamp", "runId", "type"],
+  "properties": {
+    "embeddingTrainingEventVersion": { "const": "embedding.training.event.v1" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "timestamp": { "type": "string" },
+    "runId": { "type": "string" },
+    "type": { "enum": ["started", "preflight", "progress", "checkpoint", "artifact", "completed", "failed"] },
+    "data": { "type": "object" }
+  },
+  "additionalProperties": false
+}

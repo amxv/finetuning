@@ -9,6 +9,9 @@ import {
 } from "../embeddings/index.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { resolveEmbedConfig } from "./embed-config.js";
+import { atomicWrite } from "../node/storage.js";
+import { runPythonEmbeddingTrainer } from "../node/embedding-trainer.js";
+import { join, resolve } from "node:path";
 const hierarchy = {
   models: ["list", "info", "license", "compat"],
   recipes: ["list", "show", "lock"],
@@ -66,12 +69,33 @@ export async function runEmbedProduct(raw: string[]): Promise<boolean> {
     }
     const run = new EmbeddingTrainingRun(value as unknown as EmbeddingTrainingSpecV1),
       plan = run.plan();
-    if (["run", "resume", "evaluate", "export"].includes(verb) && !dry) await run.run();
+    let execution;
+    if (["run", "resume", "status", "export", "inspect"].includes(verb) && !dry) {
+      if (value.recipeId !== "cpu-tiny-embedding-fixture") await run.run();
+      const spec = {
+        ...value,
+        operation: verb,
+        ...(typeof value["checkpoint"] === "string" ? { checkpointPath: value["checkpoint"] } : {}),
+        ...(typeof value["artifact"] === "string" ? { artifactPath: value["artifact"] } : {}),
+      };
+      const specPath = join(String(value.outputDirectory), `.embedding-${verb}.json`);
+      await atomicWrite(specPath, JSON.stringify(spec, null, 2) + "\n");
+      execution = await runPythonEmbeddingTrainer({
+        pythonExecutable: typeof value.python === "string" ? value.python : "python3",
+        specPath: resolve(specPath),
+        cwd: resolve(typeof value["python-root"] === "string" ? value["python-root"] : "python"),
+      });
+      if (execution.exitCode !== 0)
+        throw new Error(
+          execution.stderr || String(execution.events.at(-1)?.data?.message ?? "Embedding trainer failed"),
+        );
+    }
     print({
       operation: verb,
       dryRun: dry,
       resolvedConfig: value,
       environmentReferences: config.environmentReferences,
+      ...(execution ? { execution } : {}),
       ...plan,
     });
     return true;

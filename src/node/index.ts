@@ -3,3 +3,4 @@ export type { DatasetWriter, FileSystemAdapter, PersistenceAdapter } from "../si
 export { redactSecrets } from "./redaction.js";
 export { atomicWrite, ContentAddressedBlobStore, ScopedLock } from "./storage.js";
 export { runPythonTrainer, type TrainerBridgeOptions, type TrainerRunResult } from "./trainer.js";
+export { runPythonEmbeddingTrainer, type EmbeddingTrainerBridgeOptions } from "./embedding-trainer.js";

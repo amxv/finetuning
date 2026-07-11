@@ -874,7 +874,9 @@ export declare function loadEmbeddingDistillationState(path: string): Promise<Em
 ```ts
 import { type ArtifactManifestV1 } from "../training/index.js";
 import { TypedRegistry, type EmbeddingServiceDependencies } from "./sdk.js";
-export declare const embeddingTrainingSpecVersion: "1.0.0";
+export declare const embeddingTrainingSpecVersion: "embedding.training.v1";
+export declare const embeddingTrainingEventVersion: "embedding.training.event.v1";
+export declare const embeddingArtifactVersion: "embedding.training.artifact.v1";
 export interface EmbeddingTrainingSpecV1 {
     embeddingTrainingSpecVersion: typeof embeddingTrainingSpecVersion;
     runId: string;
@@ -885,7 +887,30 @@ export interface EmbeddingTrainingSpecV1 {
     effectiveBatchSize: number;
     dimension?: number;
     adapter?: "lora" | "full";
+    seed?: number;
+    immutableIdentity?: Record<string, unknown>;
+    allowedRuntimeChanges?: string[];
 }
+export interface EmbeddingTrainingEventV1 {
+    embeddingTrainingEventVersion: typeof embeddingTrainingEventVersion;
+    sequence: number;
+    timestamp: string;
+    runId: string;
+    type: "started" | "preflight" | "progress" | "checkpoint" | "artifact" | "completed" | "failed";
+    data?: Record<string, unknown>;
+}
+export interface EmbeddingArtifactManifestV1 {
+    embeddingArtifactVersion: typeof embeddingArtifactVersion;
+    runId: string;
+    specHash: string;
+    artifacts: Array<{
+        path: string;
+        sha256: string;
+        bytes: number;
+        kind: string;
+    }>;
+}
+export declare function assertEmbeddingContractMajor(actual: string, expected: string, contract: string): void;
 export interface EmbeddingModelDescriptor {
     id: string;
     status: "unavailable" | "available";
@@ -962,4 +987,5 @@ export type { DatasetWriter, FileSystemAdapter, PersistenceAdapter } from "../si
 export { redactSecrets } from "./redaction.js";
 export { atomicWrite, ContentAddressedBlobStore, ScopedLock } from "./storage.js";
 export { runPythonTrainer, type TrainerBridgeOptions, type TrainerRunResult } from "./trainer.js";
+export { runPythonEmbeddingTrainer, type EmbeddingTrainerBridgeOptions } from "./embedding-trainer.js";
 ```

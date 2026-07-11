@@ -241,6 +241,7 @@
     "ScopedLock",
     "atomicWrite",
     "redactSecrets",
+    "runPythonEmbeddingTrainer",
     "runPythonTrainer"
   ]
 }

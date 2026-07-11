@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "embedding.training.v1",
+  "type": "object",
+  "required": [
+    "embeddingTrainingSpecVersion",
+    "runId",
+    "datasetManifest",
+    "recipeId",
+    "objective",
+    "outputDirectory",
+    "effectiveBatchSize",
+    "immutableIdentity"
+  ],
+  "properties": {
+    "embeddingTrainingSpecVersion": { "const": "embedding.training.v1" },
+    "runId": { "type": "string", "minLength": 1 },
+    "datasetManifest": { "type": "string", "minLength": 1 },
+    "recipeId": { "type": "string", "minLength": 1 },
+    "objective": { "enum": ["contrastive", "multiple-negatives", "cosine", "margin"] },
+    "outputDirectory": { "type": "string", "minLength": 1 },
+    "effectiveBatchSize": { "type": "integer", "minimum": 2 },
+    "dimension": { "type": "integer", "minimum": 1 },
+    "adapter": { "enum": ["lora", "full"] },
+    "immutableIdentity": { "type": "object" },
+    "allowedRuntimeChanges": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
