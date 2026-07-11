@@ -2,7 +2,7 @@
 title: Scenario authoring
 description: Define assistant behavior through scenario JSON, including personas, tool schemas, goals, and stopping rules.
 order: 6
-category: Authoring
+category: How-to
 summary: Scenario files are the public modeling surface for new domains, not hard-coded framework behavior.
 ---
 

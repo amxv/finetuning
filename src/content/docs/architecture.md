@@ -25,13 +25,13 @@ Current source ownership is:
 
 ## Workflow status
 
-| Workflow | Status | Public surface |
-| --- | --- | --- |
-| Synthetic dataset generation | V1 | `simulate-dataset` |
-| Persona generation | V1 | `generate-personas` |
-| Dataset validation | V1 | `validate-dataset` |
-| Dataset translation | Experimental | `translate-dataset` |
-| Log-to-dataset import | Deferred | `convert-logs` exits with a shared deferred error |
+| Workflow                     | Status       | Public surface                                    |
+| ---------------------------- | ------------ | ------------------------------------------------- |
+| Synthetic dataset generation | V1           | `simulate-dataset`                                |
+| Persona generation           | V1           | `generate-personas`                               |
+| Dataset validation           | V1           | `validate-dataset`                                |
+| Dataset translation          | Experimental | `translate-dataset`                               |
+| Log-to-dataset import        | Deferred     | `convert-logs` exits with a shared deferred error |
 
 ## Provider model
 

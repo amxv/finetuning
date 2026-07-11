@@ -2,7 +2,7 @@
 title: Docs site maintenance
 description: Run, edit, validate, and build the embedded Astro documentation site that now lives inside the repository root.
 order: 11
-category: Reference
+category: Project
 summary: The docs app is a small static Astro site that consumes shared presentation from `zuedocs`.
 ---
 

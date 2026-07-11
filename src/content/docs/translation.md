@@ -2,7 +2,7 @@
 title: Translation
 description: Translate generated datasets with the offline local-pseudo path or explicit provider-backed OpenAI and Anthropic adapters.
 order: 4
-category: Dataset Workflows
+category: How-to
 summary: Translation is experimental, but it preserves tool-calling structure and validates output before writing.
 ---
 

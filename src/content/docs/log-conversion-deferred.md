@@ -2,7 +2,7 @@
 title: Log conversion deferred
 description: Understand why real-log conversion is intentionally unavailable and what must exist before it can be released safely.
 order: 10
-category: Reference
+category: Security
 summary: "`convert-logs` is a deliberate boundary, not a partially implemented feature."
 ---
 

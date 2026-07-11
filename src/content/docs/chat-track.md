@@ -2,7 +2,7 @@
 title: Chat track
 description: Create, validate, distill, train, resume, evaluate, and export response datasets.
 order: 2
-category: Chat
+category: Tutorials
 ---
 
 Chat response distillation transfers a teacher's generated assistant response. It is not embedding distillation: vector distillation transfers geometry, score distillation transfers graded relevance, and ranking distillation transfers ordering.
@@ -24,4 +24,3 @@ finetuning training export --help
 Provider calls require an explicit provider, model, credential environment-variable **name**, budget, and network opt-in. Never put a secret in config. Offline deterministic examples do not download or upload anything. `convert-logs` remains deferred: do not treat production logs as accepted or redacted input.
 
 Legacy flat commands (`simulate-dataset`, `validate-dataset`, `generate-personas`, `translate-dataset`) remain compatible. Root and stable subpath imports are additive; experimental preference, remote, logit, and feature workflows carry no stability promise.
-

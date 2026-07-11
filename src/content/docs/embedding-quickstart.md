@@ -2,7 +2,7 @@
 title: 10-minute offline embeddings
 description: Run the tiny CPU retrieval fixture through estimate, train, resume, evaluate, inspect, and export.
 order: 3
-category: Embeddings
+category: Tutorials
 ---
 
 This fixture is deterministic, CPU-only, and makes no network request, model download, upload, or remote-code call. Build first, then use the checked-in files under `examples/embedding-offline/`.

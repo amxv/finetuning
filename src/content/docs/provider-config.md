@@ -2,7 +2,7 @@
 title: Provider config
 description: Configure OpenAI and Anthropic persona generation, simulation, and translation through config files or explicit command flags.
 order: 5
-category: Provider Workflows
+category: How-to
 summary: Provider-backed runs are explicit, config-driven, and keep secrets in environment variables instead of checked-in JSON.
 ---
 

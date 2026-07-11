@@ -2,7 +2,7 @@
 title: Full tool trajectories
 description: Generate and validate the canonical tool-calling dataset shape, including tool calls, tool results, and final assistant responses.
 order: 2
-category: Dataset Workflows
+category: Concepts
 summary: Full tool trajectories are the default export path for tool-calling examples and preserve the complete assistant-tool-result exchange.
 ---
 

@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
+const startedAt = performance.now();
 const root = resolve(new URL("../", import.meta.url).pathname);
 const cli = join(root, "dist/cli/index.js");
 const run = async (...args) => (await exec(process.execPath, [cli, ...args], { cwd: root })).stdout;
@@ -184,6 +185,21 @@ for (const expected of [
 const locks = JSON.parse(await readFile(join(root, "locks/embedding-models-v1.json"), "utf8"));
 assert.equal(locks.models.length, 5);
 assert(locks.models.every((model) => model.status === "unavailable"));
+const support = JSON.parse(await readFile(join(root, "locks/recipe-support-v1.json"), "utf8"));
+const assertGeneratedReferencesCurrent = (candidate) => {
+  for (const model of locks.models) {
+    const row = candidate.recipes.find((x) => x.track === "embedding" && x.modelId === model.modelId);
+    assert(row, `missing generated recipe reference for ${model.modelId}`);
+    assert.equal(row.status, model.status, `stale generated status for ${model.modelId}`);
+  }
+};
+assertGeneratedReferencesCurrent(support);
+assert.throws(() =>
+  assertGeneratedReferencesCurrent({
+    ...support,
+    recipes: support.recipes.map((x) => (x.modelId === locks.models[0].modelId ? { ...x, status: "supported" } : x)),
+  }),
+);
 const operations = await readFile(join(root, "src/content/docs/operations-compliance.md"), "utf8");
 assert.match(
   operations,
@@ -210,5 +226,5 @@ const sdk = JSON.parse(
 );
 assert.equal(sdk.validation.valid, true);
 console.log(
-  `Verified Phase 17 docs: ${helpCount} embedding help entries, 2 data rows, full CPU train/resume/evaluate/export, ${artifacts.artifacts.length} hashed artifacts, ${docFiles.length} site pages, 5 gated production locks.`,
+  `Verified release-grade docs in ${Math.round(performance.now() - startedAt)}ms: ${helpCount} embedding help entries, 2 data rows, full CPU train/resume/evaluate/export, ${artifacts.artifacts.length} hashed artifacts, ${docFiles.length} site pages, 5 gated production locks.`,
 );

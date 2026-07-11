@@ -10,6 +10,15 @@ summary: The CLI exposes deterministic defaults first and makes provider-backed 
 
 The CLI binary name is `finetuning`. During local development you typically run `node dist/cli/index.js`.
 
+Every command page/help output is authoritative for its syntax. Exit `0` means success; usage, validation, policy, provider, budget, unavailable-capability, checkpoint, and artifact-integrity failures are nonzero and expose stable codes where the command supports JSON. Unless help explicitly says otherwise, commands do not read stdin or write result data to stdout, and mutation requires an output path. `--json` reserves stdout for one result document; progress belongs on stderr. `--dry-run` plans without side effects. `--force` may overwrite data and is never implied.
+
+| Surface                                       | Default     | Network/cost                       | Mutation/data-loss boundary                     |
+| --------------------------------------------- | ----------- | ---------------------------------- | ----------------------------------------------- |
+| deterministic chat generation/validation      | offline     | none                               | writes only explicit `--out`; refuses overwrite |
+| provider-backed chat/translation/distillation | opt-in      | paid/provider-dependent            | budget + env reference + resume ledger required |
+| embedding data/evaluation fixture             | offline     | none                               | stdin/stdout only where help declares `-`       |
+| embedding production model/train              | unavailable | download/GPU may be required later | lock gates must pass first                      |
+
 ## `generate-personas`
 
 Purpose: generate persona JSON in one batch.
@@ -75,3 +84,28 @@ Current behavior:
 - exits with the shared deferred-boundary error
 - does not accept production log input
 - exists to make the v1 boundary explicit rather than implicit
+
+## Noun-oriented chat commands
+
+- `dataset freeze`
+- `pipeline status|resume`
+- `distill init|plan|responses|resume|status|freeze`
+- `template inspect|render|audit`
+- `training prepare|run|resume|status|evaluate|export`
+
+These commands use versioned manifests and safe overwrite/resume rules. Run `finetuning <noun> <verb> --help` for exact config, environment, stdin/output, JSON, mutation, cost, network, and version behavior.
+
+## Embedding commands
+
+The complete tested matrix contains 39 command pairs:
+
+- `embed data create|import|convert|validate|inspect|split|dedupe|freeze|export`
+- `embed generate queries|documents|pairs`
+- `embed mine negatives`
+- `embed distill vectors|scores|rankings|plan|run|resume|status`
+- `embed models list|info|license|compat`
+- `embed recipes list|show|lock`
+- `embed train init|validate|estimate|run|resume|status|evaluate|export|inspect`
+- `embed evaluate run|compare|inspect`
+
+All 39 help pages are executed by the documentation gate. Mutating embedding commands accept dry-run where implemented; configuration is strict and versioned; CLI flags override environment references, command config, then defaults. Production recipes remain unavailable. See [Configuration and schemas](/docs/config-schemas) and [Models, recipes, providers, and execution](/docs/models-providers).

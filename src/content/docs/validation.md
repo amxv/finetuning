@@ -2,7 +2,7 @@
 title: Validation
 description: Understand what the dataset validator checks, what summary output means, and how validation fits into generation and translation workflows.
 order: 3
-category: Dataset Workflows
+category: How-to
 summary: Validation is the required checkpoint before using generated or translated JSONL for training.
 ---
 

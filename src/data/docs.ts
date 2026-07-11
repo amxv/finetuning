@@ -24,13 +24,13 @@ export const siteConfig = {
 
 export const docCategories = [
   "Start",
-  "Chat",
-  "Embeddings",
-  "Shared Concepts",
-  "Dataset Workflows",
-  "Provider Workflows",
-  "Authoring",
+  "Concepts",
+  "Tutorials",
+  "How-to",
   "Reference",
+  "Operations",
+  "Security",
+  "Project",
 ] as const;
 
 export const primaryNav = [

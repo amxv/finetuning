@@ -2,20 +2,20 @@
 title: Embedding recipes and data shapes
 description: Choose losses, prompts, pooling, dimensions, mining, and model-specific boundaries honestly.
 order: 4
-category: Embeddings
+category: Concepts
 ---
 
 ## Loss chooser
 
-| Data shape | Objective | Distillation meaning |
-| --- | --- | --- |
-| query + positive document | MNRL/InfoNCE | relative in-batch retrieval |
-| query + positive + negative | triplet/contrastive | explicit separation |
-| pair + teacher score | MarginMSE | graded relevance margin |
-| text + teacher vector | cosine/MSE + projection | geometry; projection must be trained on train only |
-| candidate list + teacher order/scores | pairwise/listwise KL | ranking distribution |
-| sentence pair + similarity | CoSENT/cosine | STS |
-| text + class/cluster | supervised classification/clustering | label or grouping structure |
+| Data shape                            | Objective                            | Distillation meaning                               |
+| ------------------------------------- | ------------------------------------ | -------------------------------------------------- |
+| query + positive document             | MNRL/InfoNCE                         | relative in-batch retrieval                        |
+| query + positive + negative           | triplet/contrastive                  | explicit separation                                |
+| pair + teacher score                  | MarginMSE                            | graded relevance margin                            |
+| text + teacher vector                 | cosine/MSE + projection              | geometry; projection must be trained on train only |
+| candidate list + teacher order/scores | pairwise/listwise KL                 | ranking distribution                               |
+| sentence pair + similarity            | CoSENT/cosine                        | STS                                                |
+| text + class/cluster                  | supervised classification/clustering | label or grouping structure                        |
 
 Never coerce scores to Boolean silently, truncate arbitrary teacher vectors, or mix evaluation IDs into generation/mining. Hard-negative mining must use train-only corpora, global IDs, deduplication, and false-negative filtering against positives, same-document groups, and known relevance.
 
@@ -30,4 +30,3 @@ Model conventions are lock-driven:
 - Qwen: query instruction normally applies only to queries; last-token/EOS pooling, left padding, normalization, and allowed dimensions come from the lock.
 
 For air-gapped operation, pre-stage the wheel, NPM tarball, exact model/tokenizer revisions, schemas, locks, licenses/NOTICE, and datasets; set offline modes in the model stack; verify hashes; and reject any missing cache entry. An offline claim is invalid if installation or reload contacts a registry or model hub.
-

@@ -2,7 +2,7 @@
 title: Examples
 description: Use the bundled receptionist and retail support scenarios, plus the provider config example, as starting points for your own datasets.
 order: 7
-category: Authoring
+category: Tutorials
 summary: The checked-in examples show how to model different domains without changing toolkit code.
 ---
 

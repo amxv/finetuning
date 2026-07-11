@@ -54,6 +54,10 @@ const grouped = docCategories
     </aside>
 
     <article class="docs-article">
+      <nav aria-label="Breadcrumb">
+        <a href="/docs">Docs</a> <span aria-hidden="true">/</span> <span>{entry.data.category}</span>
+        <span aria-hidden="true">/</span> <span aria-current="page">{entry.data.title}</span>
+      </nav>
       <DocsPageLayout
         title={entry.data.title}
         description={entry.data.description}
@@ -61,6 +65,9 @@ const grouped = docCategories
       >
         <Content />
       </DocsPageLayout>
+      <nav aria-label="Next steps">
+        <a href="/docs">Back to documentation index</a>
+      </nav>
     </article>
 
     <aside class="docs-toc">
