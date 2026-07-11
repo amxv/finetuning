@@ -26,6 +26,7 @@
     "src/training/**/*.ts",
     "src/orchestration/**/*.ts",
     "src/distillation/**/*.ts",
-    "src/node/**/*.ts"
+    "src/node/**/*.ts",
+    "src/experimental/**/*.ts"
   ]
 }

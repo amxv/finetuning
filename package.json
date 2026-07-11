@@ -79,6 +79,10 @@
       "types": "./dist/node/index.d.ts",
       "import": "./dist/node/index.js"
     },
+    "./experimental/advanced-distillation": {
+      "types": "./dist/experimental/index.d.ts",
+      "import": "./dist/experimental/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

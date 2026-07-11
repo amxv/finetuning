@@ -11,13 +11,25 @@ const directory = await mkdtemp(join(tmpdir(), "finetuning-python-audit-"));
 try {
   await exec("uv", ["build", ".", "--out-dir", directory], { cwd: root });
   const artifacts = (await readdir(directory)).sort();
-  assert(artifacts.some((name) => name.endsWith(".whl")), "wheel was not built");
-  assert(artifacts.some((name) => name.endsWith(".tar.gz")), "sdist was not built");
-  const wheel = join(directory, artifacts.find((name) => name.endsWith(".whl")));
+  assert(
+    artifacts.some((name) => name.endsWith(".whl")),
+    "wheel was not built",
+  );
+  assert(
+    artifacts.some((name) => name.endsWith(".tar.gz")),
+    "sdist was not built",
+  );
+  const wheel = join(
+    directory,
+    artifacts.find((name) => name.endsWith(".whl")),
+  );
   const { stdout } = await exec("python3", ["-m", "zipfile", "-l", wheel]);
   assert.match(stdout, /amxv_finetuning_trainer\/cli\.py/);
   assert.doesNotMatch(stdout, /(__pycache__|\.pyc|torch|cuda|transformers)/i);
-  const sdist = join(directory, artifacts.find((name) => name.endsWith(".tar.gz")));
+  const sdist = join(
+    directory,
+    artifacts.find((name) => name.endsWith(".tar.gz")),
+  );
   const { stdout: sourceFiles } = await exec("tar", ["-tzf", sdist]);
   assert.doesNotMatch(sourceFiles, /(__pycache__|\.pyc|\.env|\.pem|\.key|safetensors|\/build\/)/i);
   const venv = join(directory, "venv");

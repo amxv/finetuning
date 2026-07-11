@@ -8,3 +8,9 @@
 - Added curated NPM and Python artifact verification plus executable offline documentation examples.
 
 No package is published by this repository configuration; both distributions remain private alpha artifacts.
+
+### Experimental post-MVP extensions
+
+- Added isolated preference-record codecs and deterministic DPO/ORPO CPU fixtures.
+- Added local-only top-k logit and feature-alignment plugin contracts with storage, alignment, resume, and artifact-integrity gates.
+- Black-box response providers explicitly reject logit and hidden-feature capability claims.
