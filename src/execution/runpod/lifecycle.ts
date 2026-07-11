@@ -119,6 +119,20 @@ export interface RunPodLifecycleBackend {
   createVolume(input: Omit<LifecycleVolume, "id">): Promise<LifecycleVolume>;
   deleteVolume(id: string): Promise<void>;
 }
+export interface RunPodMutationTransport { request(path:string,init?:RequestInit):Promise<unknown> }
+export class RestRunPodLifecycleBackend implements RunPodLifecycleBackend {
+  constructor(private transport:RunPodMutationTransport,private liveAuthorized=false){}
+  private gate(){if(!this.liveAuthorized)throw new RunPodError("RUNPOD_FORBIDDEN","live RunPod mutations require explicit allowLive authorization")}
+  async listPods(){const v=await this.transport.request("/pods");if(!Array.isArray(v))throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown Pod list response");return v.map(parseLifecyclePod)}
+  async createPod(input:Omit<LifecyclePod,"id"|"state">){this.gate();return parseLifecyclePod(await this.transport.request("/pods",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:input.name,imageName:input.imageDigest,networkVolumeId:input.volumeId,env:{AMXV_OWNERSHIP_MARKER:input.ownershipMarker,AMXV_SPEC_HASH:input.specHash}})}))}
+  async stopPod(id:string){this.gate();await this.transport.request(`/pods/${encodeURIComponent(id)}/stop`,{method:"POST"})}
+  async deletePod(id:string){this.gate();await this.transport.request(`/pods/${encodeURIComponent(id)}`,{method:"DELETE"})}
+  async listVolumes(){const v=await this.transport.request("/networkvolumes");if(!Array.isArray(v))throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown volume list response");return v.map(parseLifecycleVolume)}
+  async createVolume(input:Omit<LifecycleVolume,"id">){this.gate();return parseLifecycleVolume(await this.transport.request("/networkvolumes",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:input.name,size:input.sizeGiB,dataCenterId:input.dataCenterId,metadata:{ownershipMarker:input.ownershipMarker}})}))}
+  async deleteVolume(id:string){this.gate();await this.transport.request(`/networkvolumes/${encodeURIComponent(id)}`,{method:"DELETE"})}
+}
+function parseLifecyclePod(v:unknown):LifecyclePod{if(!v||typeof v!=="object")throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown Pod response");const x=v as Record<string,unknown>,env=(x.env??{}) as Record<string,unknown>;if(typeof x.id!=="string"||typeof x.name!=="string"||typeof x.image!=="string"||typeof x.networkVolumeId!=="string"||!["RUNNING","EXITED","TERMINATED"].includes(String(x.desiredStatus)))throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown Pod response fields");return {id:x.id,name:x.name,state:x.desiredStatus as LifecyclePod["state"],imageDigest:x.image,volumeId:x.networkVolumeId,ownershipMarker:String(env.AMXV_OWNERSHIP_MARKER??""),specHash:String(env.AMXV_SPEC_HASH??"")}}
+function parseLifecycleVolume(v:unknown):LifecycleVolume{if(!v||typeof v!=="object")throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown volume response");const x=v as Record<string,unknown>,metadata=(x.metadata??{}) as Record<string,unknown>;if(typeof x.id!=="string"||typeof x.name!=="string"||typeof x.dataCenterId!=="string"||!Number.isInteger(x.size))throw new RunPodError("RUNPOD_INCOMPATIBLE","unknown volume response fields");return {id:x.id,name:x.name,dataCenterId:x.dataCenterId,sizeGiB:Number(x.size),ownershipMarker:String(metadata.ownershipMarker??"")}}
 
 export function planRunPodJob(
   job: ExecutionJobV1,

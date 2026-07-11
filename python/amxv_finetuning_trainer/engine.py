@@ -3,6 +3,8 @@ import hashlib,json,math,os,platform,random,shutil
 from pathlib import Path
 from typing import Any
 from .contracts import parse_artifact_manifest,parse_spec
+from .framework import execute_recipe
+def execute_production(spec:dict[str,Any],rows:list[dict[str,Any]],framework:Any)->dict[str,Any]:return execute_recipe(spec,rows,framework,"chat")
 
 FULL_STATE=("model","optimizer","scheduler","scaler","rng","sampler_position","global_step")
 def preflight(spec:dict[str,Any])->dict[str,Any]:

@@ -1,5 +1,6 @@
 import { access, mkdir, readFile, rm } from "node:fs/promises";
 import process from "node:process";
+import { resolve } from "node:path";
 import type { DatasetExampleV1 } from "../core/canonical.js";
 import type { JsonValue } from "../core/model.js";
 import { AttemptLedger, LocalDagExecutor, freezeDataset } from "../orchestration/index.js";
@@ -22,6 +23,7 @@ import { runEmbedCommand } from "./embed-data.js";
 import { runEmbedPhase13 } from "./embed-distill.js";
 import { printEmbedHelp, runEmbedProduct } from "./embed-product.js";
 import { runRunPodCommand } from "./runpod.js";
+import { providerDistillation } from "./distill-provider.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
   if (noun === "runpod") {
@@ -119,8 +121,8 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
     const result = await runPythonTrainer({
       pythonExecutable: readOptionalStringFlag(args, "python") ?? "python3",
       module: "amxv_finetuning_trainer.runner",
-      specPath: runtimePath,
-      cwd: readRequiredStringFlag(args, "python-root"),
+      specPath: resolve(runtimePath),
+      cwd: resolve(readRequiredStringFlag(args, "python-root")),
     });
     printResult({ exitCode: result.exitCode, events: result.events, stderr: result.stderr }, args);
     if (result.exitCode !== 0)
@@ -285,12 +287,14 @@ async function distillCommand(verb: string, args: ReturnType<typeof parseArgs>):
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  if (!readBooleanFlag(args, "offline-fake"))
-    throw new Error("DISTILL_PROVIDER_GATE: choose --offline-fake explicitly; provider execution requires the network/credential/budget-gated adapter");
-  const fake = deterministicProvider();
+  if (!readBooleanFlag(args,"offline-fake") && !readBooleanFlag(args,"allow-network")) throw new Error("DISTILL_NETWORK_OPT_IN_REQUIRED: choose --offline-fake or pass --allow-network");
+  const providers = readBooleanFlag(args, "offline-fake") ? deterministicProvider() : providerDistillation(project.config, {
+    network: true, generationCredentialEnv: readRequiredStringFlag(args,"generation-credential-env"), judgingCredentialEnv: readRequiredStringFlag(args,"judging-credential-env"),
+    generationBudget: Number(readRequiredStringFlag(args,"generation-budget-usd")), judgingBudget: Number(readRequiredStringFlag(args,"judging-budget-usd")),
+  });
   const pipeline = new DistillationPipeline(
-    fake.generator,
-    fake.judge,
+    providers.generator,
+    providers.judge,
     undefined,
     () => new Date(0).toISOString(),
     (state) => saveDistillationState(root, state),

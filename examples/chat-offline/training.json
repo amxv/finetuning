@@ -1,0 +1,1 @@
+{"trainingSpecVersion":"1.0.0","runId":"offline-chat-docs","dataset":{"manifestPath":"../tmp/chat-offline/distilled/manifest.json","recordsHash":"fixture-runtime-verified"},"recipeId":"cpu-tiny-fixture","outputDirectory":"../tmp/chat-offline/train","objective":"sft","seed":7,"quantization":"bf16"}

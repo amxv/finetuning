@@ -2,22 +2,31 @@
 
 This guide separates deterministic CPU/offline examples from network, paid-provider, and GPU/model gates. Nothing here uploads data or downloads a model implicitly.
 
-## Runnable offline path
+## Complete runnable offline path
 
-Build the package, generate canonical OpenAI chat JSONL, validate it, convert through the stable format APIs, and exercise the fake trainer:
+The checked-in docs verifier executes this entire journey: create and freeze canonical records, initialize and plan distillation, explicitly select the honestly labelled fake teacher, freeze the distilled dataset, run the CPU trainer, resume from `checkpoint-1.json`, evaluate, export, and verify the artifact manifest.
 
 ```bash
 npm run build
 node dist/cli/index.js simulate-dataset --config examples/receptionist/scenario.json --out outputs/chat.jsonl --limit 2 --mode full_tool_trajectory
 node dist/cli/index.js validate-dataset outputs/chat.jsonl
-python3 -m amxv_finetuning_trainer.fake_runner ../examples/offline-training-spec.json
+node dist/cli/index.js dataset freeze --input examples/chat-offline/records.jsonl --out tmp/chat-offline/frozen --force --json
+node dist/cli/index.js distill init --root tmp/chat-offline/distill --config examples/chat-offline/distillation.json --input examples/chat-offline/records.jsonl --force --json
+node dist/cli/index.js distill plan --root tmp/chat-offline/distill --json
+node dist/cli/index.js distill responses --root tmp/chat-offline/distill --offline-fake --json
+node dist/cli/index.js distill freeze --root tmp/chat-offline/distill --out tmp/chat-offline/distilled --force --json
+node dist/cli/index.js training run --spec examples/chat-offline/training.json --python python3 --python-root python --json
+node dist/cli/index.js training resume --spec examples/chat-offline/training.json --python python3 --python-root python --checkpoint ../tmp/chat-offline/train/checkpoint-1.json --json
+node dist/cli/index.js training evaluate --spec examples/chat-offline/training.json --python python3 --python-root python --json
+node dist/cli/index.js training export --spec examples/chat-offline/training.json --python python3 --python-root python --json
+node dist/cli/index.js training status --spec examples/chat-offline/training.json --python python3 --python-root python --json
 ```
 
-The fake runner writes an artifact and hash manifest without PyTorch, CUDA, provider credentials, network access, or model weights. OpenAI-to-canonical and Hugging Face conversational/text conversion are available from `@amxv/finetuning/formats`; inspect conversion loss before accepting output.
+The fixture writes a hash-verifiable manifest without PyTorch, CUDA, provider credentials, network access, or model weights. Fake envelopes are attributed only to `custom/offline-fake`.
 
 ## Provider configuration, cost, and policy
 
-[`examples/provider-config.example.json`](../examples/provider-config.example.json) stores environment-variable names, never secret values. CLI flags override environment references, which override project configuration and defaults. Distillation planning requires source-rights, teacher-terms, intended-use, retention, reasoning, and student-license attestations; generation and judging costs are separately accounted. Use fake providers for offline acceptance and explicitly authorize every paid call.
+Provider execution replaces `--offline-fake` with `--allow-network --generation-credential-env OPENAI_API_KEY --judging-credential-env ANTHROPIC_API_KEY --generation-budget-usd 1 --judging-budget-usd 1`. Those are strict gates, not an instruction to run during CI. The reliable adapters provide retries, concurrency, idempotent resume, redacted native envelopes, capabilities, usage and separate budgets.
 
 ## Qwen pilots and gated production training
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 import hashlib,json,math,os,platform,random,signal,sys,tempfile
 from pathlib import Path
+from .framework import execute_recipe
+def execute_production(spec,rows,framework):return execute_recipe(spec,rows,framework,"embedding")
 SPEC_VERSION="embedding.training.v1";EVENT_VERSION="embedding.training.event.v1";ARTIFACT_VERSION="embedding.training.artifact.v1"
 FULL=("model","optimizer","scheduler","scaler","rng","sampler","globalStep","identityHash")
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False)

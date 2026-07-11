@@ -48,7 +48,7 @@ test("distill CLI init, plan, responses, status, resume, freeze and overwrite ru
     e.stderr.includes("--force"),
   );
   assert.equal(JSON.parse((await run(["distill", "plan", ...base])).stdout).generationCount, 1);
-  await assert.rejects(run(["distill", "responses", ...base]), (e) => e.stderr.includes("DISTILL_PROVIDER_GATE"));
+  await assert.rejects(run(["distill", "responses", ...base]), (e) => e.stderr.includes("DISTILL_NETWORK_OPT_IN_REQUIRED"));
   assert.equal(JSON.parse((await run(["distill", "responses", ...base, "--offline-fake"])).stdout).candidateCount, 1);
   const status = JSON.parse((await run(["distill", "status", ...base])).stdout);
   assert.equal(status.candidateCount, 1);
