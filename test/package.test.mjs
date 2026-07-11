@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,9 +11,12 @@ const execFileAsync = promisify(execFile);
 const root = new URL("../", import.meta.url);
 
 test("packed package imports and runs its bin in a clean ESM consumer", async () => {
-  const fixture = await mkdtemp(join(tmpdir(), "finetuning-consumer-"));
+  const fixture = await mkdtemp(join(tmpdir(), "finetuning-consumer-")), stage=join(fixture,"stage"),source=fileURLToPath(root);
   try {
-    const { stdout } = await execFileAsync("npm", ["pack", "--json", "--pack-destination", fixture], { cwd: root });
+    await mkdir(stage);
+    const sourcePackage = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    for(const entry of ["package.json",...sourcePackage.files])await cp(join(source,entry),join(stage,entry),{recursive:true});
+    const { stdout } = await execFileAsync("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", fixture], { cwd: stage });
     const [{ filename }] = JSON.parse(stdout);
     await writeFile(join(fixture, "package.json"), '{"private":true,"type":"module"}\n');
     await execFileAsync("npm", ["install", "--ignore-scripts", `./${filename}`], { cwd: fixture });
@@ -22,7 +25,6 @@ test("packed package imports and runs its bin in a clean ESM consumer", async ()
       'import * as sdk from "@amxv/finetuning"; import * as experimental from "@amxv/finetuning/experimental/advanced-distillation"; import * as embeddings from "@amxv/finetuning/embeddings"; import * as formats from "@amxv/finetuning/embeddings/formats"; import * as distillation from "@amxv/finetuning/embeddings/distillation"; import * as training from "@amxv/finetuning/embeddings/training"; import * as evaluation from "@amxv/finetuning/embeddings/evaluation"; if (!sdk.validateOpenAIJsonl || !experimental.validateLogitTarget || !embeddings.EmbeddingDatasetBuilder || !formats.decodeEmbeddingRow || !distillation.EmbeddingDistillationPipeline || !training.EmbeddingTrainingRun || !evaluation.EmbeddingEvaluator || "validateLogitTarget" in sdk || "validateEmbeddingRecord" in sdk) throw new Error("missing or leaked export");\n',
     );
     await execFileAsync(process.execPath, ["consumer.mjs"], { cwd: fixture });
-    const sourcePackage = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     for (const subpath of Object.keys(sourcePackage.exports).filter((key) => key !== "./package.json")) {
       const specifier = subpath === "." ? "@amxv/finetuning" : `@amxv/finetuning/${subpath.slice(2)}`;
       await execFileAsync(
