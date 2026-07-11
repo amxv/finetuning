@@ -5,8 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "amxv-finetuning-trainer"
 version = "0.0.0"
+description = "Offline-contract and gated Hugging Face trainer for @amxv/finetuning"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "amxv" }]
 requires-python = ">=3.9"
 dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
 
 [project.optional-dependencies]
 training = [
@@ -26,3 +35,6 @@ amxv-finetuning-trainer = "amxv_finetuning_trainer.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["amxv_finetuning_trainer*"]
+
+[tool.setuptools]
+include-package-data = false

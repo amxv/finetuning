@@ -1,0 +1,9 @@
+{
+  "trainingSpecVersion": "1.0.0",
+  "runId": "offline-docs-fixture",
+  "dataset": { "manifestPath": "fixtures/manifest.json", "recordsHash": "fixture-records-sha256" },
+  "recipeId": "cpu-tiny-fixture",
+  "outputDirectory": "outputs/offline-docs-fixture",
+  "objective": "sft",
+  "seed": 7
+}

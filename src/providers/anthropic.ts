@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import type {
   AnthropicProviderAdapter,
   ModelClient,
@@ -6,7 +6,7 @@ import type {
   ModelInvocationResponse,
   ProviderClientOptions,
 } from "./index.js";
-import { ProviderAuthenticationError, ProviderError, ProviderRateLimitError, ProviderResponseError } from "./errors.js";
+import { ProviderAuthenticationError, ProviderConfigurationError, ProviderError, ProviderRateLimitError, ProviderResponseError } from "./errors.js";
 import { mapAnthropicMessagesResponse, mapModelRequestToAnthropicMessagesRequest } from "./mappers/anthropic.js";
 
 export const anthropicProviderAdapter: AnthropicProviderAdapter = {
@@ -17,16 +17,30 @@ export const anthropicProviderAdapter: AnthropicProviderAdapter = {
 };
 
 class AnthropicModelClient implements ModelClient {
-  readonly #client: Anthropic;
+  #client?: Anthropic;
   readonly #options: ProviderClientOptions;
 
   constructor(options: ProviderClientOptions) {
     this.#options = options;
-    this.#client = new Anthropic({
-      apiKey: options.apiKey,
-      ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
-      ...(options.headers ? { defaultHeaders: options.headers } : {}),
+  }
+
+  async #getClient(): Promise<Anthropic> {
+    if (this.#client) return this.#client;
+    let Constructor: typeof Anthropic;
+    try {
+      Constructor = (await import("@anthropic-ai/sdk")).default;
+    } catch (error) {
+      throw new ProviderConfigurationError(
+        'Anthropic support requires the optional peer "@anthropic-ai/sdk". Install it with: npm install @anthropic-ai/sdk',
+        { provider: "anthropic", cause: error },
+      );
+    }
+    this.#client = new Constructor({
+      apiKey: this.#options.apiKey,
+      ...(this.#options.baseUrl ? { baseURL: this.#options.baseUrl } : {}),
+      ...(this.#options.headers ? { defaultHeaders: this.#options.headers } : {}),
     });
+    return this.#client;
   }
 
   async invoke(request: ModelInvocationRequest): Promise<ModelInvocationResponse> {
@@ -43,7 +57,7 @@ class AnthropicModelClient implements ModelClient {
     );
 
     try {
-      const response = await this.#client.messages.create(sdkRequest);
+      const response = await (await this.#getClient()).messages.create(sdkRequest);
       return mapAnthropicMessagesResponse(response, { provider: "anthropic", model });
     } catch (error) {
       throw normalizeAnthropicError(error, model);

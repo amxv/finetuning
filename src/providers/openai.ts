@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import type {
   ModelClient,
   ModelInvocationRequest,
@@ -6,7 +6,7 @@ import type {
   OpenAIProviderAdapter,
   ProviderClientOptions,
 } from "./index.js";
-import { ProviderAuthenticationError, ProviderError, ProviderRateLimitError, ProviderResponseError } from "./errors.js";
+import { ProviderAuthenticationError, ProviderConfigurationError, ProviderError, ProviderRateLimitError, ProviderResponseError } from "./errors.js";
 import { mapModelRequestToOpenAIResponsesRequest, mapOpenAIResponsesResponse } from "./mappers/openai.js";
 
 export const openAIProviderAdapter: OpenAIProviderAdapter = {
@@ -17,16 +17,30 @@ export const openAIProviderAdapter: OpenAIProviderAdapter = {
 };
 
 class OpenAIModelClient implements ModelClient {
-  readonly #client: OpenAI;
+  #client?: OpenAI;
   readonly #options: ProviderClientOptions;
 
   constructor(options: ProviderClientOptions) {
     this.#options = options;
-    this.#client = new OpenAI({
-      apiKey: options.apiKey,
-      ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
-      ...(options.headers ? { defaultHeaders: options.headers } : {}),
+  }
+
+  async #getClient(): Promise<OpenAI> {
+    if (this.#client) return this.#client;
+    let Constructor: typeof OpenAI;
+    try {
+      Constructor = (await import("openai")).default;
+    } catch (error) {
+      throw new ProviderConfigurationError(
+        'OpenAI support requires the optional peer "openai". Install it with: npm install openai',
+        { provider: "openai", cause: error },
+      );
+    }
+    this.#client = new Constructor({
+      apiKey: this.#options.apiKey,
+      ...(this.#options.baseUrl ? { baseURL: this.#options.baseUrl } : {}),
+      ...(this.#options.headers ? { defaultHeaders: this.#options.headers } : {}),
     });
+    return this.#client;
   }
 
   async invoke(request: ModelInvocationRequest): Promise<ModelInvocationResponse> {
@@ -43,7 +57,7 @@ class OpenAIModelClient implements ModelClient {
     );
 
     try {
-      const response = await this.#client.responses.create(sdkRequest);
+      const response = await (await this.#getClient()).responses.create(sdkRequest);
       return mapOpenAIResponsesResponse(response, { provider: "openai", model });
     } catch (error) {
       throw normalizeOpenAIError(error, model);

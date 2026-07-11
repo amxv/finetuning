@@ -37,7 +37,7 @@ if (process.argv.includes("--write")) {
   if (expected !== report) {
     throw new Error("Public API declarations changed. Run npm run api:report and review the snapshot.");
   }
-  console.log("Public API declaration report matches the snapshot.");
+  if (process.env.npm_lifecycle_event !== "prepack") console.log("Public API declaration report matches the snapshot.");
 } else {
   process.stdout.write(report);
 }

@@ -1,0 +1,28 @@
+name: Alpha artifact rehearsal
+on:
+  workflow_dispatch:
+jobs:
+  build-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+      - run: npm ci
+      - run: npm run verify:product
+      - run: npm run verify:docs
+      - run: mkdir -p release-artifacts/npm release-artifacts/python
+      - run: npm pack --ignore-scripts --pack-destination release-artifacts/npm
+      - run: uv build python --out-dir release-artifacts/python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: private-alpha-rehearsal
+          path: release-artifacts
+          if-no-files-found: error
+
+# Deliberately no registry credentials or publish step. External publication is a later explicit approval gate.
