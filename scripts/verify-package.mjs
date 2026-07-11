@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -40,6 +40,23 @@ try {
     "packed NPM artifact contains forbidden content",
   );
   assert(packed.size < 2_000_000, `packed NPM artifact is unexpectedly large: ${packed.size}`);
+  const consumer = join(directory, "consumer");
+  await mkdir(consumer);
+  await writeFile(join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
+  await exec(
+    "npm",
+    ["install", "--ignore-scripts", "--no-package-lock", "--no-audit", join(directory, packed.filename)],
+    {
+      cwd: consumer,
+    },
+  );
+  await writeFile(
+    join(consumer, "chat-sdk.mjs"),
+    `import { validateDatasetExample } from "@amxv/finetuning/validation";
+const report=validateDatasetExample({datasetSchemaVersion:"1.0.0",id:"sdk-chat-example",messages:[{role:"user",content:[{type:"text",text:"Hello"}]},{role:"assistant",content:[{type:"text",text:"Hello!"}]}],provenance:{source:"docs",sourceId:"sdk-chat-example",license:"CC0-1.0"},createdAt:"2026-07-12T00:00:00.000Z"});
+console.log(JSON.stringify({valid:report.valid}));\n`,
+  );
+  assert.equal(JSON.parse((await exec(process.execPath, ["chat-sdk.mjs"], { cwd: consumer })).stdout).valid, true);
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, readFile, readdir, rm } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -52,6 +52,47 @@ for (const [noun, verbs] of Object.entries(matrix))
   }
 for (const field of ["Capability", "Configuration", "Input/output", "Mutation", "Network/cost", "Errors/version"])
   assert.match(renderedCliReference, new RegExp(field, "i"), `CLI reference missing ${field} metadata`);
+
+// Behavioral parity: representative operation-specific requirements come from the real parser, not the authority.
+const behaviorRoot = join(root, "tmp/reference-behavior");
+await mkdir(behaviorRoot, { recursive: true });
+const distillConfig = join(behaviorRoot, "distill.json");
+await writeFile(
+  distillConfig,
+  JSON.stringify({
+    runId: "r",
+    dimension: 2,
+    objective: { kind: "mse", projection: { kind: "pca", fitSplit: "train", artifactHash: "pca" }, dimensions: [2] },
+    budgets: { generation: 10, scoring: 10, judging: 10, mining: 10, vectors: 10, ranking: 10 },
+    compliance: {
+      datasetRights: "approved",
+      teacherOutputRights: "approved",
+      terms: { url: "https://example.test", version: "1", reviewedAt: "2026-01-01", approver: "docs" },
+      retentionAllowed: "none",
+      intendedUse: "training",
+      contaminationHash: "hash",
+    },
+    nearDuplicateThreshold: 0.8,
+    candidateLimit: 10,
+    teacherStorageRights: "approved",
+    seed: "s",
+  }),
+);
+for (const [args, required] of [
+  [["embed", "evaluate", "compare", "--config", "examples/embedding-offline/evaluation.json"], "left"],
+  [["embed", "evaluate", "inspect", "--config", "examples/embedding-offline/evaluation.json"], "report"],
+  [["embed", "distill", "run", "--config", distillConfig], "input"],
+  [["embed", "data", "split", "examples/embedding-offline/records.jsonl", "--split-group-column", "group"], "salt"],
+])
+  await assert.rejects(exec(process.execPath, [cli, ...args], { cwd: root }), (error) =>
+    String(error.stderr).toLowerCase().includes(required),
+  );
+const statusAuthority = embedCommandReference.find((x) => x.command === "embed distill status");
+assert.doesNotMatch(statusAuthority.syntax, /--config|--input/);
+const compareAuthority = embedCommandReference.find((x) => x.command === "embed evaluate compare");
+assert.match(compareAuthority.syntax, /--left <report> --right <report>/);
+const mutatedCompare = { ...compareAuthority, syntax: compareAuthority.syntax.replace(" --left <report>", "") };
+assert.notEqual(`Usage: ${mutatedCompare.syntax}`, (await run("embed", "evaluate", "compare", "--help")).trim());
 
 const chatSdkSource = await readFile(join(root, "src/examples/chat-sdk.ts"), "utf8");
 const sdkPage = await readFile(join(root, "src/content/docs/sdk-api.md"), "utf8");

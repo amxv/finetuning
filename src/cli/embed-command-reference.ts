@@ -9,66 +9,181 @@ export interface EmbedCommandReference {
   errors: string;
   version: string;
 }
+type PartialReference = Omit<EmbedCommandReference, "command" | "syntax" | "errors" | "version">;
+const base = {
+  errors: "usage/config/schema, unavailable capability, checkpoint/artifact, internal",
+  version: "versioned records/config/spec/events/artifacts reject incompatible majors",
+};
+const offline = "offline deterministic implementation; no provider calls, downloads, GPU, or remote mutation";
+const readOnly = "read-only";
+const json = "JSON result on stdout; diagnostics on stderr";
+const ref = (command: string, tail: string, x: PartialReference): EmbedCommandReference => ({
+  command,
+  syntax: `finetuning ${command}${tail ? ` ${tail}` : ""}`,
+  ...x,
+  ...base,
+});
+const dataRead = (required: string): PartialReference => ({
+  required,
+  configuration: "optional task/column mapping and provenance flags",
+  io: "input path or stdin; result on stdout",
+  mutation: readOnly,
+  networkCost: offline,
+});
+const dataWrite = (required: string, io = "input path or stdin; output path or stdout"): PartialReference => ({
+  required,
+  configuration: "optional task/column mapping and provenance flags",
+  io,
+  mutation: "writes only explicit output; existing output requires --force",
+  networkCost: offline,
+});
+const registry: PartialReference = {
+  required: "none; optional --id narrows the registry result",
+  configuration: "committed model/recipe registries",
+  io: json,
+  mutation: readOnly,
+  networkCost: offline,
+};
+const configured = (required: string, mutation = readOnly): PartialReference => ({
+  required,
+  configuration: "required versioned --config; CLI overrides environment references then config",
+  io: json,
+  mutation,
+  networkCost: offline,
+});
 
-const groups = {
-  data: ["create", "import", "convert", "validate", "inspect", "split", "dedupe", "freeze", "export"],
-  generate: ["queries", "documents", "pairs"],
-  mine: ["negatives"],
-  distill: ["vectors", "scores", "rankings", "plan", "run", "resume", "status"],
-  models: ["list", "info", "license", "compat"],
-  recipes: ["list", "show", "lock"],
-  train: ["init", "validate", "estimate", "run", "resume", "status", "evaluate", "export", "inspect"],
-  evaluate: ["run", "compare", "inspect"],
-} as const;
-
-function record(noun: string, verb: string): EmbedCommandReference {
-  const command = `embed ${noun} ${verb}`;
-  const data = noun === "data";
-  const discovery = noun === "models" || noun === "recipes";
-  const distill = noun === "distill";
-  const syntax = data
-    ? `finetuning ${command} [input|-] [--out <path|->] [--json] [--dry-run] [--force]`
-    : discovery
-      ? `finetuning ${command} [--id <id>] [--json] [--quiet]`
-      : noun === "generate" || noun === "mine"
-        ? `finetuning ${command} [--limit <n>] [--json] [--dry-run]`
-        : distill
-          ? `finetuning ${command} --config <path> [--input <path>] [--state <path>] [--json] [--dry-run]`
-          : `finetuning ${command} --config <path> [--checkpoint <path>] [--artifact <path>] [--report <path>] [--json] [--quiet] [--dry-run]`;
-  return {
-    command,
-    syntax,
-    required: data
-      ? "input or stdin when the operation consumes rows"
-      : discovery
-        ? "none; --id narrows results"
-        : "versioned --config; operation-specific checkpoint/artifact/report where shown",
-    configuration: data
-      ? "mapping, provenance, split/dedupe flags"
-      : discovery
-        ? "registry lock"
-        : "CLI > environment reference > config > default",
-    io: data ? "input/stdin; --out/stdout only when declared" : "one JSON result on stdout; progress on stderr",
-    mutation: ["create", "import", "convert", "split", "dedupe", "freeze", "export", "run", "resume", "lock"].includes(
-      verb,
-    )
-      ? "writes explicit output/state; overwrite requires --force or resume"
-      : "read-only unless selected execution is explicitly run",
-    networkCost:
-      distill && ["run", "resume", "vectors", "scores", "rankings"].includes(verb)
-        ? "provider/network and separate budgets required unless offline fixture"
-        : "offline; production download/GPU/remote capability remains gated",
-    errors: "usage/config/schema, unavailable capability, policy/budget, checkpoint/artifact, provider/internal",
-    version: "versioned records/config/spec/events/artifacts reject incompatible majors",
-  };
-}
-
-export const embedCommandReference: readonly EmbedCommandReference[] = Object.entries(groups).flatMap(([noun, verbs]) =>
-  verbs.map((verb) => record(noun, verb)),
-);
-
+export const embedCommandReference: readonly EmbedCommandReference[] = [
+  ref(
+    "embed data create",
+    "[--out <path|->] [--json] [--dry-run] [--force]",
+    dataWrite("no input; --out only when writing a file", "empty dataset to --out; summary on stdout"),
+  ),
+  ref(
+    "embed data import",
+    "[input|-] [--out <path|->] [--task <task>] [--columns <map>] [--json] [--dry-run] [--force]",
+    dataWrite("input or stdin; mapping required when source is not canonical"),
+  ),
+  ref(
+    "embed data convert",
+    "[input|-] [--out <path|->] [--task <task>] [--columns <map>] [--json] [--dry-run] [--force]",
+    dataWrite("input or stdin; mapping required when source is not canonical"),
+  ),
+  ref("embed data validate", "[input|-] [--task <task>] [--columns <map>] [--json]", dataRead("input or stdin")),
+  ref("embed data inspect", "[input|-] [--task <task>] [--columns <map>] [--json]", dataRead("input or stdin")),
+  ref(
+    "embed data split",
+    "[input|-] --salt <value> [--out <path|->] [--json] [--dry-run] [--force]",
+    dataWrite("input or stdin and --salt"),
+  ),
+  ref(
+    "embed data dedupe",
+    "[input|-] [--threshold <0..1>] [--out <path|->] [--json] [--dry-run] [--force]",
+    dataWrite("input or stdin"),
+  ),
+  ref(
+    "embed data freeze",
+    "[input|-] --out <directory> [--json] [--dry-run] [--force]",
+    dataWrite("input or stdin and --out directory", "frozen manifest/records directory"),
+  ),
+  ref("embed data export", "[input|-] [--out <path|->] [--json] [--dry-run] [--force]", dataWrite("input or stdin")),
+  ...["queries", "documents", "pairs"].map((v) =>
+    ref(`embed generate ${v}`, "[--limit <n>] [--json] [--dry-run]", {
+      required: "none",
+      configuration: "optional --limit controls the deterministic estimate",
+      io: json,
+      mutation: readOnly,
+      networkCost: offline,
+    }),
+  ),
+  ref("embed mine negatives", "[--json] [--dry-run]", {
+    required: "none",
+    configuration: "no config or limit is consumed",
+    io: json,
+    mutation: readOnly,
+    networkCost: offline,
+  }),
+  ...["vectors", "scores", "rankings", "run"].map((v) =>
+    ref(`embed distill ${v}`, "--config <path> --input <path> [--state <path>] [--json] [--dry-run]", {
+      required: "--config; --input unless --dry-run",
+      configuration: "versioned distillation config",
+      io: json,
+      mutation: "non-dry run writes state; refuses an existing state",
+      networkCost: "current deterministic fake services only; reports network false",
+    }),
+  ),
+  ref("embed distill plan", "--config <path> [--state <path>] [--json] [--dry-run]", {
+    required: "--config",
+    configuration: "versioned distillation config",
+    io: json,
+    mutation: readOnly,
+    networkCost: "current deterministic planning only; reports network false",
+  }),
+  ref("embed distill resume", "--config <path> --input <path> [--state <path>] [--json] [--dry-run]", {
+    required: "--config; --input unless --dry-run; existing state for non-dry resume",
+    configuration: "versioned distillation config",
+    io: json,
+    mutation: "continues and rewrites the selected state",
+    networkCost: "current deterministic fake services only; reports network false",
+  }),
+  ref("embed distill status", "[--state <path>] [--json]", {
+    required: "existing state path or default embedding-distillation-state.json",
+    configuration: "no config is read",
+    io: json,
+    mutation: readOnly,
+    networkCost: offline,
+  }),
+  ...["list", "info", "license", "compat"].map((v) =>
+    ref(`embed models ${v}`, "[--id <id>] [--json] [--quiet]", registry),
+  ),
+  ...["list", "show", "lock"].map((v) =>
+    ref(`embed recipes ${v}`, "[--id <id>] [--json] [--quiet]", { ...registry, mutation: readOnly }),
+  ),
+  ...["init", "validate", "estimate", "evaluate"].map((v) =>
+    ref(`embed train ${v}`, "--config <path> [--json] [--quiet] [--dry-run]", configured("--config")),
+  ),
+  ref(
+    "embed train run",
+    "--config <path> [--json] [--quiet] [--dry-run]",
+    configured("--config", "non-dry run writes resolved spec, checkpoints, and artifacts in configured output"),
+  ),
+  ref(
+    "embed train resume",
+    "--config <path> --checkpoint <path> [--json] [--quiet] [--dry-run]",
+    configured("--config and --checkpoint for resume", "non-dry resume writes within configured output"),
+  ),
+  ref(
+    "embed train status",
+    "--config <path> [--checkpoint <path>] [--json] [--quiet] [--dry-run]",
+    configured("--config; optional checkpoint classifies resume state"),
+  ),
+  ref(
+    "embed train export",
+    "--config <path> [--json] [--quiet] [--dry-run]",
+    configured("--config", "non-dry export writes configured artifact output"),
+  ),
+  ref(
+    "embed train inspect",
+    "--config <path> --artifact <path> [--json] [--quiet] [--dry-run]",
+    configured("--config and --artifact", "verifies artifact; runner path is read-only"),
+  ),
+  ref(
+    "embed evaluate run",
+    "--config <path> [--json] [--quiet] [--dry-run]",
+    configured("--config", "non-dry run writes the configured evaluation report"),
+  ),
+  ref(
+    "embed evaluate compare",
+    "--config <path> --left <report> --right <report> [--json] [--quiet]",
+    configured("--config, --left, and --right"),
+  ),
+  ref(
+    "embed evaluate inspect",
+    "--config <path> --report <path> [--json] [--quiet]",
+    configured("--config and --report"),
+  ),
+];
 export function embedCommandHelp(noun: string, verb: string): string {
-  const item = embedCommandReference.find((entry) => entry.command === `embed ${noun} ${verb}`);
+  const item = embedCommandReference.find((x) => x.command === `embed ${noun} ${verb}`);
   if (!item) throw new Error(`Unknown command: embed ${noun} ${verb}`);
   return `Usage: ${item.syntax}`;
 }
