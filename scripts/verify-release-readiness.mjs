@@ -8,6 +8,7 @@ import { embeddingModelRegistry, embeddingRecipeRegistry } from "../dist/embeddi
 import { recipeRegistry as chatRecipes } from "../dist/templates/index.js";
 import { trainingEventVersion, trainingSpecVersion } from "../dist/training/index.js";
 import { embeddingTrainingEventVersion, embeddingTrainingSpecVersion } from "../dist/embeddings/training.js";
+import { qloraProfile } from "../dist/execution/runpod/hardening.js";
 
 const exec = promisify(execFile),
   root = resolve(new URL("../", import.meta.url).pathname);
@@ -56,6 +57,23 @@ assert.deepEqual(
   Object.keys(pythonEvidence.recipes),
   canonicalEmbeddingRecipeIds.filter((x) => x !== "cpu-tiny-embedding-fixture"),
 );
+const pythonRecipeIds = JSON.parse(
+  (
+    await exec(
+      "python3",
+      ["-c", "import json; from amxv_finetuning_trainer.framework import RECIPES; print(json.dumps(list(RECIPES)))"],
+      { cwd: root, env: { ...process.env, PYTHONPATH: join(root, "python") } },
+    )
+  ).stdout,
+);
+assert.deepEqual(
+  pythonRecipeIds.filter((x) => pythonEvidence.recipes[x]),
+  Object.keys(pythonEvidence.recipes),
+);
+assert.equal(qloraProfile("qwen3-embed-0.6b-lora").recipeId, "qwen3-embed-0.6b-lora");
+assert.throws(() => qloraProfile("qwen3-embedding-lora"), /QLORA_RECIPE_UNAVAILABLE/);
+assert(!pythonRecipeIds.includes("qwen3-embedding-lora"));
+assert(!embeddingRecipeRegistry.list().some((x) => x.id === "qwen3-embedding-lora"));
 for (const recipe of chatRecipes) assert(support.recipes.some((x) => x.track === "chat" && x.id === recipe.id));
 for (const model of modelLocks.models) {
   const row = support.recipes.find((x) => x.track === "embedding" && x.modelId === model.modelId);

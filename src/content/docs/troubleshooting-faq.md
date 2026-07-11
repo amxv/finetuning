@@ -24,6 +24,6 @@ category: Operations
 
 **Can I publish the private-alpha artifacts?** No. Publication requires explicit authority and later acceptance gates.
 
-**Is RunPod supported?** The Phase 20–23 CLI and offline/read-only/dry-run contracts exist. Live Pod or volume mutation is unavailable pending qualification; production recipes, spot, generic exec/log REST, direct Secrets, Serverless, and fleet are also unavailable. No live evidence or spend was produced. See `docs/runpod-phase20.md` through `docs/runpod-phase23.md`.
+**Is RunPod supported?** The Phase 20–23 CLI and offline/read-only/dry-run contracts exist. Live Pod or volume mutation is unavailable pending qualification; production recipes, spot, generic exec/log REST, direct Secrets, Serverless, and fleet are also unavailable. No live evidence or spend was produced. See [RunPod execution and support status](/docs/runpod-execution).
 
 Next: [migration and release](/docs/migration-release) or the [support policy](https://github.com/amxv/finetuning/blob/main/SUPPORT.md).

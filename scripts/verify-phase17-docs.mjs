@@ -289,7 +289,14 @@ for (const file of ["models-providers.md", "troubleshooting-faq.md"]) {
     /RunPod support is Phase 20 future work|no RunPod command is implemented|future Phase 20 work/i,
   );
   assert.match(text, /live .*mutation.*(fail|unavailable)/i);
+  assert.match(text, /\[RunPod execution and support status\]\(\/docs\/runpod-execution\)/);
 }
+const runpodPage = await readFile(join(root, "src/content/docs/runpod-execution.md"), "utf8");
+for (const phase of [20, 21, 22, 23])
+  assert.match(
+    runpodPage,
+    new RegExp(`https://github\\.com/amxv/finetuning/blob/gg/finetuning-core/docs/runpod-phase${phase}\\.md`),
+  );
 const runpodHelp = await run("runpod", "--help");
 for (const verb of ["plan", "launch", "status", "connect", "terminate", "cleanup", "volume"])
   assert.match(runpodHelp, new RegExp(`\\b${verb}\\b`));

@@ -90,3 +90,4 @@ node dist/cli/index.js validate-dataset outputs/retail-support-sample.jsonl
 - Read [Full tool trajectories](/docs/full-tool-trajectories) to inspect the exported row shape.
 - Read [Scenario authoring](/docs/scenario-authoring) before modeling a new domain.
 - Read [Provider config](/docs/provider-config) when you want model-backed generation or translation.
+- Read [RunPod execution and support status](/docs/runpod-execution) before using any RunPod command.

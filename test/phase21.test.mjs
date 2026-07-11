@@ -166,3 +166,42 @@ test("CLI exposes every lifecycle verb and requires strict live opt-in", async (
   assert.equal(value.dryRun, true);
   assert.equal(value.requiresYes, true);
 });
+test("volume list is read-only while ensure and delete make zero transport calls", async () => {
+  const { runRunPodCommand } = await import("../dist/cli/runpod.js");
+  const originalFetch = globalThis.fetch;
+  const originalLog = console.log;
+  const calls = [];
+  const output = [];
+  process.env.PHASE21_READ_KEY = "test-key";
+  globalThis.fetch = async (url, init) => {
+    calls.push([String(url), init]);
+    return new Response(JSON.stringify([{ id: "v1", name: "durable", size: 50, dataCenterId: "US-TX-3" }]), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  console.log = (value) => output.push(value);
+  try {
+    await runRunPodCommand(["volume", "list", "--api-key-env", "PHASE21_READ_KEY", "--json"]);
+    const listed = JSON.parse(output.at(-1));
+    assert.equal(calls.length, 1);
+    assert.deepEqual(listed.volumes[0], {
+      id: "v1",
+      name: "durable",
+      size: 50,
+      dataCenterId: "US-TX-3",
+      ownershipVerified: false,
+      deletionAvailable: false,
+    });
+    for (const sub of ["ensure", "delete"])
+      await assert.rejects(
+        runRunPodCommand(["volume", sub, "--api-key-env", "PHASE21_READ_KEY"]),
+        /MUTATION_UNAVAILABLE/,
+      );
+    assert.equal(calls.length, 1, "mutating volume commands must not reach transport");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.log = originalLog;
+    delete process.env.PHASE21_READ_KEY;
+  }
+});
