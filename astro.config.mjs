@@ -1,8 +1,8 @@
 import { defineConfig } from "astro/config";
-import zuedocs from "zuedocs/astro";
+import zueDocs from "zuedocs/astro";
 
 export default defineConfig({
   output: "static",
   outDir: "docs-dist",
-  integrations: [zuedocs()],
+  integrations: [zueDocs()],
 });

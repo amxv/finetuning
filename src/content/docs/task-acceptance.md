@@ -1,6 +1,6 @@
 ---
-title: Unfamiliar-user task checklist
-description: Reproduce the timed documentation tasks while leaving independent human acceptance to final review.
+title: Documentation acceptance checklist
+description: Reproduce clean-package user tasks and responsive production-site behavior.
 order: 16
 category: Project
 ---
@@ -15,4 +15,4 @@ Start a timer in a clean checkout. Do not use repository `node_modules`, `dist`,
 6. Explain which steps were offline and which production/provider/GPU actions remain gated.
 7. Record elapsed time, unclear wording, wrong assumptions, failures, and recovery steps without editing commands during the run.
 
-Automation reproduces these mechanics and reports command counts, rows, pages, artifacts, locks, and elapsed duration. It cannot measure whether a genuinely unfamiliar person understands the product. Independent human/reviewer acceptance remains deferred until the final review after Phase 23 and has not been claimed here.
+Automation reproduces these mechanics and reports command counts, rows, pages, artifacts, locks, and elapsed duration. Production browser acceptance also exercises search, navigation, focus, code overflow, links, and desktop/mobile layouts; maintainers still review clarity whenever workflows change.

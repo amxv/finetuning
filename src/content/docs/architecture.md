@@ -1,72 +1,32 @@
 ---
 title: Architecture
-description: Understand the package boundaries, workflow ownership, provider seams, and deferred log-conversion boundary.
+description: Understand canonical data, distillation, orchestration, Python training, evaluation, and remote-execution boundaries.
 order: 9
 category: Reference
-summary: The toolkit keeps `src/core` provider-neutral while pushing provider SDKs and runtime config into dedicated adapter layers.
+summary: TypeScript owns contracts and orchestration; Python owns model-specific training semantics.
 ---
 
-## Scope
+## Data and control planes
 
-This repository is a standalone fine-tuning dataset toolkit. It was extracted from a receptionist backend, but the public package is not a receptionist runtime and does not depend on Cloudflare Workers, Hono routes, D1 storage, queues, or dashboard data models.
+The TypeScript package owns canonical chat and embedding records, codecs, validation, provider adapters, distillation stages, manifests, budgets, orchestration, evaluation contracts, CLI/SDK surfaces, and execution plans. Browser-safe modules avoid filesystem and subprocess dependencies; Node adapters live under `@amxv/finetuning/node`.
 
-## Source boundaries
+The separately versioned Python wheel owns tokenizer chat templates, tokenization, assistant masks, pooling/padding, Transformers/Datasets/TRL/PEFT/Accelerate execution, checkpoints, model artifacts, and clean reload verification. Both sides validate versioned JSON contracts; incompatible majors fail closed.
 
-Current source ownership is:
+## Implemented module boundaries
 
-- `src/core`: provider-neutral data model, OpenAI JSONL row formatting, validation, and fixtures
-- `src/providers`: provider runtime config/env resolution plus concrete OpenAI and Anthropic adapters
-- `src/simulation`: scenario loading, deterministic persona generation, model-backed persona generation, deterministic simulation, model-backed simulation, and runtime IO boundaries
-- `src/translation`: local-pseudo and provider-backed schema-preserving translation adapters
-- `src/cli`: argument parsing, config-file reading, output writing, and workflow orchestration
-- `src/index.ts`: public package aggregator and workflow manifests
+| Boundary                                    | Responsibility                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `core`, `formats`, `validation`             | canonical chat records, codecs, schema and integrity checks         |
+| `embeddings/*`                              | embedding records, formats, distillation, training, evaluation      |
+| `providers/*`, `generation`, `distillation` | optional teachers, capabilities, budgets, retry, lineage            |
+| `templates`, `training`                     | immutable chat recipe identity and Python job contracts             |
+| `orchestration`, `node`                     | DAG state, resume, filesystem, subprocess, locks, secrets           |
+| `execution`, `execution/runpod`             | provider-neutral jobs and pinned read-only/dry-run RunPod contracts |
 
-`src/core` must not import provider SDKs, CLI code, filesystem implementations, Cloudflare-specific runtime code, or generated outputs.
+Append-only JSONL is the data plane; canonical JSON manifests and SHA-256 content addressing bind inputs, configuration, decisions, checkpoints, evaluation, and export. Run state keys include run, stage, record, and attempt so recovery never overwrites history.
 
-## Workflow status
+## Capability boundary
 
-| Workflow                     | Status       | Public surface                                    |
-| ---------------------------- | ------------ | ------------------------------------------------- |
-| Synthetic dataset generation | V1           | `simulate-dataset`                                |
-| Persona generation           | V1           | `generate-personas`                               |
-| Dataset validation           | V1           | `validate-dataset`                                |
-| Dataset translation          | Experimental | `translate-dataset`                               |
-| Log-to-dataset import        | Deferred     | `convert-logs` exits with a shared deferred error |
+Deterministic chat generation, CPU fixtures, validation, planning, resume, evaluation, and artifact verification run locally. OpenAI and Anthropic load only when selected. Production recipes, model downloads, GPU claims, remote code, uploads, and live RunPod mutation require evidence or remain unavailable. Real-log conversion remains deferred until a public contract and redaction hooks exist.
 
-## Provider model
-
-The canonical export target is OpenAI chat fine-tuning JSONL. Provider-backed behavior is explicit and config-driven:
-
-- deterministic persona generation and simulation stay available offline
-- model-backed persona generation supports OpenAI and Anthropic
-- model-backed simulation supports OpenAI and Anthropic
-- provider-backed translation supports OpenAI and Anthropic
-- local-pseudo translation remains the offline default
-
-Internal tool schemas stay provider-neutral until adapter or export boundaries map them to provider-specific formats.
-
-## Output guarantees
-
-At the file-format boundary, the toolkit guarantees:
-
-- OpenAI-compatible JSONL rows
-- ordered `system`, `user`, and `assistant` messages for plain chat
-- ordered `system`, `user`, `assistant`, `tool`, `assistant` messages for full tool trajectories
-- tool definitions included when relevant for tool-calling rows
-- validation coverage for malformed tool calls, tool result references, duplicate ids, and dataset summaries
-- translated output that preserves tool calls, tool results, tool definitions, and schema-bearing metadata
-
-## Deferred log conversion
-
-Real-log conversion remains intentionally unavailable until the repo has:
-
-- a public log record contract
-- assistant content extraction rules
-- assistant tool-call extraction rules
-- tool-result extraction rules
-- caller-supplied redaction hooks
-- privacy guidance
-- privacy-safe redacted fixtures
-- runtime-independent converter implementation
-
-Until then, `convert-logs` is only a discoverable deferred boundary.
+Next: [TypeScript SDK](/docs/sdk-api), [Python trainer](/docs/python-trainer), or [configuration contracts](/docs/config-schemas).

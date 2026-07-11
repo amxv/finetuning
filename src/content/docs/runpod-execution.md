@@ -14,9 +14,9 @@ Live Pod creation, stop, termination, cleanup, and network-volume ensure or dele
 
 ## Retained phase reports
 
-- [Phase 20: pinned REST and capability status](https://github.com/amxv/finetuning/blob/gg/finetuning-core/docs/runpod-phase20.md)
-- [Phase 21: lifecycle and safety status](https://github.com/amxv/finetuning/blob/gg/finetuning-core/docs/runpod-phase21.md)
-- [Phase 22: training hardening status](https://github.com/amxv/finetuning/blob/gg/finetuning-core/docs/runpod-phase22.md)
-- [Phase 23: Serverless and fleet status](https://github.com/amxv/finetuning/blob/gg/finetuning-core/docs/runpod-phase23.md)
+- [Pinned REST and capability evidence](https://github.com/amxv/finetuning/blob/main/docs/runpod-phase20.md)
+- [Lifecycle and safety evidence](https://github.com/amxv/finetuning/blob/main/docs/runpod-phase21.md)
+- [Training hardening evidence](https://github.com/amxv/finetuning/blob/main/docs/runpod-phase22.md)
+- [Serverless and fleet evidence](https://github.com/amxv/finetuning/blob/main/docs/runpod-phase23.md)
 
 Use `finetuning runpod --help` for the tested command inventory and `finetuning runpod doctor --json` for machine-readable capability status.

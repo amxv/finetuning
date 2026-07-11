@@ -293,10 +293,7 @@ for (const file of ["models-providers.md", "troubleshooting-faq.md"]) {
 }
 const runpodPage = await readFile(join(root, "src/content/docs/runpod-execution.md"), "utf8");
 for (const phase of [20, 21, 22, 23])
-  assert.match(
-    runpodPage,
-    new RegExp(`https://github\\.com/amxv/finetuning/blob/gg/finetuning-core/docs/runpod-phase${phase}\\.md`),
-  );
+  assert.match(runpodPage, new RegExp(`https://github\\.com/amxv/finetuning/blob/main/docs/runpod-phase${phase}\\.md`));
 const runpodHelp = await run("runpod", "--help");
 for (const verb of ["plan", "launch", "status", "connect", "terminate", "cleanup", "volume"])
   assert.match(runpodHelp, new RegExp(`\\b${verb}\\b`));
@@ -325,6 +322,9 @@ assert.match(operations, /not run by the default verification suite/i);
 const docsDir = join(root, "src/content/docs");
 const docFiles = (await readdir(docsDir)).filter((x) => x.endsWith(".md"));
 const slugs = new Set(docFiles.map((x) => x.slice(0, -3)));
+const docsCorpus = (await Promise.all(docFiles.map((file) => readFile(join(docsDir, file), "utf8")))).join("\n");
+for (const term of ["response distillation", "embedding", "resume", "evaluation", "RunPod"])
+  assert.match(docsCorpus, new RegExp(term, "i"), `docs must cover ${term}`);
 for (const file of docFiles) {
   const text = await readFile(join(docsDir, file), "utf8");
   assert.match(text, /^---\n[\s\S]*?title:/);
@@ -332,6 +332,7 @@ for (const file of docFiles) {
   assert.doesNotMatch(text, /!\[\]\(/, `${file} has empty image alt text`);
   for (const match of text.matchAll(/\]\(\/docs\/([^)#]+)(?:#[^)]+)?\)/g))
     assert(slugs.has(match[1]), `${file} links to missing ${match[1]}`);
+  assert.doesNotMatch(text, /Phase 19 will|deferred (?:to|until) (?:the )?final review|blob\/gg\/finetuning-core/i);
 }
 
 // Stable SDK example executes from compiled output; package and wheel clean-install gates run in verify:product.

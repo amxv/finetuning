@@ -7,28 +7,28 @@ const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.
 
 const proofPoints = [
   {
-    title: "Offline-first workflows",
-    body: "Generate personas, simulate datasets, and run local-pseudo translation without provider credentials."
+    title: "Chat data and response distillation",
+    body: "Freeze canonical conversations, generate or fake teacher responses, enforce budgets and policy, then export versioned training jobs."
   },
   {
-    title: "Tool-calling dataset support",
-    body: "Export canonical OpenAI chat fine-tuning JSONL in plain-chat, tool-decision, or full-tool-trajectory mode."
+    title: "Embedding data and objectives",
+    body: "Build retrieval pairs, triplets, scores, rankings, and vector targets with leakage groups, provenance, and late-bound prompts."
   },
   {
-    title: "Validation before training",
-    body: "Check JSONL parsing, message roles, tool-call arguments, tool-result references, duplicate IDs, and summary counts."
+    title: "Training, resume, and evaluation",
+    body: "Hand strict jobs to the Python trainer, classify checkpoints, compare baselines, and verify every exported artifact by hash."
   },
   {
-    title: "Explicit provider paths",
-    body: "Switch to OpenAI or Anthropic adapters only when you choose a provider, model, and API key environment variable."
+    title: "Explicit capability gates",
+    body: "CPU fixtures run offline. Provider calls, downloads, GPU recipes, remote code, uploads, and RunPod mutation stay explicit or unavailable."
   }
 ];
 
 const workflows = [
-  "Model assistant domains in scenario JSON instead of hard-coding behavior in scripts.",
-  "Generate deterministic sample datasets from a clean checkout before adding provider credentials.",
-  "Preserve full tool-call loops when the model needs to learn tool choice, tool results, and final responses.",
-  "Translate generated datasets while keeping tool calls, tool definitions, metadata, and validation rules intact."
+  "Choose Chat for response distillation, tool trajectories, SFT, and adapter evaluation.",
+  "Choose Embeddings for retrieval, STS, classification, clustering, hard negatives, and relevance distillation.",
+  "Choose offline evaluation to inspect schemas, SDK contracts, checkpoints, metrics, and portable artifacts without a model download.",
+  "Share canonical manifests, provider policy, budgets, provenance, split controls, resumability, and compliance across both tracks."
 ];
 ---
 
@@ -40,19 +40,18 @@ const workflows = [
 >
   <section class="hero shell">
     <div class="hero__copy">
-      <p class="section-label">Scenario-driven dataset toolkit</p>
+      <p class="section-label">Fine-tuning workflow toolkit</p>
       <h1>
-        Build validated fine-tuning datasets from reusable assistant scenarios.
+        Build reproducible chat and embedding models from data to verified artifacts.
       </h1>
       <p class="hero__lede">
-        finetuning turns scenario definitions into deterministic or provider-backed OpenAI
-        chat fine-tuning JSONL. Start offline, validate every export, then opt into OpenAI
-        or Anthropic runs only when a workflow needs model calls.
+        finetuning provides a TypeScript SDK and CLI for canonical data, response and embedding
+        distillation, orchestration, evaluation, and artifacts, with a separately packaged Python
+        trainer for executable local jobs.
       </p>
       <p class="hero__annotation">
-        Scenarios carry assistant role, tools, personas, goals, and stopping rules. Runtime
-        provider choices stay explicit in config files or command flags, with secrets kept in
-        environment variables.
+        Start with deterministic CPU fixtures. Provider calls, model downloads, GPU recipes,
+        remote code, uploads, and live RunPod mutation remain separately authorized or fail closed.
       </p>
       <div class="hero__actions">
         <a class="button button--solid" href="/docs/quickstart">Start with the quickstart</a>
@@ -60,17 +59,17 @@ const workflows = [
       </div>
     </div>
     <aside class="hero__panel">
-      <p class="hero__panel-label">Core commands</p>
+      <p class="hero__panel-label">Choose a track</p>
       <ul class="hero__signal-list">
-        <li>Generate personas from scenario definitions.</li>
-        <li>Simulate OpenAI-format chat fine-tuning JSONL.</li>
-        <li>Validate and translate datasets before training.</li>
+        <li>Chat: freeze → distill → train → evaluate → export.</li>
+        <li>Embeddings: validate → train/resume → compare → export.</li>
+        <li>Framework: inspect contracts, locks, manifests, and hashes offline.</li>
       </ul>
       <div class="hero__terminal">
-        <span>$ node dist/cli/index.js generate-personas --config examples/receptionist/scenario.json</span>
-        <span>$ node dist/cli/index.js simulate-dataset --mode full_tool_trajectory</span>
-        <span>$ node dist/cli/index.js validate-dataset outputs/receptionist-sample.jsonl</span>
-        <span>$ node dist/cli/index.js translate-dataset outputs/receptionist-sample.jsonl --target-locale es-ES</span>
+        <span>$ finetuning distill plan --root tmp/chat-offline/distill --json</span>
+        <span>$ finetuning training run --spec examples/chat-offline/training.json</span>
+        <span>$ finetuning embed train run --config examples/embedding-offline/training.json</span>
+        <span>$ finetuning embed evaluate compare --config examples/embedding-offline/evaluation.json</span>
       </div>
     </aside>
   </section>
@@ -78,11 +77,10 @@ const workflows = [
   <section class="shell section-grid">
     <div class="section-heading">
       <p class="section-label">What it solves</p>
-      <h2>Fine-tuning examples that are generated, inspected, and validated from one source of truth.</h2>
+      <h2>One auditable path from canonical records to evaluation and portable export.</h2>
       <p>
-        Ad hoc scripts make training data hard to review. finetuning keeps domain behavior in
-        scenario JSON, turns those scenarios into canonical rows, and validates the output shape
-        before generated or translated JSONL reaches a training job.
+        Data hashes, immutable recipe identity, provider policy, budgets, checkpoints, evaluation
+        reports, and artifact manifests remain connected instead of disappearing between scripts.
       </p>
     </div>
     <div class="proof-grid">
@@ -98,7 +96,7 @@ const workflows = [
   <section class="shell split-section">
     <div>
       <p class="section-label">Built for</p>
-      <h2>Teams that need auditable assistant examples before they send JSONL to training.</h2>
+      <h2>Teams that need repeatable experiments—not a collection of one-off scripts.</h2>
     </div>
     <div class="stack-list">
       {workflows.map((item) => (
@@ -111,25 +109,25 @@ const workflows = [
 
   <section class="shell capability-band">
     <div class="capability-band__intro">
-      <p class="section-label">Dataset model</p>
-      <h2>Scenarios, export modes, validation, and provider config stay separate.</h2>
+      <p class="section-label">Available now and gated</p>
+      <h2>Offline contracts are runnable; production claims require recorded evidence.</h2>
     </div>
     <div class="capability-band__grid">
       <div>
-        <p class="capability-title">scenario JSON</p>
-        <p>Defines assistant role, business context, persona source, tool inventory, goals, and stopping rules.</p>
+        <p class="capability-title">available offline</p>
+        <p>Canonical schemas, validation, deterministic fixtures, SDK/CLI planning, CPU training, resume, evaluation, and artifact verification.</p>
       </div>
       <div>
-        <p class="capability-title">export modes</p>
-        <p>Choose plain chat, tool decision, or full tool trajectory depending on what the example should teach.</p>
+        <p class="capability-title">provider opt-in</p>
+        <p>OpenAI and Anthropic adapters require an explicit model, credential environment reference, network flag, and positive budget.</p>
       </div>
       <div>
-        <p class="capability-title">validation</p>
-        <p>Checks message shape, tool-call integrity, result references, duplicate IDs, and dataset summary counts.</p>
+        <p class="capability-title">production gated</p>
+        <p>All production chat and embedding recipes remain unavailable until license, hardware, reload, and evaluation evidence passes.</p>
       </div>
       <div>
-        <p class="capability-title">provider config</p>
-        <p>Keeps OpenAI and Anthropic models, base URLs, and API key env vars outside scenario definitions.</p>
+        <p class="capability-title">remote execution</p>
+        <p>RunPod read-only and dry-run contracts exist; live Pod and volume mutation, Serverless, spot, and fleet remain unavailable.</p>
       </div>
     </div>
   </section>
@@ -137,11 +135,10 @@ const workflows = [
   <section class="shell docs-teaser">
     <div class="section-heading">
       <p class="section-label">Docs map</p>
-      <h2>Start offline, validate the row shape, then add provider-backed runs deliberately.</h2>
+      <h2>Start with the task you need to complete.</h2>
       <p>
-        The docs cover setup, deterministic generation, full tool trajectories, validation,
-        translation, provider configuration, scenario authoring, examples, architecture, and
-        maintenance.
+        Follow the runnable Chat or Embeddings tutorial, then use task guides for distillation,
+        evaluation, checkpoints, model selection, providers, operations, and security.
       </p>
     </div>
     <div class="docs-teaser__grid">
@@ -156,8 +153,8 @@ const workflows = [
   </section>
   <section class="shell closing-note">
     <p>
-      Use finetuning when scenario-authored behavior, explicit provider boundaries, and
-      validator-backed JSONL matter more than one-off dataset scripts.
+      Use finetuning when provenance, reproducibility, evaluation, and honest capability gates
+      matter as much as the training command itself.
     </p>
   </section>
 </BaseLayout>

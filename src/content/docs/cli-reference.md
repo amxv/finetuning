@@ -18,6 +18,9 @@ Every command page/help output is authoritative for its syntax. Exit `0` means s
 | provider-backed chat/translation/distillation | opt-in      | paid/provider-dependent            | budget + env reference + resume ledger required |
 | embedding data/evaluation fixture             | offline     | none                               | stdin/stdout only where help declares `-`       |
 | embedding production model/train              | unavailable | download/GPU may be required later | lock gates must pass first                      |
+| RunPod diagnostics and volume list            | read-only   | credentialed read only             | live lifecycle/volume mutation unavailable      |
+
+Configuration precedence is CLI → referenced environment value → command config → default. Never store a resolved secret. With `--json`, stdout contains one result object and diagnostics stay on stderr. A nonzero exit distinguishes usage/config, unavailable capability, policy/license, budget, provider/network, incomplete checkpoint, artifact integrity, and internal failures.
 
 ## `generate-personas`
 
@@ -109,3 +112,9 @@ The complete tested matrix contains 39 command pairs:
 - `embed evaluate run|compare|inspect`
 
 All 39 help pages are executed by the documentation gate. Mutating embedding commands accept dry-run where implemented; configuration is strict and versioned; CLI flags override environment references, command config, then defaults. Production recipes remain unavailable. See [Configuration and schemas](/docs/config-schemas) and [Models, recipes, providers, and execution](/docs/models-providers).
+
+## RunPod commands
+
+`runpod init|doctor|plan|launch|status|connect|cancel|stop|terminate|cleanup|resume|fetch|orphans|cost` and `runpod volume list|ensure|delete` are discoverable. Planning and dry runs are offline; status/cost contracts are read-only. Credentialed `volume list` returns pinned provider fields with `ownershipVerified: false`. Live Pod and volume mutations fail before transport because qualification and provider-side ownership evidence are unavailable.
+
+Use [RunPod execution and support status](/docs/runpod-execution) for the exact boundary and retained evidence.

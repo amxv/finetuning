@@ -22,4 +22,15 @@ console.log(JSON.stringify({ validation, split }));
 
 This block is **executable** and is typechecked/run from a clean packed consumer. TypeScript data and contract modules avoid Python/CUDA dependencies. Filesystem, subprocess, lock, and secret adapters live in `node`. Optional OpenAI and Anthropic peers load only when selected.
 
+For chat, import provider-neutral records and freeze/validation helpers from the root, `formats`, and `validation`; use `distillation`, `training`, and `orchestration` to plan stages without importing a provider SDK. Provider adapters are optional peers and load only when selected.
+
+```ts
+import { validateDataset } from "@amxv/finetuning/validation";
+
+const report = validateDataset([{ messages: [{ role: "user", content: "Hello" }] }]);
+console.log(report.valid);
+```
+
+The snippet is illustrative; use the versioned canonical record builders shown in the runnable examples for production data.
+
 The generated declaration report at `test/snapshots/api-report.md` is release-gated. A changed declaration or export snapshot fails until reviewed and regenerated. Next: [Python trainer API](/docs/python-trainer) and [compatibility](/docs/compatibility-reference).

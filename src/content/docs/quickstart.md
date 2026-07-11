@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Install the package, build the CLI, generate a deterministic sample dataset, and validate it from a clean checkout.
+description: Install the toolkit, verify it offline, and choose a chat, embedding, or evaluation path.
 order: 1
 category: Start
 summary: The default path stays offline and deterministic, so you can verify the toolkit before adding provider credentials.
@@ -18,15 +18,21 @@ node dist/cli/index.js --help
 
 The package build stays separate from the docs site build. `npm run build` compiles the CLI and library into `dist/`.
 
-## Understand the default runtime
+## Choose your path
 
-The CLI defaults are offline:
+| Goal                                   | Start here                                                       | What you can run offline                                             |
+| -------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Distill chat responses and prepare SFT | [Chat response distillation and SFT](/docs/chat-track)           | freeze, fake-labelled distillation, CPU train/resume/evaluate/export |
+| Train or distill embeddings            | [10-minute offline embeddings](/docs/embedding-quickstart)       | validate, CPU train/resume, compare, export                          |
+| Explore evaluation and contracts       | [Evaluate runs and verify artifacts](/docs/evaluation-artifacts) | manifests, checkpoints, metrics, hashes, SDK examples                |
+
+The runnable defaults are offline:
 
 - persona generation is deterministic unless you explicitly choose a provider
 - dataset simulation is deterministic unless you explicitly choose a provider
 - translation uses `local-pseudo` unless you explicitly choose a provider strategy
 
-That means you can validate the core workflow without setting `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or any model name.
+That means you can validate both tracks without an API key or model download. Production recipes are not enabled by the CPU fixtures.
 
 ## Generate a first deterministic dataset
 

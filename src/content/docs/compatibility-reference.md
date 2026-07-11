@@ -15,4 +15,4 @@ Exit 0 means success. Usage/config/schema failures, unavailable capability, poli
 
 For reproducibility, pin package/model/tokenizer/config/evaluator/dataset revisions; freeze input and splits; record prompts, pooling, dimensions, seeds and environment; preserve raw per-task metrics and hashes; compare base, tuned, no-distillation and trivial baselines on identical splits; and verify exported artifacts in a clean process. MTEB aggregates are comparable only with identical revision, task set and evaluator. Confidence intervals do not eliminate contamination or teacher-bias limitations.
 
-Phase 19 will perform the broader information-architecture cleanup. These pages establish accurate runnable content; they do not claim that later revamp is complete.
+Compatibility claims are enforced by packaged schemas, declaration snapshots, clean package consumers, and runnable chat and embedding documentation workflows.

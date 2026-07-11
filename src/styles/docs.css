@@ -1,0 +1,33 @@
+.docs-article :where(.docs-page-content, [data-pagefind-body]) a:not([class]) {
+  color: var(--color-text, currentColor);
+  text-decoration-line: underline;
+  text-decoration-color: #84c83d;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.18em;
+}
+
+.docs-article :where(.docs-page-content, [data-pagefind-body]) a:not([class]):hover {
+  color: #84c83d;
+}
+
+.docs-article :where(.docs-page-content, [data-pagefind-body]) a:not([class]):focus-visible {
+  outline: 3px solid #84c83d;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.docs-article pre,
+.docs-article table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.docs-article code {
+  overflow-wrap: normal;
+}
+
+@media (max-width: 420px) {
+  .docs-article pre {
+    font-size: 0.76rem;
+  }
+}

@@ -3,6 +3,7 @@ import { getCollection, render } from "astro:content";
 import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
 import DocsPageLayout from "zuedocs/layouts/DocsPageLayout.astro";
 import { docCategories, primaryNav, siteConfig } from "../../data/docs";
+import "../../styles/docs.css";
 
 const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
 
@@ -16,6 +17,9 @@ export async function getStaticPaths() {
 
 const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
+const currentIndex = docs.findIndex((doc) => doc.id === entry.id);
+const previous = currentIndex > 0 ? docs[currentIndex - 1] : undefined;
+const next = currentIndex >= 0 && currentIndex < docs.length - 1 ? docs[currentIndex + 1] : undefined;
 
 const grouped = docCategories
   .map((category) => ({
@@ -66,7 +70,9 @@ const grouped = docCategories
         <Content />
       </DocsPageLayout>
       <nav aria-label="Next steps">
-        <a href="/docs">Back to documentation index</a>
+        {previous && <a href={`/docs/${previous.id}`}>← {previous.data.title}</a>}
+        <a href="/docs">Documentation index</a>
+        {next && <a href={`/docs/${next.id}`}>{next.data.title} →</a>}
       </nav>
     </article>
 

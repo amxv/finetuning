@@ -1,40 +1,95 @@
 ---
 title: 10-minute offline embeddings
-description: Run the tiny CPU retrieval fixture through estimate, train, resume, evaluate, inspect, and export.
+description: Validate retrieval pairs, train and resume the CPU fixture, compare evaluation, and verify export.
 order: 3
 category: Tutorials
 ---
 
-This fixture is deterministic, CPU-only, and makes no network request, model download, upload, or remote-code call. Build first, then use the checked-in files under `examples/embedding-offline/`.
+This deterministic fixture uses two retrieval pairs and no network, download, upload, GPU, or remote code. It demonstrates the workflow—not production Qwen quality or semantics.
+
+## 1. Understand the records
+
+Each JSONL row binds a query and document to provenance and a leakage group. A representative row is conceptually:
+
+```json
+{ "query": "reset my password", "document": "Open Settings, then Security.", "group": "account-help" }
+```
+
+The checked-in canonical records add versioned IDs and rights metadata. Queries and documents that share a source must remain in the same split group.
+
+## 2. Validate schema and provenance
 
 ```bash
 npm run build
-node dist/cli/index.js embed data validate examples/embedding-offline/records.jsonl --task pair --columns query=query,document=document --split-group-column group --source offline-fixture --source-revision 1 --license CC0-1.0 --rights approved --json
-node dist/cli/index.js embed train estimate --config examples/embedding-offline/training.json --json
-node dist/cli/index.js embed train run --config examples/embedding-offline/training.json --python-root python --json
-node dist/cli/index.js embed train status --config examples/embedding-offline/training.json --checkpoint ../tmp/embedding-offline/run/checkpoint-4.json --python-root python --json
-node dist/cli/index.js embed train resume --config examples/embedding-offline/training.json --checkpoint ../tmp/embedding-offline/run/checkpoint-4.json --python-root python --json
-node dist/cli/index.js embed evaluate run --config examples/embedding-offline/evaluation.json --json
-node dist/cli/index.js embed evaluate compare --config examples/embedding-offline/evaluation.json --left tmp/embedding-offline/evaluation.json --right tmp/embedding-offline/evaluation.json --json
-node dist/cli/index.js embed train export --config examples/embedding-offline/training.json --python-root python --json
+
+node dist/cli/index.js embed data validate \
+  examples/embedding-offline/records.jsonl \
+  --task pair \
+  --columns query=query,document=document \
+  --split-group-column group \
+  --source offline-fixture \
+  --source-revision 1 \
+  --license CC0-1.0 \
+  --rights approved \
+  --json
 ```
 
-The SDK equivalent is runnable from the packed `@amxv/finetuning/examples/embedding-sdk` export. It composes `EmbeddingDatasetBuilder`, `EmbeddingRecordValidator`, and `EmbeddingSplitPlanner` without I/O side effects.
+Expect `valid: true` and `recordCount: 2`. Missing provenance, rights, task mapping, or split groups fails before training.
 
-Qwen retrieval instructions belong on queries, normally not documents; they are late-bound and pinned in `immutableIdentity.prompts`. The CPU fixture uses `q:` solely as a fixture convention and mean pooling—it does **not** claim production Qwen parity. Production `qwen3-embed-0.6b-lora` is separately locked, currently unavailable until its GPU/download/license gates pass, uses last-token/EOS pooling and left padding, and supports only lock-declared Matryoshka dimensions.
+## 3. Estimate and train
 
-Expected run tree:
+```bash
+node dist/cli/index.js embed train estimate \
+  --config examples/embedding-offline/training.json \
+  --json
 
-```text
-tmp/embedding-offline/
-├── evaluation.json
-└── run/
-    ├── checkpoint-1.json … checkpoint-8.json
-    ├── embedding-artifact-manifest.json
-    ├── environment.json, packages.json, gpu.json
-    ├── evaluation.json, model.json, model-card.json
-    ├── export-config.json
-    └── resolved-spec.json
+node dist/cli/index.js embed train run \
+  --config examples/embedding-offline/training.json \
+  --python-root python \
+  --json
 ```
 
-An interruption resumes only from an atomic complete checkpoint. Full resume restores optimizer, scheduler, scaler, RNG, sampler and step; weights-only is a warm start and must be labeled as such. Inspect the artifact manifest and verify hashes before reload or export.
+The estimate reports `executable: true`, `network: false`, `uploads: false`, and `trustRemoteCode: false`. The CPU objective is a tiny multiple-negatives fixture; its metrics are pipeline assertions, not benchmark claims.
+
+## 4. Inspect and resume the checkpoint
+
+```bash
+node dist/cli/index.js embed train status \
+  --config examples/embedding-offline/training.json \
+  --checkpoint ../tmp/embedding-offline/run/checkpoint-4.json \
+  --python-root python \
+  --json
+
+node dist/cli/index.js embed train resume \
+  --config examples/embedding-offline/training.json \
+  --checkpoint ../tmp/embedding-offline/run/checkpoint-4.json \
+  --python-root python \
+  --json
+```
+
+Status classifies this as `full-resume`: optimizer, scheduler, scaler, RNG, sampler, and step state are complete. A weights-only checkpoint must be treated as a warm start.
+
+## 5. Evaluate, compare, and export
+
+```bash
+node dist/cli/index.js embed evaluate run \
+  --config examples/embedding-offline/evaluation.json \
+  --json
+
+node dist/cli/index.js embed evaluate compare \
+  --config examples/embedding-offline/evaluation.json \
+  --left tmp/embedding-offline/evaluation.json \
+  --right tmp/embedding-offline/evaluation.json \
+  --json
+
+node dist/cli/index.js embed train export \
+  --config examples/embedding-offline/training.json \
+  --python-root python \
+  --json
+```
+
+Compare identical evaluator and dataset revisions. Inspect retrieval recall/MRR or task-specific STS, classification, and clustering metrics rather than relying on a single aggregate. Verify every hash in `embedding-artifact-manifest.json` before reload.
+
+Production `qwen3-embed-0.6b-lora` uses late-bound query instructions, last-token/EOS pooling, left padding, and lock-declared dimensions. It remains unavailable until license, download, GPU, reload, and evaluation evidence passes.
+
+Next: [choose an embedding distillation objective](/docs/distillation-guide) or [review the recipe matrix](/docs/models-providers).
