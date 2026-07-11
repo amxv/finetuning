@@ -24,6 +24,8 @@ interface Base {
   syntheticGroup?: string;
   source: ProvenanceV1 & { revision: string; license: string; rights: string };
   transformations: TransformationV1[];
+  /** Safely preserved external fields, keyed by codec namespace. */
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 export type EmbeddingRecordV1 = Base &
@@ -120,18 +122,28 @@ export function validateEmbeddingRecord(record: EmbeddingRecordV1): void {
     !record.source.rights
   )
     fail("EMBED_PROVENANCE_REQUIRED");
-  const texts = Object.values(record)
-    .flatMap((v) => (Array.isArray(v) ? v : typeof v === "object" && v && "text" in v ? [v] : []))
-    .filter((v): v is EmbeddingTextV1 => typeof v === "object" && v !== null && "textHash" in v);
-  for (const text of texts) if (canonicalSha256(text.text) !== text.textHash) fail("EMBED_TEXT_HASH");
+  const texts = collectTexts(record);
+  for (const text of texts) {
+    if (!text.text.trim()) fail("EMBED_TEXT_REQUIRED");
+    if (canonicalSha256(text.text) !== text.textHash) fail("EMBED_TEXT_HASH");
+  }
   if (
     (record.kind === "scored-pair" || record.kind === "sts") &&
-    (!(record.scale.min < record.scale.max) || record.score < record.scale.min || record.score > record.scale.max)
+    (!Number.isFinite(record.score) ||
+      !Number.isFinite(record.scale.min) ||
+      !Number.isFinite(record.scale.max) ||
+      !(record.scale.min < record.scale.max) ||
+      record.score < record.scale.min ||
+      record.score > record.scale.max)
   )
     fail("EMBED_SCORE_SCALE");
+  if (record.kind === "teacher-score" && (!Number.isFinite(record.score) || !record.scale || !(record.scale.min < record.scale.max) || record.score < record.scale.min || record.score > record.scale.max)) fail("EMBED_SCORE_SCALE");
+  if ((record.kind === "categorical-pair" || record.kind === "classification" || record.kind === "clustering") && (!record.labelDomain.length || !record.labelDomain.includes(record.label))) fail("EMBED_LABEL_DOMAIN");
+  if (record.kind === "boolean-pair" && typeof record.label !== "boolean") fail("EMBED_LABEL_DOMAIN");
+  if (record.kind === "instruction-aware" && (!record.instruction.trim() || record.text.text.startsWith(record.instruction))) fail("EMBED_INSTRUCTION_SEPARATION");
   if (record.kind === "teacher-ranking") {
     const ids = new Set(record.candidates.map((x) => x.id));
-    if (!record.candidatePoolId || !record.corpusId || record.ranking.some((id) => !ids.has(id)))
+    if (!record.candidatePoolId || !record.corpusId || ids.size !== record.candidates.length || new Set(record.ranking).size !== record.ranking.length || record.ranking.some((id) => !ids.has(id)))
       fail("EMBED_RANKING_POOL");
   }
   if (record.kind.startsWith("teacher-") && !((record as any).teacher?.revision && (record as any).teacher?.requestId))
@@ -145,6 +157,17 @@ export function validateEmbeddingRecord(record: EmbeddingRecordV1): void {
     const norm = Math.sqrt(record.vector.values.reduce((n, x) => n + x * x, 0));
     if (record.vector.norm === "l2" && Math.abs(norm - 1) > 1e-5) fail("EMBED_VECTOR_NORM");
   }
+  if (record.kind === "retrieval-set") {
+    if (!record.positives.length) fail("EMBED_POSITIVE_REQUIRED");
+    const positives = new Set(record.positives.map((x) => x.textHash));
+    if (record.negatives.some((x) => positives.has(x.textHash))) fail("EMBED_POSITIVE_NEGATIVE_CONFLICT");
+  }
+}
+function collectTexts(value: unknown, seen = new Set<EmbeddingTextV1>()): EmbeddingTextV1[] {
+  if (!value || typeof value !== "object") return [...seen];
+  if ("text" in value && "textHash" in value && typeof value.text === "string") seen.add(value as EmbeddingTextV1);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) collectTexts(child, seen);
+  return [...seen];
 }
 function fail(code: string): never {
   throw new Error(code);

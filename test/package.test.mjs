@@ -18,7 +18,7 @@ test("packed package imports and runs its bin in a clean ESM consumer", async ()
     await execFileAsync("npm", ["install", "--ignore-scripts", `./${filename}`], { cwd: fixture });
     await writeFile(
       join(fixture, "consumer.mjs"),
-      'import * as sdk from "@amxv/finetuning"; import * as experimental from "@amxv/finetuning/experimental/advanced-distillation"; if (!sdk.validateOpenAIJsonl || !experimental.validateLogitTarget || "validateLogitTarget" in sdk) throw new Error("missing or leaked export");\n',
+      'import * as sdk from "@amxv/finetuning"; import * as experimental from "@amxv/finetuning/experimental/advanced-distillation"; import * as embeddings from "@amxv/finetuning/embeddings"; import * as embeddingFormats from "@amxv/finetuning/embeddings/formats"; if (!sdk.validateOpenAIJsonl || !experimental.validateLogitTarget || !embeddings.freezeEmbeddingDataset || !embeddingFormats.decodeEmbeddingRow || "validateLogitTarget" in sdk || "validateEmbeddingRecord" in sdk) throw new Error("missing or leaked export");\n',
     );
     await execFileAsync(process.execPath, ["consumer.mjs"], { cwd: fixture });
     const { stdout: help } = await execFileAsync(join(fixture, "node_modules/.bin/finetuning"), ["--help"], {

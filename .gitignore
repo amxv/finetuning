@@ -5,3 +5,22 @@ docs-dist/
 outputs/
 tmp/
 .vercel
+
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Python virtual environments and package artifacts
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+wheelhouse/
