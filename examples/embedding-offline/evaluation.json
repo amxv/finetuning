@@ -1,0 +1,48 @@
+{
+  "configVersion": "1.0.0",
+  "defaults": {
+    "embeddingEvaluationSpecVersion": "embedding.evaluation.v1",
+    "runId": "docs-eval",
+    "datasetRevision": "fixture-1",
+    "evaluatorRevision": "1",
+    "mteb": { "revision": "mteb-fixture-1", "taskSet": "tiny-local", "offlineFixture": true },
+    "frozenSplitHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "contaminationHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "retrieval": [
+      {
+        "id": "q1",
+        "relevantIds": ["d1"],
+        "candidates": [
+          { "id": "d1", "score": 1 },
+          { "id": "d2", "score": 0 }
+        ],
+        "language": "en",
+        "prompt": "on",
+        "length": 32,
+        "dimension": 2
+      }
+    ],
+    "sts": [
+      { "predicted": 1, "expected": 1, "language": "en" },
+      { "predicted": 2, "expected": 2, "language": "es" }
+    ],
+    "classification": [{ "predicted": "support", "expected": "support" }],
+    "clustering": [{ "predicted": "account", "expected": "account" }],
+    "baselines": {
+      "base": { "recall@10": 0.5 },
+      "no-distillation": { "recall@10": 0.4 },
+      "random": { "recall@10": 0.1 }
+    },
+    "thresholds": [{ "metric": "recall@10", "baseline": "base", "minimumDelta": 0.1 }],
+    "resources": { "latencyMs": 1, "throughputPerSecond": 1000, "peakMemoryBytes": 1048576, "artifactBytes": 2048 },
+    "contamination": {
+      "evalIds": ["q1"],
+      "generationLedgerIds": [],
+      "miningLedgerIds": [],
+      "canaries": [],
+      "projectionFitSplit": "train"
+    },
+    "bootstrap": { "seed": 7, "samples": 100 },
+    "outputPath": "tmp/embedding-offline/evaluation.json"
+  }
+}

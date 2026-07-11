@@ -1,0 +1,28 @@
+{
+  "configVersion": "1.0.0",
+  "defaults": {
+    "embeddingTrainingSpecVersion": "embedding.training.v1",
+    "runId": "docs-offline",
+    "datasetManifest": "../examples/embedding-offline/manifest.json",
+    "recipeId": "cpu-tiny-embedding-fixture",
+    "objective": "multiple-negatives",
+    "outputDirectory": "../tmp/embedding-offline/run",
+    "effectiveBatchSize": 2,
+    "immutableIdentity": {
+      "modelRevision": "fixture",
+      "tokenizerRevision": "fixture",
+      "configRevision": "fixture",
+      "dataHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "splitHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "taskMapping": "pair",
+      "prompts": { "query": "q:", "document": "" },
+      "pooling": "mean",
+      "padding": "right",
+      "normalization": "l2",
+      "dimensions": [2],
+      "objective": "multiple-negatives",
+      "seed": 7
+    },
+    "allowedRuntimeChanges": ["operation", "checkpointPath"]
+  }
+}

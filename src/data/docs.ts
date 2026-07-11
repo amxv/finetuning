@@ -1,39 +1,40 @@
 export const siteConfig = {
   name: "finetuning",
-  strapline: "Scenario-driven OpenAI fine-tuning dataset docs",
+  strapline: "Runnable chat and embedding fine-tuning workflows",
   description:
-    "Documentation for finetuning, a toolkit for deterministic and provider-backed dataset generation, validation, translation, and full tool-trajectory exports.",
+    "Documentation for reproducible chat and embedding data, distillation, training, evaluation, resume, and export workflows.",
   repoUrl: "https://github.com/amxv/finetuning",
   footerSections: [
     {
       title: "finetuning",
-      text:
-        "Generate, validate, and translate OpenAI chat fine-tuning datasets from reusable scenario definitions."
+      text: "Build reproducible chat and embedding datasets and carry them through evaluation and portable export.",
     },
     {
       title: "What this site covers",
-      text:
-        "Quickstarts, export modes, scenario authoring, provider configuration, validation behavior, architecture, and maintenance."
+      text: "Separate Chat and Embeddings tracks plus shared manifests, providers, compliance, reproducibility, and resume guidance.",
     },
     {
       title: "Repository",
       linkPrefix: "Source: ",
       linkHref: "https://github.com/amxv/finetuning",
-      linkLabel: "github.com/amxv/finetuning"
-    }
-  ]
+      linkLabel: "github.com/amxv/finetuning",
+    },
+  ],
 } as const;
 
 export const docCategories = [
   "Start",
+  "Chat",
+  "Embeddings",
+  "Shared Concepts",
   "Dataset Workflows",
   "Provider Workflows",
   "Authoring",
-  "Reference"
+  "Reference",
 ] as const;
 
 export const primaryNav = [
   { href: "/", label: "Overview" },
   { href: "/docs", label: "Docs" },
-  { href: siteConfig.repoUrl, label: "GitHub", external: true }
+  { href: siteConfig.repoUrl, label: "GitHub", external: true },
 ];
