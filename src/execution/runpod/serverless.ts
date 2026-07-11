@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { RunPodError } from "./index.js";
 export const serverlessEvidence = {
   retrievedAt: "2026-07-12",
-  openapiSha256: "3cde8a56e91915eecb9669dc6cbe21d3e4f1ea8543436f9df04c0173e120e78a",
+  openapiSha256: "1da83b045d6e4c9980d118a853dc16b788b8862280b3361b847f05ca2738cd84",
   docs: [
     {
       url: "https://docs.runpod.io/serverless/endpoints/send-requests",

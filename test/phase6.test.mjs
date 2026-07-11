@@ -99,16 +99,30 @@ test("bridge rejects malformed events and forwards cancellation signals", async 
     /Malformed training event/,
   );
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), 200);
   const result = await runPythonTrainer({
     pythonExecutable: "python3",
     module: "amxv_finetuning_trainer.test_runner_cases",
     specPath: slow,
     cwd: resolve("python"),
     signal: controller.signal,
+    onEvent: (event) => {
+      if (event.type === "started") controller.abort();
+    },
   });
   assert.equal(result.exitCode, 130);
   assert.equal(result.events.at(-1).data.reason, "cancelled");
+  const preAborted = new AbortController();
+  preAborted.abort();
+  await assert.rejects(
+    runPythonTrainer({
+      pythonExecutable: "python3",
+      module: "amxv_finetuning_trainer.test_runner_cases",
+      specPath: slow,
+      cwd: resolve("python"),
+      signal: preAborted.signal,
+    }),
+    { name: "AbortError" },
+  );
 });
 test("template and training prepare CLI surfaces are additive and fail closed", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "phase6-cli-"));

@@ -25,11 +25,16 @@ export async function runPythonTrainer(options: TrainerBridgeOptions): Promise<T
     if (!value || value.includes("\0")) throw new Error(`Unsafe ${name}`);
   if (!isAbsolute(options.specPath) || !isAbsolute(options.cwd))
     throw new Error("Trainer specPath and cwd must be absolute paths");
+  if (options.signal?.aborted) throw new DOMException("Training cancelled before start", "AbortError");
   const child = spawn(options.pythonExecutable, ["-m", options.module, options.specPath], {
     cwd: options.cwd,
     stdio: ["ignore", "pipe", "pipe"],
     shell: false,
     env: { ...process.env, PYTHONUNBUFFERED: "1" },
+  });
+  const closed = new Promise<number>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code) => resolve(code ?? 1));
   });
   const events: TrainingEventV1[] = [];
   let stderr = "",
@@ -38,28 +43,33 @@ export async function runPythonTrainer(options: TrainerBridgeOptions): Promise<T
   child.stderr.on("data", (chunk) => (stderr += String(chunk)));
   const abort = () => child.kill("SIGTERM");
   options.signal?.addEventListener("abort", abort, { once: true });
+  const reader = createInterface({ input: child.stdout });
   try {
-    for await (const line of createInterface({ input: child.stdout })) {
+    for await (const line of reader) {
       let parsed: unknown;
       try {
         parsed = JSON.parse(line);
       } catch {
-        child.kill("SIGTERM");
         throw new Error(`Malformed training event JSON: ${line}`);
       }
       const event = parseTrainingEvent(parsed);
       if (event.sequence !== expected++) {
-        child.kill("SIGTERM");
         throw new Error(`Out-of-order training event sequence ${event.sequence}`);
       }
       events.push(event);
       options.onEvent?.(event);
     }
-    const exitCode = await new Promise<number>((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", (code) => resolve(code ?? 1));
-    });
+    const exitCode = await closed;
     return { exitCode, events, stderr };
+  } catch (error) {
+    reader.close();
+    child.kill("SIGTERM");
+    try {
+      await closed;
+    } catch {
+      // Preserve the original protocol or callback failure.
+    }
+    throw error;
   } finally {
     options.signal?.removeEventListener("abort", abort);
   }

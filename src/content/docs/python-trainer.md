@@ -18,6 +18,8 @@ This block is **executable on POSIX systems**; CI performs the equivalent platfo
 
 Python validates contracts again. It emits ordered JSONL events, writes atomically complete checkpoints, and produces a hash-verifiable artifact manifest. The NPM/Python compatibility matrix is packaged at `schemas/protocol-compatibility-v1.json`; incompatible majors fail closed.
 
+The chat module accepts `prepare`, `run`, `resume`, `status`, `evaluate`, `export`, and `verify`. Every operation reads a versioned spec path, emits `started` first and a terminal `completed` or `failed` event, and uses monotonically increasing `sequence` values. Resume requires a complete checkpoint whose immutable identity matches the spec. Export and verify operate on relative, SHA-256-addressed artifact entries. The embedding module provides the same run/resume/status/evaluate/export lifecycle through the TypeScript bridge and binds embedding-specific identity fields.
+
 Chat jobs bind the dataset manifest, immutable recipe/template identity, assistant-mask behavior, output directory, deadline, and checkpoint policy. Embedding jobs additionally bind task mapping, prompt conventions, pooling, padding, normalization, dimensions, objective, and split hash. Unknown fields or mismatched identities are errors rather than best-effort defaults.
 
 ```python

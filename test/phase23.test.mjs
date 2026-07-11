@@ -129,5 +129,5 @@ test("capability status remains unavailable with exact evidence", () => {
   assert.equal(c.training, false);
   assert.equal(c.liveEvidence, false);
   assert.equal(c.flashControlPlane, false);
-  assert.equal(c.evidence.openapiSha256, "3cde8a56e91915eecb9669dc6cbe21d3e4f1ea8543436f9df04c0173e120e78a");
+  assert.equal(c.evidence.openapiSha256, "1da83b045d6e4c9980d118a853dc16b788b8862280b3361b847f05ca2738cd84");
 });

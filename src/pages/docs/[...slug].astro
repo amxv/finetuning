@@ -69,7 +69,7 @@ const grouped = docCategories
       >
         <Content />
       </DocsPageLayout>
-      <nav aria-label="Next steps">
+      <nav class="docs-next-steps" aria-label="Next steps">
         {previous && <a href={`/docs/${previous.id}`}>← {previous.data.title}</a>}
         <a href="/docs">Documentation index</a>
         {next && <a href={`/docs/${next.id}`}>{next.data.title} →</a>}

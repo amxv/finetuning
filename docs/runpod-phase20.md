@@ -1,6 +1,6 @@
 # RunPod Phase 20 support status
 
-Evidence date: 2026-07-12. Pinned REST OpenAPI SHA-256: `3cde8a56e91915eecb9669dc6cbe21d3e4f1ea8543436f9df04c0173e120e78a`.
+Evidence date: 2026-07-12. Pinned REST OpenAPI SHA-256: `1da83b045d6e4c9980d118a853dc16b788b8862280b3361b847f05ca2738cd84`.
 
 Phase 20 provides a provider-neutral job envelope, strict validators, read-only REST discovery, redacted errors, and fake/offline contract tests. Mutations are intentionally unavailable until Phase 21. Configuration stores only the environment-variable name (`RUNPOD_API_KEY` by default), never its value.
 

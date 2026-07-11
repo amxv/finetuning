@@ -1,7 +1,7 @@
 import { redactSecrets } from "../../node/redaction.js";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-export const RUNPOD_OPENAPI_SHA256 = "3cde8a56e91915eecb9669dc6cbe21d3e4f1ea8543436f9df04c0173e120e78a" as const;
+export const RUNPOD_OPENAPI_SHA256 = "1da83b045d6e4c9980d118a853dc16b788b8862280b3361b847f05ca2738cd84" as const;
 export const RUNPOD_EVIDENCE_DATE = "2026-07-12T00:00:00+05:30" as const;
 export type RunPodState = "RUNNING" | "EXITED" | "TERMINATED";
 export interface RunPodPodV1 {

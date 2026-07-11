@@ -5,7 +5,7 @@ order: 8
 category: Reference
 ---
 
-The package export map is authoritative. Stable paths are the root plus `core`, `providers`, `simulation`, `translation`, `formats`, `formats/openai`, `validation`, `generation`, `providers/openai`, `providers/anthropic`, `templates`, `training`, `orchestration`, `distillation`, `embeddings`, `embeddings/formats`, `embeddings/distillation`, `embeddings/training`, `embeddings/evaluation`, and Node-only `node`. Example exports are tested but are not the general API surface. Experimental paths may change during alpha.
+The package export map is authoritative. Stable browser-safe paths are the package root plus `core`, `providers`, `simulation`, `translation`, `formats`, `formats/openai`, `validation`, `generation`, `providers/openai`, `providers/anthropic`, `templates`, `training`, `orchestration`, `distillation`, `embeddings`, `embeddings/formats`, `embeddings/distillation`, `embeddings/training`, and `embeddings/evaluation`. Operational paths are Node-only: `node`, `execution`, and `execution/runpod`. Example paths are tested fixtures, not the general API surface. `experimental/advanced-distillation` may change during alpha. This list is checked against the packed `package.json` export map.
 
 ```ts
 import { EmbeddingDatasetBuilder, EmbeddingRecordValidator, EmbeddingSplitPlanner } from "@amxv/finetuning/embeddings";
@@ -24,13 +24,21 @@ This block is **executable** and is typechecked/run from a clean packed consumer
 
 For chat, import provider-neutral records and freeze/validation helpers from the root, `formats`, and `validation`; use `distillation`, `training`, and `orchestration` to plan stages without importing a provider SDK. Provider adapters are optional peers and load only when selected.
 
-```ts
-import { validateDataset } from "@amxv/finetuning/validation";
+```js
+import { validateDatasetExample } from "@amxv/finetuning/validation";
 
-const report = validateDataset([{ messages: [{ role: "user", content: "Hello" }] }]);
+const report = validateDatasetExample({
+  datasetSchemaVersion: "1.0.0",
+  id: "sdk-chat-example",
+  messages: [
+    { role: "user", content: "Hello" },
+    { role: "assistant", content: "Hello!" },
+  ],
+  provenance: { source: "docs", sourceRevision: "1", rights: "approved" },
+});
 console.log(report.valid);
 ```
 
-The snippet is illustrative; use the versioned canonical record builders shown in the runnable examples for production data.
+This snippet is executed from a clean packed consumer. The validation namespace also exports `validateOpenAIJsonl`, `validateOpenAIFineTuningRow`, and `assertValidOpenAIFineTuningRow` for compatibility data.
 
 The generated declaration report at `test/snapshots/api-report.md` is release-gated. A changed declaration or export snapshot fails until reviewed and regenerated. Next: [Python trainer API](/docs/python-trainer) and [compatibility](/docs/compatibility-reference).

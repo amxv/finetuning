@@ -21,8 +21,8 @@ const report = {
   retrievedAt: new Date().toISOString(),
   source: response.url,
   sha256: digest,
-  pinnedSha256: "3cde8a56e91915eecb9669dc6cbe21d3e4f1ea8543436f9df04c0173e120e78a",
-  changed: digest !== "3cde8a56e91915eecb9669dc6cbe21d3e4f1ea8543436f9df04c0173e120e78a",
+  pinnedSha256: "1da83b045d6e4c9980d118a853dc16b788b8862280b3361b847f05ca2738cd84",
+  changed: digest !== "1da83b045d6e4c9980d118a853dc16b788b8862280b3361b847f05ca2738cd84",
   pinnedPaths: paths(pinned),
   currentPaths: paths(current),
 };
