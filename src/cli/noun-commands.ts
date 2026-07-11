@@ -19,9 +19,10 @@ import { inspectRecipe, inspectTemplate, preflightRecipe } from "../templates/in
 import { trainingSpecVersion, type TrainingSpecV1 } from "../training/index.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { runEmbedCommand } from "./embed-data.js";
+import { runEmbedPhase13 } from "./embed-distill.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
-  if (noun === "embed") { await runEmbedCommand(rawArgs); return true; }
+  if (noun === "embed") { if (rawArgs[0] === "data") await runEmbedCommand(rawArgs); else await runEmbedPhase13(rawArgs); return true; }
   if (noun !== "dataset" && noun !== "pipeline" && noun !== "distill" && noun !== "template" && noun !== "training")
     return false;
   const [verb, ...verbArgs] = rawArgs;
@@ -197,7 +198,7 @@ async function pipelineResume(args: ReturnType<typeof parseArgs>): Promise<void>
 
 export function printNounRootHelp(): void {
   console.log(
-    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  embed data create|import|convert|validate|inspect|split|dedupe|freeze|export\n                        Process canonical/ST/HF embedding data without model recipe claims.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare|run|resume|status|evaluate|export\n                        Prepare and execute versioned local training runs.",
+    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  embed data create|import|convert|validate|inspect|split|dedupe|freeze|export\n                        Process canonical/ST/HF embedding data without model recipe claims.\n  embed generate queries|documents|pairs | embed mine negatives\n  embed distill vectors|scores|rankings|plan|run|resume|status\n                        Run train-only embedding distillation workflows.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare|run|resume|status|evaluate|export\n                        Prepare and execute versioned local training runs.",
   );
 }
 function printNounHelp(noun: string): void {
