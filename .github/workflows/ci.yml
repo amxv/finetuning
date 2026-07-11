@@ -16,6 +16,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+      - uses: astral-sh/setup-uv@v6
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
@@ -30,6 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: astral-sh/setup-uv@v6
       - run: npm ci
       - run: npm run format:check
       - run: npm run docs:check

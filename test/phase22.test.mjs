@@ -17,7 +17,7 @@ test("architecture QLoRA matrix fails closed and reports exact coverage", () => 
     "nemotron-cascade-2-30b-a3b",
     "nemotron-3-nano-30b-a3b",
     "olmo-3.1-32b-instruct",
-    "qwen3-embedding-lora",
+    "qwen3-embed-0.6b-lora",
   ]) {
     const p = qloraProfile(id);
     assert.equal(p.productionStatus, "unavailable");

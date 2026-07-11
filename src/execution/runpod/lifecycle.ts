@@ -144,11 +144,10 @@ export async function ensureIndependentVolume(
 export class RestRunPodLifecycleBackend implements RunPodLifecycleBackend {
   constructor(
     private transport: RunPodMutationTransport,
-    private liveAuthorized = false,
+    _liveAuthorized = false,
   ) {}
   private gate() {
-    if (!this.liveAuthorized)
-      throw new RunPodError("RUNPOD_FORBIDDEN", "live RunPod mutations require explicit allowLive authorization");
+    throw new RunPodError("RUNPOD_FORBIDDEN", "live RunPod mutations are unavailable pending qualification");
   }
   async listPods() {
     const v = await this.transport.request("/pods");
@@ -200,7 +199,6 @@ export class RestRunPodLifecycleBackend implements RunPodLifecycleBackend {
           name: input.name,
           size: input.sizeGiB,
           dataCenterId: input.dataCenterId,
-          metadata: { ownershipMarker: input.ownershipMarker },
         }),
       }),
     );
@@ -218,7 +216,9 @@ function parseLifecyclePod(v: unknown): LifecyclePod {
     typeof x.id !== "string" ||
     typeof x.name !== "string" ||
     typeof x.image !== "string" ||
-    typeof x.networkVolumeId !== "string" ||
+    !x.networkVolume ||
+    typeof x.networkVolume !== "object" ||
+    typeof (x.networkVolume as Record<string, unknown>).id !== "string" ||
     !["RUNNING", "EXITED", "TERMINATED"].includes(String(x.desiredStatus))
   )
     throw new RunPodError("RUNPOD_INCOMPATIBLE", "unknown Pod response fields");
@@ -227,15 +227,14 @@ function parseLifecyclePod(v: unknown): LifecyclePod {
     name: x.name,
     state: x.desiredStatus as LifecyclePod["state"],
     imageDigest: x.image,
-    volumeId: x.networkVolumeId,
+    volumeId: (x.networkVolume as Record<string, unknown>).id as string,
     ownershipMarker: String(env.AMXV_OWNERSHIP_MARKER ?? ""),
     specHash: String(env.AMXV_SPEC_HASH ?? ""),
   };
 }
 function parseLifecycleVolume(v: unknown): LifecycleVolume {
   if (!v || typeof v !== "object") throw new RunPodError("RUNPOD_INCOMPATIBLE", "unknown volume response");
-  const x = v as Record<string, unknown>,
-    metadata = (x.metadata ?? {}) as Record<string, unknown>;
+  const x = v as Record<string, unknown>;
   if (
     typeof x.id !== "string" ||
     typeof x.name !== "string" ||
@@ -248,7 +247,7 @@ function parseLifecycleVolume(v: unknown): LifecycleVolume {
     name: x.name,
     dataCenterId: x.dataCenterId,
     sizeGiB: Number(x.size),
-    ownershipMarker: String(metadata.ownershipMarker ?? ""),
+    ownershipMarker: "",
   };
 }
 

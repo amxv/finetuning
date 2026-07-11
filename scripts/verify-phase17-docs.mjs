@@ -282,6 +282,17 @@ const locks = JSON.parse(await readFile(join(root, "locks/embedding-models-v1.js
 assert.equal(locks.models.length, 5);
 assert(locks.models.every((model) => model.status === "unavailable"));
 const support = JSON.parse(await readFile(join(root, "locks/recipe-support-v1.json"), "utf8"));
+for (const file of ["models-providers.md", "troubleshooting-faq.md"]) {
+  const text = await readFile(join(root, "src/content/docs", file), "utf8");
+  assert.doesNotMatch(
+    text,
+    /RunPod support is Phase 20 future work|no RunPod command is implemented|future Phase 20 work/i,
+  );
+  assert.match(text, /live .*mutation.*(fail|unavailable)/i);
+}
+const runpodHelp = await run("runpod", "--help");
+for (const verb of ["plan", "launch", "status", "connect", "terminate", "cleanup", "volume"])
+  assert.match(runpodHelp, new RegExp(`\\b${verb}\\b`));
 const assertGeneratedReferencesCurrent = (candidate) => {
   for (const model of locks.models) {
     const row = candidate.recipes.find((x) => x.track === "embedding" && x.modelId === model.modelId);

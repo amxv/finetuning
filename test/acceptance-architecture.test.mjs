@@ -97,7 +97,7 @@ test("REST lifecycle exact mutations and opt-in", async () => {
           id: "p",
           name: "n",
           image: "sha",
-          networkVolumeId: "v",
+          networkVolume: { id: "v", name: "volume", size: 50, dataCenterId: "US-TX-3" },
           desiredStatus: "RUNNING",
           env: { AMXV_OWNERSHIP_MARKER: "own", AMXV_SPEC_HASH: "spec" },
         };
@@ -105,12 +105,47 @@ test("REST lifecycle exact mutations and opt-in", async () => {
     },
   };
   const input = { name: "n", imageDigest: "sha", ownershipMarker: "own", specHash: "spec", volumeId: "v" };
-  await assert.rejects(new RestRunPodLifecycleBackend(transport, false).createPod(input), /explicit allowLive/);
-  const pod = await new RestRunPodLifecycleBackend(transport, true).createPod(input);
-  assert.equal(pod.id, "p");
-  assert.equal(calls[0][0], "/pods");
-  assert.equal(calls[0][1].method, "POST");
-  assert(!calls[0][1].body.includes("apiKey"));
+  await assert.rejects(
+    new RestRunPodLifecycleBackend(transport, false).createPod(input),
+    /unavailable pending qualification/,
+  );
+  await assert.rejects(
+    new RestRunPodLifecycleBackend(transport, true).createPod(input),
+    /unavailable pending qualification/,
+  );
+  assert.equal(calls.length, 0, "all opt-in flags still produce zero mutation transport calls");
+});
+test("REST lifecycle parses only pinned Pod.networkVolume and metadata-free volume shapes", async () => {
+  const backend = new RestRunPodLifecycleBackend({
+    async request(path) {
+      if (path === "/pods")
+        return [
+          {
+            id: "pod-1",
+            name: "pinned-pod",
+            image: "registry.example/image@sha256:abc",
+            desiredStatus: "RUNNING",
+            networkVolume: { id: "volume-1", name: "durable", size: 50, dataCenterId: "US-TX-3" },
+            env: { AMXV_OWNERSHIP_MARKER: "owner", AMXV_SPEC_HASH: "spec" },
+          },
+        ];
+      return [{ id: "volume-1", name: "durable", size: 50, dataCenterId: "US-TX-3" }];
+    },
+  });
+  assert.equal((await backend.listPods())[0].volumeId, "volume-1");
+  assert.deepEqual((await backend.listVolumes())[0], {
+    id: "volume-1",
+    name: "durable",
+    sizeGiB: 50,
+    dataCenterId: "US-TX-3",
+    ownershipMarker: "",
+  });
+  const invented = new RestRunPodLifecycleBackend({
+    async request() {
+      return [{ id: "pod-1", name: "old", image: "sha", desiredStatus: "RUNNING", networkVolumeId: "volume-1" }];
+    },
+  });
+  await assert.rejects(invented.listPods(), /unknown Pod response fields/);
 });
 test("independent volume ensure adopts only exact owned shape", async () => {
   const volumes = [];

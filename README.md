@@ -44,6 +44,7 @@ The same offline chat workflow accepts checked-in scenario files such as `exampl
 - [Chat tutorial](src/content/docs/chat-track.md): generate conversations, preserve tool trajectories, distill responses, train, resume, evaluate, and export.
 - [Embedding tutorial](src/content/docs/embedding-quickstart.md): validate retrieval pairs and run the complete CPU train, checkpoint, resume, evaluation, inspection, and export fixture.
 - [Documentation index](src/content/docs/quickstart.md): concepts, how-to guides, CLI and SDK references, operations, security, troubleshooting, migration, and release notes.
+- [RunPod status](docs/runpod-phase20.md): pinned offline contracts, read-only diagnostics, fake lifecycle tests, and dry-run CLI behavior through Phases 20–23.
 
 Chat response distillation transfers generated assistant responses. Embedding vector, score, and ranking distillation transfer geometry or relevance—not prose. Both tracks share immutable manifests, provenance, budgets, provider policies, checkpoint identity, and artifact verification.
 
@@ -54,6 +55,8 @@ Every network request, provider credential, model download, upload, overwrite, G
 Real-log conversion is explicitly deferred: this package does not accept production logs, and it has no public source contract, caller-supplied redaction hooks, or privacy-safe fixture coverage yet. Use only canonical or documented external dataset formats.
 
 Machine-readable support is in [`locks/recipe-support-v1.json`](locks/recipe-support-v1.json). The tiny CPU embedding fixture is supported only as a test fixture; the Qwen 9B chat pilot is experimental; all production chat recipes and all five production embedding recipes are unavailable until their recorded license, hardware, reload, and evaluation gates pass. This repository does not claim the five-model MVP complete.
+
+The `finetuning runpod` command surface exists for offline planning, read-only diagnostics, dry runs, and fake contract verification. Live Pod or volume mutation is fail-closed because no authorized qualification evidence or spend was produced. Production recipes, spot execution, generic exec/log REST, direct Secrets representation, Serverless, and fleet execution remain unavailable; see the [Phase 20](docs/runpod-phase20.md), [Phase 21](docs/runpod-phase21.md), [Phase 22](docs/runpod-phase22.md), and [Phase 23](docs/runpod-phase23.md) status documents.
 
 A model license does not clear dataset rights, teacher-output terms, privacy, trademarks, or regulated-use obligations. See [security and compliance](src/content/docs/security-compliance.md) before using non-synthetic data.
 

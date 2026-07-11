@@ -131,7 +131,7 @@ export const embeddingRecipeRegistry = new TypedRegistry<EmbeddingRecipeDescript
     objective: "multiple-negatives",
   },
   {
-    id: "qwen3-embedding-lora",
+    id: "qwen3-embed-0.6b-lora",
     modelId: "qwen3-embedding-0.6b",
     status: "unavailable",
     reason: "Gated until Phase 15 training and reload evidence exists.",

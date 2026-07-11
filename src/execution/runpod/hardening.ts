@@ -152,7 +152,7 @@ const profiles: Record<string, QLoRAProfileV1> = {
     "up_proj",
     "down_proj",
   ]),
-  "qwen3-embedding-lora": profile("qwen3-embedding-lora", "qwen3-embedding", [
+  "qwen3-embed-0.6b-lora": profile("qwen3-embed-0.6b-lora", "qwen3-embedding", [
     "q_proj",
     "k_proj",
     "v_proj",

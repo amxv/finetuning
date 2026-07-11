@@ -157,7 +157,7 @@ test("CLI exposes every lifecycle verb and requires strict live opt-in", async (
     encoding: "utf8",
   });
   assert.notEqual(blocked.status, 0);
-  assert.match(blocked.stderr, /LIVE_OPT_IN_REQUIRED/);
+  assert.match(blocked.stderr, /MUTATION_UNAVAILABLE/);
   const dry = spawnSync(process.execPath, ["dist/cli/index.js", "runpod", "terminate", "--dry-run", "--json"], {
     encoding: "utf8",
   });

@@ -190,7 +190,7 @@ RECIPES = {
         "reasoning": "think",
         "roles": ["system", "user", "assistant"],
     },
-    "qwen3-embedding-lora": {
+    "qwen3-embed-0.6b-lora": {
         "track": "embedding",
         "modelId": "Qwen/Qwen3-Embedding-0.6B",
         "modelRevision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",

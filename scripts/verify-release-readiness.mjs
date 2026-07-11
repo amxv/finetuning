@@ -17,6 +17,7 @@ const modelLocks = await json("locks/embedding-models-v1.json");
 const compatibility = await json("schemas/protocol-compatibility-v1.json");
 const provenance = await json("RELEASE-PROVENANCE.json");
 const inventory = await json("locks/license-notice-inventory-v1.json");
+const pythonEvidence = await json("python/amxv_finetuning_trainer/recipe-evidence.json");
 assert.equal(provenance.publishAuthorized, false);
 assert.equal(provenance.independentAcceptanceComplete, false);
 assert.equal(inventory.packageLicense.expression, "Apache-2.0");
@@ -42,6 +43,18 @@ assert.deepEqual(
     .filter((x) => x.id !== "cpu-tiny-embedding-fixture")
     .map((x) => x.status),
   Array(5).fill("unavailable"),
+);
+const canonicalEmbeddingRecipeIds = support.recipes.filter((x) => x.track === "embedding").map((x) => x.id);
+assert.deepEqual(
+  embeddingRecipeRegistry
+    .list()
+    .filter((x) => x.id !== "cpu-tiny-embedding-fixture")
+    .map((x) => x.id),
+  canonicalEmbeddingRecipeIds.filter((x) => x !== "cpu-tiny-embedding-fixture"),
+);
+assert.deepEqual(
+  Object.keys(pythonEvidence.recipes),
+  canonicalEmbeddingRecipeIds.filter((x) => x !== "cpu-tiny-embedding-fixture"),
 );
 for (const recipe of chatRecipes) assert(support.recipes.some((x) => x.track === "chat" && x.id === recipe.id));
 for (const model of modelLocks.models) {
