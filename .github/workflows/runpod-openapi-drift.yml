@@ -1,0 +1,17 @@
+name: RunPod OpenAPI drift
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+jobs:
+  semantic-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node scripts/check-runpod-openapi.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runpod-openapi-review
+          path: tmp/gg/runpod-openapi-diff.json

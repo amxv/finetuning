@@ -28,5 +28,6 @@
     "src/distillation/**/*.ts",
     "src/node/**/*.ts",
     "src/experimental/**/*.ts"
+    ,"src/execution/**/*.ts"
   ]
 }

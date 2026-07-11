@@ -103,6 +103,14 @@
       "types": "./dist/node/index.d.ts",
       "import": "./dist/node/index.js"
     },
+    "./execution": {
+      "types": "./dist/execution/index.d.ts",
+      "import": "./dist/execution/index.js"
+    },
+    "./execution/runpod": {
+      "types": "./dist/execution/runpod/index.d.ts",
+      "import": "./dist/execution/runpod/index.js"
+    },
     "./experimental/advanced-distillation": {
       "types": "./dist/experimental/index.d.ts",
       "import": "./dist/experimental/index.js"
@@ -112,6 +120,7 @@
   "files": [
     "dist",
     "schemas",
+    "contracts",
     "locks",
     "docs",
     "examples",

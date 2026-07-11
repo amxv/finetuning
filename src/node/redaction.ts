@@ -6,5 +6,8 @@ export function redactSecrets(value: JsonValue): JsonValue {
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) => [key, sensitive.test(key) ? "[REDACTED]" : redactSecrets(entry)]),
     );
-  return typeof value === "string" && /^(bearer|sk-)[\w.-]+$/i.test(value) ? "[REDACTED]" : value;
+  if (typeof value !== "string") return value;
+  if (/^(bearer\s+|sk-|rp_)[\w.-]+$/i.test(value)) return "[REDACTED]";
+  try { const url=new URL(value); if (["token","signature","sig","x-amz-signature","credential"].some(k=>url.searchParams.has(k))) return "[REDACTED_SIGNED_URL]"; } catch { /* not a URL */ }
+  return value;
 }
