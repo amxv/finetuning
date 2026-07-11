@@ -351,8 +351,155 @@ export { AttemptLedger } from "./ledger.js";
 ## dist/distillation/index.d.ts
 
 ```ts
-/** Reserved stable namespace for distillation contracts (Phase 5). */
-export declare const distillationApiVersion: "0";
+import { type CanonicalMessageV1, type DatasetExampleV1, type DatasetSplitV1, type DecisionV1 } from "../core/canonical.js";
+import type { NormalizedUsage, TeacherEnvelope, TeacherRequest } from "../providers/contracts.js";
+export declare const distillationApiVersion: "1.0.0";
+export declare const distillationRecordVersion: "1.0.0";
+export type DistillationStage = "ingest" | "groups" | "quota" | "responses" | "validate" | "policy" | "verify" | "judge" | "filter" | "dedupe" | "split" | "contamination" | "freeze";
+export interface DistillationCandidateV1 {
+    id: string;
+    messages: CanonicalMessageV1[];
+    generator: {
+        provider: string;
+        model: string;
+        requestId: string;
+        sampleId: string;
+    };
+    usage: NormalizedUsage;
+    createdAt: string;
+}
+export interface DistillationDecisionV1 extends DecisionV1 {
+    stage: DistillationStage;
+    candidateId?: string;
+    createdAt: string;
+    scores?: Record<string, number>;
+    audit?: {
+        judgments: Array<{
+            requestId: string;
+            candidateLabel: "A" | "B";
+            referenceLabel: "A" | "B";
+            scores: Record<string, number>;
+        }>;
+    };
+}
+export interface DistillationRecordV1 {
+    distillationRecordVersion: typeof distillationRecordVersion;
+    id: string;
+    source: DatasetExampleV1;
+    taxonomy: string[];
+    quotaBucket?: string;
+    locked: boolean;
+    candidates: DistillationCandidateV1[];
+    decisions: DistillationDecisionV1[];
+    dedupe?: {
+        exact?: string;
+        minhash?: string;
+        semantic?: string;
+        representative: boolean;
+        rationale: string;
+    };
+    split?: DatasetSplitV1;
+    contamination?: string[];
+}
+export interface ComplianceAttestationsV1 {
+    sourceRights: {
+        status: "approved";
+        basis: string;
+    };
+    teacherTerms: {
+        url: string;
+        version: string;
+        reviewedAt: string;
+        approver: string;
+    };
+    intendedUse: string;
+    retentionPolicy: string;
+    reasoningPolicy: string;
+    studentLicense: {
+        id: string;
+        version: string;
+    };
+}
+export interface QuotaRule {
+    taxonomy: string;
+    target: number;
+}
+export interface DistillationConfig {
+    runId: string;
+    salt: string;
+    generator: {
+        provider: "openai" | "anthropic";
+        model: string;
+    };
+    judge?: {
+        provider: "openai" | "anthropic";
+        model: string;
+        orderSwap?: boolean;
+    };
+    compliance: ComplianceAttestationsV1;
+    quotas?: QuotaRule[];
+    splits?: {
+        train: number;
+        validation: number;
+        test: number;
+    };
+    lexicalOnly?: boolean;
+    minhashThreshold?: number;
+    judgeThreshold?: number;
+}
+export interface DistillationProvider {
+    generate(request: TeacherRequest): Promise<TeacherEnvelope>;
+}
+export interface EmbeddingDedupePlugin {
+    id: string;
+    embed(texts: string[]): Promise<number[][]>;
+    threshold: number;
+}
+export interface DistillationCostReport {
+    generator: NormalizedUsage;
+    judge: NormalizedUsage;
+    totalCost: number;
+    currency: string;
+}
+export interface DistillationPlan {
+    runId: string;
+    stageCounts: Record<DistillationStage, number>;
+    quotas: Array<QuotaRule & {
+        available: number;
+        deficit: number;
+    }>;
+    lockedCount: number;
+    generationCount: number;
+    compliance: "approved";
+}
+export interface DistillationRunState {
+    version: "1.0.0";
+    config: DistillationConfig;
+    records: DistillationRecordV1[];
+    completedStages: DistillationStage[];
+    paidSuccesses: Record<string, TeacherEnvelope>;
+    costs: DistillationCostReport;
+    createdAt: string;
+    updatedAt: string;
+}
+export declare function validateCompliance(value: ComplianceAttestationsV1): void;
+export declare function planDistillation(input: DatasetExampleV1[], config: DistillationConfig): DistillationPlan;
+export declare function scanSensitive(text: string): Array<{
+    kind: "pii" | "secret";
+    match: string;
+}>;
+export declare class DistillationPipeline {
+    readonly provider: DistillationProvider;
+    readonly judgeProvider: DistillationProvider;
+    readonly embedding?: EmbeddingDedupePlugin | undefined;
+    readonly now: () => string;
+    readonly checkpoint?: ((state: DistillationRunState) => Promise<void>) | undefined;
+    constructor(provider: DistillationProvider, judgeProvider?: DistillationProvider, embedding?: EmbeddingDedupePlugin | undefined, now?: () => string, checkpoint?: ((state: DistillationRunState) => Promise<void>) | undefined);
+    run(input: DatasetExampleV1[], config: DistillationConfig, previous?: DistillationRunState): Promise<DistillationRunState>;
+}
+export declare function saveDistillationState(root: string, state: DistillationRunState): Promise<void>;
+export declare function loadDistillationState(root: string): Promise<DistillationRunState>;
+export declare function distillationDataset(state: DistillationRunState): DatasetExampleV1[];
 ```
 
 ## dist/node/index.d.ts

@@ -1,12 +1,23 @@
-import { access, readFile, rm } from "node:fs/promises";
+import { access, mkdir, readFile, rm } from "node:fs/promises";
 import process from "node:process";
 import type { DatasetExampleV1 } from "../core/canonical.js";
 import type { JsonValue } from "../core/model.js";
 import { AttemptLedger, LocalDagExecutor, freezeDataset } from "../orchestration/index.js";
+import {
+  DistillationPipeline,
+  distillationDataset,
+  loadDistillationState,
+  planDistillation,
+  saveDistillationState,
+  type DistillationConfig,
+  type DistillationProvider,
+  type DistillationRunState,
+} from "../distillation/index.js";
+import { atomicWrite } from "../node/storage.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
-  if (noun !== "dataset" && noun !== "pipeline") return false;
+  if (noun !== "dataset" && noun !== "pipeline" && noun !== "distill") return false;
   const [verb, ...verbArgs] = rawArgs;
   if (!verb || verb === "--help" || verb === "-h") {
     printNounHelp(noun);
@@ -27,6 +38,10 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
   }
   if (noun === "pipeline" && verb === "resume") {
     await pipelineResume(args);
+    return true;
+  }
+  if (noun === "distill" && ["init", "plan", "responses", "resume", "status", "freeze"].includes(verb)) {
+    await distillCommand(verb, args);
     return true;
   }
   throw new Error(`Unknown command: ${noun} ${verb}`);
@@ -109,15 +124,132 @@ async function pipelineResume(args: ReturnType<typeof parseArgs>): Promise<void>
 
 export function printNounRootHelp(): void {
   console.log(
-    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.",
+    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.",
   );
 }
 function printNounHelp(noun: string): void {
   console.log(
     noun === "dataset"
       ? "Usage: finetuning dataset freeze <canonical.jsonl> --out <directory> [--force] [--json]"
-      : "Usage: finetuning pipeline status|resume [options]",
+      : noun === "distill"
+        ? "Usage: finetuning distill init|plan|responses|resume|status|freeze [options]"
+        : "Usage: finetuning pipeline status|resume [options]",
   );
+}
+
+interface DistillProject {
+  config: DistillationConfig;
+  input: string;
+}
+async function distillCommand(verb: string, args: ReturnType<typeof parseArgs>): Promise<void> {
+  const root = readRequiredStringFlag(args, "root"),
+    projectPath = `${root}/distillation-project.json`;
+  if (verb === "init") {
+    if (!readBooleanFlag(args, "force")) {
+      try {
+        await access(projectPath);
+        throw new Error(`Distillation project already exists: ${root}. Use --force to replace it.`);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    const project: DistillProject = {
+      config: JSON.parse(await readFile(readRequiredStringFlag(args, "config"), "utf8")) as DistillationConfig,
+      input: readRequiredStringFlag(args, "input"),
+    };
+    planDistillation(await readCanonical(project.input), project.config);
+    await mkdir(root, { recursive: true });
+    await atomicWrite(projectPath, `${JSON.stringify(project, null, 2)}\n`);
+    return printResult({ root, runId: project.config.runId, initialized: true }, args);
+  }
+  const project = JSON.parse(await readFile(projectPath, "utf8")) as DistillProject;
+  if (verb === "plan") return printResult(planDistillation(await readCanonical(project.input), project.config), args);
+  if (verb === "status") {
+    const state = await loadDistillationState(root);
+    return printResult(
+      {
+        runId: state.config.runId,
+        completedStages: state.completedStages,
+        recordCount: state.records.length,
+        candidateCount: state.records.reduce((n, r) => n + r.candidates.length, 0),
+        costs: state.costs,
+      },
+      args,
+    );
+  }
+  if (verb === "freeze") {
+    const output = readRequiredStringFlag(args, "out");
+    if (!readBooleanFlag(args, "force")) {
+      try {
+        await access(output);
+        throw new Error(`Output directory already exists: ${output}. Use --force to replace it.`);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    } else await rm(output, { recursive: true, force: true });
+    const manifest = await freezeDataset(output, distillationDataset(await loadDistillationState(root)));
+    return printResult(manifest, args);
+  }
+  let previous: DistillationRunState | undefined;
+  try {
+    previous = await loadDistillationState(root);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const fake = deterministicProvider();
+  const pipeline = new DistillationPipeline(
+    fake.generator,
+    fake.judge,
+    undefined,
+    () => new Date(0).toISOString(),
+    (state) => saveDistillationState(root, state),
+  );
+  const state = await pipeline.run(await readCanonical(project.input), project.config, previous);
+  await saveDistillationState(root, state);
+  printResult(
+    {
+      runId: state.config.runId,
+      completedStages: state.completedStages,
+      candidateCount: state.records.reduce((n, r) => n + r.candidates.length, 0),
+      costs: state.costs,
+    },
+    args,
+  );
+}
+async function readCanonical(path: string): Promise<DatasetExampleV1[]> {
+  return (await readFile(path, "utf8"))
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as DatasetExampleV1);
+}
+function deterministicProvider(): { generator: DistillationProvider; judge: DistillationProvider } {
+  const make = (judge: boolean): DistillationProvider => ({
+    async generate(request) {
+      const content = judge
+        ? JSON.stringify({ quality: 0.9, correctness: 0.8, safety: 1, style: 0.7 })
+        : `Deterministic response for ${request.sampleId}`;
+      return {
+        requestId: request.requestId,
+        sampleId: request.sampleId,
+        provider: request.provider,
+        model: request.model,
+        candidates: [
+          {
+            response: { kind: "text", content },
+            finishReason: "stop",
+            ...(judge ? { parsed: JSON.parse(content) } : {}),
+          },
+        ],
+        usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15, cost: judge ? 0.002 : 0.001, currency: "USD" },
+        retries: [],
+        cached: false,
+      };
+    },
+  });
+  return { generator: make(false), judge: make(true) };
+}
+function printResult(value: unknown, args: ReturnType<typeof parseArgs>): void {
+  console.log(readBooleanFlag(args, "json") ? JSON.stringify(value) : JSON.stringify(value, null, 2));
 }
 function printVerbHelp(noun: string, verb: string): void {
   if (noun === "dataset" && verb === "freeze") return printNounHelp(noun);

@@ -214,7 +214,15 @@
     "verifyFrozenDataset"
   ],
   "@amxv/finetuning/distillation": [
-    "distillationApiVersion"
+    "DistillationPipeline",
+    "distillationApiVersion",
+    "distillationDataset",
+    "distillationRecordVersion",
+    "loadDistillationState",
+    "planDistillation",
+    "saveDistillationState",
+    "scanSensitive",
+    "validateCompliance"
   ],
   "@amxv/finetuning/node": [
     "ContentAddressedBlobStore",
