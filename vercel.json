@@ -1,5 +1,11 @@
 {
   "framework": "astro",
   "buildCommand": "npm run docs:build",
-  "outputDirectory": "docs-dist"
+  "outputDirectory": "docs-dist",
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "*": false
+    }
+  }
 }
