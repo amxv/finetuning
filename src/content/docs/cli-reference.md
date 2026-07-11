@@ -115,7 +115,7 @@ All 39 help pages are executed by the documentation gate. Mutating embedding com
 
 ### Rendered command registry
 
-Every entry uses the exact registered form `finetuning embed <noun> <verb> [--config <path>] [--json] [--quiet] [--dry-run]`. The docs gate executes each corresponding `--help` page and fails if this registry omits a command.
+The [complete generated command reference](/docs/cli-command-reference) contains the operation-specific syntax and effects for every command. It is generated from the same TypeScript authority used by live `--help`; the docs gate fails on any help, metadata, or rendered-table drift.
 
 | Group        | Registered commands                                                                                                                                                                                    |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

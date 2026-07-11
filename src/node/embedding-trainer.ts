@@ -38,7 +38,9 @@ export async function runPythonEmbeddingTrainer(options: EmbeddingTrainerBridgeO
     expected = 0;
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (x) => (stderr += String(x)));
-  const abort = () => child.kill("SIGTERM");
+  let termination: Promise<void> | undefined;
+  const terminate = () => (termination ??= terminateChild(child, closed));
+  const abort = () => void terminate();
   options.signal?.addEventListener("abort", abort, { once: true });
   const reader = createInterface({ input: child.stdout });
   try {
@@ -59,10 +61,11 @@ export async function runPythonEmbeddingTrainer(options: EmbeddingTrainerBridgeO
       options.onEvent?.(event);
     }
     const exitCode = await closed;
+    if (termination) await termination;
     return { exitCode, events, stderr };
   } catch (error) {
     reader.close();
-    await terminateChild(child, closed);
+    await terminate();
     throw error;
   } finally {
     options.signal?.removeEventListener("abort", abort);

@@ -131,3 +131,24 @@ test("embedding bridge cancellation and protocol failures close children", async
   const preCase = await runCase("cancel", { signal: pre.signal });
   await assert.rejects(preCase.promise, { name: "AbortError" });
 });
+test("embedding abort escalates when SIGTERM is ignored", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "phase15-abort-escalation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const marker = join(root, "orphan.marker"),
+    specPath = join(root, "ignore.json");
+  await writeFile(specPath, JSON.stringify({ case: "ignore-term", track: "embedding", marker }));
+  const controller = new AbortController(),
+    started = performance.now();
+  const result = await runPythonEmbeddingTrainer({
+    pythonExecutable: "python3",
+    module: "amxv_finetuning_trainer.test_runner_cases",
+    specPath,
+    cwd: resolve("python"),
+    signal: controller.signal,
+    onEvent: () => controller.abort(),
+  });
+  assert.notEqual(result.exitCode, 0);
+  assert(performance.now() - started < 750, "cancellation must complete within escalation bound");
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  await assert.rejects(access(marker));
+});

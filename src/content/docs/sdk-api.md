@@ -39,7 +39,7 @@ const example: DatasetExampleV1 = {
   createdAt: "2026-07-12T00:00:00.000Z",
 };
 const report = validateDatasetExample(example);
-console.log(report.valid);
+console.log(JSON.stringify({ valid: report.valid }));
 ```
 
 This snippet is executed from a clean packed consumer. The validation namespace also exports `validateOpenAIJsonl`, `validateOpenAIFineTuningRow`, and `assertValidOpenAIFineTuningRow` for compatibility data.

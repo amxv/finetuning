@@ -10,13 +10,12 @@ import {
   type ServiceUsage,
 } from "../embeddings/distillation.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
+import { embedCommandHelp } from "./embed-command-reference.js";
 export async function runEmbedPhase13(raw: string[]): Promise<void> {
   const [noun, verb, ...rest] = raw,
     a = parseArgs(rest);
   if (readBooleanFlag(a, "help")) {
-    console.log(
-      "Usage: finetuning embed generate queries|documents|pairs | embed mine negatives | embed distill vectors|scores|rankings|plan|run|resume|status",
-    );
+    console.log(embedCommandHelp(noun ?? "", verb ?? ""));
     return;
   }
   if (noun === "generate" && ["queries", "documents", "pairs"].includes(verb ?? ""))

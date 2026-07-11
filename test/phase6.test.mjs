@@ -161,6 +161,27 @@ test("chat bridge version, sequence, and callback failures leave no child", asyn
     /callback failed/,
   );
 });
+test("chat abort escalates when SIGTERM is ignored", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "phase6-abort-escalation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const marker = join(root, "orphan.marker"),
+    specPath = join(root, "ignore.json");
+  await writeFile(specPath, JSON.stringify({ case: "ignore-term", track: "chat", marker }));
+  const controller = new AbortController(),
+    started = performance.now();
+  const result = await runPythonTrainer({
+    pythonExecutable: "python3",
+    module: "amxv_finetuning_trainer.test_runner_cases",
+    specPath,
+    cwd: resolve("python"),
+    signal: controller.signal,
+    onEvent: () => controller.abort(),
+  });
+  assert.notEqual(result.exitCode, 0);
+  assert(performance.now() - started < 750, "cancellation must complete within escalation bound");
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  await assert.rejects(access(marker));
+});
 test("template and training prepare CLI surfaces are additive and fail closed", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "phase6-cli-"));
   t.after(() => rm(root, { recursive: true, force: true }));

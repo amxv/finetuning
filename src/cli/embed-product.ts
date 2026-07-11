@@ -13,6 +13,7 @@ import { resolveEmbedConfig } from "./embed-config.js";
 import { atomicWrite } from "../node/storage.js";
 import { runPythonEmbeddingTrainer } from "../node/embedding-trainer.js";
 import { join, resolve } from "node:path";
+import { embedCommandHelp } from "./embed-command-reference.js";
 const hierarchy = {
   models: ["list", "info", "license", "compat"],
   recipes: ["list", "show", "lock"],
@@ -41,7 +42,7 @@ export async function runEmbedProduct(raw: string[]): Promise<boolean> {
   if (!allowed.includes(verb)) throw new Error(`Unknown command: embed ${noun} ${verb}`);
   const a = parseArgs(rest);
   if (readBooleanFlag(a, "help")) {
-    console.log(`Usage: finetuning embed ${noun} ${verb} [--config <path>] [--json] [--quiet] [--dry-run]`);
+    console.log(embedCommandHelp(noun, verb));
     return true;
   }
   const quiet = readBooleanFlag(a, "quiet"),

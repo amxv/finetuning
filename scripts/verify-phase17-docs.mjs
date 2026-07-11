@@ -9,6 +9,7 @@ const startedAt = performance.now();
 const root = resolve(new URL("../", import.meta.url).pathname);
 const cli = join(root, "dist/cli/index.js");
 const run = async (...args) => (await exec(process.execPath, [cli, ...args], { cwd: root })).stdout;
+const { embedCommandReference } = await import("../dist/cli/embed-command-reference.js");
 
 const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const stableExports = Object.keys(packageJson.exports)
@@ -43,12 +44,23 @@ const renderedCliReference = await readFile(join(root, "src/content/docs/cli-ref
 for (const [noun, verbs] of Object.entries(matrix))
   for (const verb of verbs) {
     const help = await run("embed", noun, verb, "--help");
-    assert.match(help, /^Usage:/);
+    const authority = embedCommandReference.find((x) => x.command === `embed ${noun} ${verb}`);
+    assert(authority, `missing command authority for embed ${noun} ${verb}`);
+    assert.equal(help.trim(), `Usage: ${authority.syntax}`);
     assert.match(renderedCliReference, new RegExp(`embed ${noun} ${verb.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`));
     helpCount++;
   }
 for (const field of ["Capability", "Configuration", "Input/output", "Mutation", "Network/cost", "Errors/version"])
   assert.match(renderedCliReference, new RegExp(field, "i"), `CLI reference missing ${field} metadata`);
+
+const chatSdkSource = await readFile(join(root, "src/examples/chat-sdk.ts"), "utf8");
+const sdkPage = await readFile(join(root, "src/content/docs/sdk-api.md"), "utf8");
+const typedBlocks = [...sdkPage.matchAll(/```ts\n([\s\S]*?)```/g)].map((match) => match[1].trim());
+assert(typedBlocks.includes(chatSdkSource.trim()), "typed chat SDK block drifted from checked source");
+const chatSdkResult = JSON.parse(
+  (await exec(process.execPath, [join(root, "dist/examples/chat-sdk.js")], { cwd: root })).stdout,
+);
+assert.equal(chatSdkResult.valid, true);
 assert.equal(helpCount, 39);
 
 // Execute the complete checked-in offline chat tutorial without providers, downloads, GPU, or uploads.

@@ -13,6 +13,7 @@ import {
   type EmbeddingColumnMapping,
 } from "../embeddings/index.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag } from "./argv.js";
+import { embedCommandHelp } from "./embed-command-reference.js";
 
 const verbs = new Set(["create", "import", "convert", "validate", "inspect", "split", "dedupe", "freeze", "export"]);
 export async function runEmbedCommand(raw: string[]): Promise<void> {
@@ -20,7 +21,7 @@ export async function runEmbedCommand(raw: string[]): Promise<void> {
   if (noun !== "data" || !verb || !verbs.has(verb)) throw new Error("Unknown command: embed " + raw.join(" "));
   const a = parseArgs(rest);
   if (readBooleanFlag(a, "help")) {
-    console.log(`Usage: finetuning embed data ${verb} [input|-] [--out <path|->] [--json] [--dry-run]`);
+    console.log(embedCommandHelp("data", verb));
     return;
   }
   const input = a.positionals[0] ?? readOptionalStringFlag(a, "input") ?? "-",

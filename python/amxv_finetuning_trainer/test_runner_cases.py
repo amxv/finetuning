@@ -18,6 +18,8 @@ def main() -> int:
     if case == "malformed":
         print("not-json", flush=True)
     elif case in {"version", "sequence", "ignore-term"}:
+        if case == "ignore-term":
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
         sequence = 1 if case == "sequence" else 0
         event_version = (
             "embedding.training.event.v2"
@@ -39,7 +41,8 @@ def main() -> int:
             flush=True,
         )
     if case in {"malformed", "version", "sequence", "ignore-term"}:
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        if case != "ignore-term":
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
         time.sleep(0.8)
         if marker:
             Path(marker).write_text("orphan")

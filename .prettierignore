@@ -12,3 +12,4 @@ release-artifacts
 schemas/runpod-openapi.json
 contracts/runpod/openapi-*.json
 docs/runpod-evidence
+src/content/docs/cli-command-reference.md
