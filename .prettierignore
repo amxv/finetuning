@@ -1,0 +1,7 @@
+dist
+docs-dist
+node_modules
+tmp
+package-lock.json
+test/snapshots
+gg

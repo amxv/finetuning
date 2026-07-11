@@ -4,15 +4,34 @@
   "private": true,
   "description": "Standalone toolkit for generating, validating, and localizing chat fine-tuning datasets.",
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "bin": {
     "finetuning": "./dist/cli/index.js"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./core": "./dist/core/index.js",
-    "./providers": "./dist/providers/index.js",
-    "./simulation": "./dist/simulation/index.js",
-    "./translation": "./dist/translation/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./providers": {
+      "types": "./dist/providers/index.d.ts",
+      "import": "./dist/providers/index.js"
+    },
+    "./simulation": {
+      "types": "./dist/simulation/index.d.ts",
+      "import": "./dist/simulation/index.js"
+    },
+    "./translation": {
+      "types": "./dist/translation/index.d.ts",
+      "import": "./dist/translation/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -24,6 +43,15 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
+    "format": "prettier --write .",
+    "format:check": "prettier --check package.json .prettierrc.json .github scripts/api-report.mjs test",
+    "lint": "npm run typecheck && npm run format:check",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "test:unit": "npm run build && node --test test/unit.test.mjs",
+    "test:compat": "npm run build && node --test test/compatibility.test.mjs",
+    "test:package": "npm run build && node --test test/package.test.mjs",
+    "api:report": "npm run build && node scripts/api-report.mjs --write",
+    "api:check": "npm run build && node scripts/api-report.mjs --check",
     "docs:dev": "astro dev",
     "docs:check": "astro check --tsconfig tsconfig.astro.json",
     "docs:build": "astro build",
@@ -32,7 +60,9 @@
     "verify:provider-adapters": "npm run build && node scripts/verify-provider-adapters.mjs",
     "verify:persona-generation": "npm run build && node scripts/verify-persona-generation.mjs",
     "verify:simulation-runners": "npm run build && node scripts/verify-simulation-runners.mjs",
-    "verify": "npm run build && node scripts/verify-fixtures.mjs && node scripts/verify-cli.mjs && node scripts/verify-translation.mjs && node scripts/verify-provider-config.mjs && node scripts/verify-provider-adapters.mjs && node scripts/verify-persona-generation.mjs && node scripts/verify-simulation-runners.mjs && node scripts/verify-log-deferment.mjs && node scripts/verify-readme-workflow.mjs"
+    "verify:product": "npm run test && npm run api:check",
+    "verify:docs": "npm run build && node scripts/verify-readme-workflow.mjs",
+    "verify": "npm run verify:product"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -42,6 +72,7 @@
     "@astrojs/check": "^0.9.4",
     "@types/node": "^26.1.0",
     "astro": "^7.0.3",
+    "prettier": "^3.6.2",
     "typescript": "^5.5.0",
     "zuedocs": "0.1.24"
   }
