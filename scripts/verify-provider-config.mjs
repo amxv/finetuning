@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import {
   ProviderConfigurationError,
   assertSupportedModelProviderKind,
@@ -9,9 +10,9 @@ import {
 } from "../dist/providers/index.js";
 
 const execFileAsync = promisify(execFile);
-const workspace = new URL("../tmp/provider-config-verify/", import.meta.url);
-const repoRoot = new URL("..", import.meta.url).pathname;
-const cliPath = new URL("../dist/cli/index.js", import.meta.url).pathname;
+const workspace = fileURLToPath(new URL("../tmp/provider-config-verify/", import.meta.url));
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const cliPath = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 
 await rm(workspace, { recursive: true, force: true });
 await mkdir(workspace, { recursive: true });
@@ -89,7 +90,7 @@ async function assertUnsupportedProvider() {
 }
 
 async function assertDeterministicCliStillRunsOffline() {
-  const datasetPath = join(workspace.pathname, "deterministic.jsonl");
+  const datasetPath = join(workspace, "deterministic.jsonl");
   const run = await runCli([
     "simulate-dataset",
     "--profile",
@@ -116,7 +117,7 @@ async function assertExplicitProviderCliValidatesBeforeAdapterUse() {
     "--profile",
     "sample-retail-support",
     "--out",
-    join(workspace.pathname, "provider.jsonl"),
+    join(workspace, "provider.jsonl"),
     "--simulation-provider",
     "openai",
     "--simulation-model",
@@ -134,7 +135,7 @@ async function assertExplicitProviderCliValidatesBeforeAdapterUse() {
     "--profile",
     "sample-retail-support",
     "--out",
-    join(workspace.pathname, "personas.json"),
+    join(workspace, "personas.json"),
     "--persona-provider",
     "anthropic",
   ]);
@@ -148,7 +149,7 @@ async function assertExplicitProviderCliValidatesBeforeAdapterUse() {
     "--profile",
     "sample-retail-support",
     "--out",
-    join(workspace.pathname, "invalid-provider.jsonl"),
+    join(workspace, "invalid-provider.jsonl"),
     "--simulation-provider",
     "unknown",
   ]);

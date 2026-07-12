@@ -5,11 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { fullToolTrajectoryConversationFixture, trajectoryToDatasetExample } from "../dist/core/index.js";
 import { AttemptLedger } from "../dist/orchestration/index.js";
 
 const execFileAsync = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "finetuning-cli3-"));
   t.after(() => rm(root, { recursive: true, force: true }));

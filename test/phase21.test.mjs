@@ -76,7 +76,8 @@ test("fake lifecycle reconciles timeout-after-create and is idempotent", async (
   assert.equal(backend.pods.length, 1);
   const duplicate = await new RunPodLifecycleController(backend, join(root, "reconcile.json"), "owner").launch(j, p);
   assert.equal(duplicate.podId, "pod-1");
-  assert.equal((await statMode(join(root, "reconcile.json"))) & 0o777, 0o600);
+  const stateMode = (await statMode(join(root, "reconcile.json"))) & 0o777;
+  assert.equal(stateMode, process.platform === "win32" ? 0o666 : 0o600);
   const stopped = await new RunPodLifecycleController(backend, join(root, "reconcile.json"), "owner").stop();
   assert.equal(stopped.status, "stopped");
   await assert.rejects(

@@ -5,8 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 const runFile = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 const run = (args) => runFile(process.execPath, [cli, ...args]);
 test("distill CLI init, plan, responses, status, resume, freeze and overwrite rules", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "distill-cli-"));

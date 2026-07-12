@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { canonicalSha256 } from "../dist/core/canonical.js";
 import {
   AdvancedDistillationError,
@@ -138,8 +139,8 @@ test("Python tiny DPO ORPO logit feature checkpoint and artifact experiments", a
     const code = `from pathlib import Path\nfrom amxv_finetuning_trainer.experimental import *\np=Path(r'${dir}')\na=preference_loss([2.,1.],[0.,0.],\"dpo\");b=preference_loss([2.,1.],[0.,0.],\"orpo\")\nassert a>0 and b>0\nt=topk_target([1.,2.,3.],2,1.,1000);assert abs(sum(x[\"probability\"] for x in t[\"topK\"])+t[\"residualMass\"]-1)<1e-9\nalign_vocabulary(\"a\",\"b\",{0:1})\nassert feature_loss([[1.,2.]],[[1.,2.]],None,[1])==0\nimmutable={\"objective\":\"dpo\",\"tokenizer\":\"x\"};checkpoint(p/\"checkpoint.json\",{\"immutable\":immutable,\"step\":2});assert resume(p/\"checkpoint.json\",immutable)[\"step\"]==2\nr=write_tensor(p,\"features.bin\",b\"tiny\",[1,4],10);verify_tensor(p,r)\n(p/r[\"path\"]).write_bytes(b\"evil\")\ntry:verify_tensor(p,r);raise AssertionError()\nexcept ValueError as e:assert \"HASH_MISMATCH\" in str(e)\n`;
     await writeFile(join(dir, "run.py"), code);
     await exec("python3", [join(dir, "run.py")], {
-      cwd: new URL("../python/", import.meta.url),
-      env: { ...process.env, PYTHONPATH: new URL("../python/", import.meta.url).pathname },
+      cwd: fileURLToPath(new URL("../python/", import.meta.url)),
+      env: { ...process.env, PYTHONPATH: fileURLToPath(new URL("../python/", import.meta.url)) },
     });
   } finally {
     await rm(dir, { recursive: true, force: true });

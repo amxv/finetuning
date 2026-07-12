@@ -4,12 +4,14 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const root = new URL("../python/", import.meta.url);
+const rootPath = fileURLToPath(root);
 const directory = await mkdtemp(join(tmpdir(), "finetuning-python-audit-"));
 try {
-  await exec("uv", ["build", ".", "--out-dir", directory], { cwd: root });
+  await exec("uv", ["build", ".", "--out-dir", directory], { cwd: rootPath });
   const artifacts = (await readdir(directory)).sort();
   assert(
     artifacts.some((name) => name.endsWith(".whl")),

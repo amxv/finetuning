@@ -5,8 +5,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 const exec = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 test("training CLI prepare run resume status evaluate export executes CPU fixture", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "phase7-"));
   t.after(() => rm(root, { recursive: true, force: true }));

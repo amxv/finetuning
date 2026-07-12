@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { canonicalSha256 } from "../dist/core/canonical.js";
 import {
   embeddingText,
@@ -77,8 +78,8 @@ test("cross-language goldens cover every discriminated record kind", async () =>
     validateEmbeddingRecord(record);
     const code = `from amxv_finetuning_trainer.embedding_contracts import validate_record\nimport json\nvalidate_record(json.loads(${JSON.stringify(JSON.stringify(record))}))`;
     await exec("python3", ["-c", code], {
-      cwd: new URL("../python/", import.meta.url),
-      env: { ...process.env, PYTHONPATH: new URL("../python/", import.meta.url).pathname },
+      cwd: fileURLToPath(new URL("../python/", import.meta.url)),
+      env: { ...process.env, PYTHONPATH: fileURLToPath(new URL("../python/", import.meta.url)) },
     });
   }
   assert.equal(new Set(variants.map((x) => x.kind)).size, 13);

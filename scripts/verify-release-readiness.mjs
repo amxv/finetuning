@@ -4,14 +4,16 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { embeddingModelRegistry, embeddingRecipeRegistry } from "../dist/embeddings/training.js";
 import { recipeRegistry as chatRecipes } from "../dist/templates/index.js";
 import { trainingEventVersion, trainingSpecVersion } from "../dist/training/index.js";
 import { embeddingTrainingEventVersion, embeddingTrainingSpecVersion } from "../dist/embeddings/training.js";
 import { qloraProfile } from "../dist/execution/runpod/hardening.js";
+import { runNpm } from "./lib/npm-command.mjs";
 
 const exec = promisify(execFile),
-  root = resolve(new URL("../", import.meta.url).pathname);
+  root = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const json = async (path) => JSON.parse(await readFile(join(root, path), "utf8"));
 const support = await json("locks/recipe-support-v1.json");
 const modelLocks = await json("locks/embedding-models-v1.json");
@@ -88,7 +90,7 @@ const directory = await mkdtemp(join(tmpdir(), "finetuning-release-"));
 try {
   const pack = async (dest) =>
     JSON.parse(
-      (await exec("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", dest], { cwd: root })).stdout,
+      (await runNpm(exec, ["pack", "--json", "--ignore-scripts", "--pack-destination", dest], { cwd: root })).stdout,
     )[0];
   const first = await pack(directory),
     second = await pack(directory);

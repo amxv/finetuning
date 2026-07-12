@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { inspectRecipe, preflightRecipe, recipeRegistry, templateRegistry } from "../dist/templates/index.js";
 import {
   artifactManifestVersion,
@@ -15,7 +16,7 @@ import {
 } from "../dist/training/index.js";
 import { runPythonTrainer } from "../dist/node/index.js";
 const execFileAsync = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 test("registries keep all model/template identities distinct and unresolved pins fail closed", () => {
   assert.equal(recipeRegistry.length, 7);
   assert.equal(new Set(recipeRegistry.map((x) => x.modelId)).size, 7);

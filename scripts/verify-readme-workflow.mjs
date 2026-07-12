@@ -2,20 +2,21 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
-const workspace = new URL("../tmp/readme-workflow/", import.meta.url);
-const repoRoot = new URL("..", import.meta.url).pathname;
-const cliPath = new URL("../dist/cli/index.js", import.meta.url).pathname;
+const workspace = fileURLToPath(new URL("../tmp/readme-workflow/", import.meta.url));
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const cliPath = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 
 await rm(workspace, { recursive: true, force: true });
 await mkdir(workspace, { recursive: true });
 
 const receptionistConfig = "examples/receptionist/scenario.json";
 const retailConfig = "examples/retail-support/scenario.json";
-const personasPath = join(workspace.pathname, "receptionist-personas.json");
-const receptionistDatasetPath = join(workspace.pathname, "receptionist.jsonl");
-const retailDatasetPath = join(workspace.pathname, "retail.jsonl");
+const personasPath = join(workspace, "receptionist-personas.json");
+const receptionistDatasetPath = join(workspace, "receptionist.jsonl");
+const retailDatasetPath = join(workspace, "retail.jsonl");
 
 const personaRun = await runCli([
   "generate-personas",

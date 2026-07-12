@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import {
   cliCommands,
   createDeferredLogConversionError,
@@ -9,7 +10,7 @@ import {
 } from "../dist/index.js";
 
 const execFileAsync = promisify(execFile);
-const cliPath = new URL("../dist/cli/index.js", import.meta.url).pathname;
+const cliPath = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 
 if (deferredLogConversionBoundary.status !== "deferred" || deferredLogConversionBoundary.includedInV1 !== false) {
   throw new Error("Log conversion boundary must be explicitly deferred and excluded from v1.");
@@ -90,7 +91,7 @@ console.log("Verified log-derived dataset support is explicitly deferred across 
 
 async function runCli(args) {
   return execFileAsync(process.execPath, [cliPath, ...args], {
-    cwd: new URL("..", import.meta.url).pathname,
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
   });
 }
 

@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(new URL("../", import.meta.url).pathname);
+const root = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const docs = ["README.md", "CHANGELOG.md", "MIGRATION.md", "SUPPORT.md", "docs/alpha-chat-workflows.md"];
 for (const file of docs) {
   const text = await readFile(join(root, file), "utf8");

@@ -18,6 +18,7 @@ import {
 import { loadScenarioSource as loadScenarioSourceFromSimulation } from "../dist/simulation/index.js";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const cases = [
   {
@@ -180,7 +181,7 @@ console.log(
 );
 
 async function listTypeScriptFiles(directoryUrl) {
-  const directory = directoryUrl.pathname;
+  const directory = fileURLToPath(directoryUrl);
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
 

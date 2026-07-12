@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import {
   EmbeddingDatasetBuilder,
   EmbeddingRecordValidator,
@@ -13,7 +14,7 @@ import {
 } from "../dist/embeddings/index.js";
 import { parseEmbedProjectConfig, resolveEmbedConfig } from "../dist/cli/embed-config.js";
 const exec = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url);
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 test("embedding config is versioned, strict, redacted, and resolves CLI > env > command > defaults", async () => {
   const root = await mkdtemp(join(tmpdir(), "embed-config-"));
   try {
@@ -67,7 +68,7 @@ test("every embedding noun and subcommand has process help", async () => {
   let count = 0;
   for (const [noun, verbs] of Object.entries(matrix))
     for (const verb of verbs) {
-      const { stdout } = await exec(process.execPath, [cli.pathname, "embed", noun, verb, "--help"]);
+      const { stdout } = await exec(process.execPath, [cli, "embed", noun, verb, "--help"]);
       assert.match(stdout, /Usage:/);
       count++;
     }

@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
 const reportPath = new URL("../test/snapshots/api-report.md", import.meta.url);
@@ -29,14 +30,14 @@ const declarations = [
 let report = "# Public API declaration report\n\nGenerated from the public package entry points.\n";
 for (const declaration of declarations) {
   const url = new URL(declaration, root);
-  report += `\n## ${relative(new URL(".", root).pathname, url.pathname)}\n\n\`\`\`ts\n`;
+  report += `\n## ${relative(fileURLToPath(new URL(".", root)), fileURLToPath(url))}\n\n\`\`\`ts\n`;
   report += (await readFile(url, "utf8")).trimEnd();
   report += "\n```\n";
 }
 
 if (process.argv.includes("--write")) {
   await writeFile(reportPath, report);
-  console.log(`Wrote ${reportPath.pathname}`);
+  console.log(`Wrote ${fileURLToPath(reportPath)}`);
 } else if (process.argv.includes("--check")) {
   const expected = await readFile(reportPath, "utf8");
   if (expected !== report) {

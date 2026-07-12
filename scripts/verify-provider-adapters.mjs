@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ProviderToolCallError,
   ProviderUnsupportedFeatureError,
@@ -413,7 +414,7 @@ async function assertProviderSdkImportBoundary() {
 }
 
 async function listTypeScriptFiles(directoryUrl) {
-  const directory = directoryUrl.pathname;
+  const directory = fileURLToPath(directoryUrl);
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
 

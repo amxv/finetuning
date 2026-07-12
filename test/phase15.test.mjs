@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import {
   assertEmbeddingContractMajor,
   embeddingModelRegistry,
@@ -13,7 +14,7 @@ import {
 } from "../dist/embeddings/training.js";
 import { runPythonEmbeddingTrainer } from "../dist/node/index.js";
 const exec = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 test("embedding protocol, five-recipe honesty, and CPU CLI train/resume/export", async (t) => {
   assert.equal(embeddingTrainingSpecVersion, "embedding.training.v1");
   assert.throws(

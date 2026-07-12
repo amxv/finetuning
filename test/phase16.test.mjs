@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import {
   bootstrap,
   classificationMetrics,
@@ -88,7 +89,7 @@ const spec = {
   bootstrap: { seed: 7, samples: 100 },
 };
 const exec = promisify(execFile),
-  cli = new URL("../dist/cli/index.js", import.meta.url).pathname;
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 test("hand-computed metric goldens and deterministic ties", () => {
   const m = retrievalMetrics(rows);
   assert.equal(m["recall@10"], 1);

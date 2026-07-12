@@ -3,10 +3,11 @@ import { execFile } from "node:child_process";
 import { access, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const startedAt = performance.now();
-const root = resolve(new URL("../", import.meta.url).pathname);
+const root = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const cli = join(root, "dist/cli/index.js");
 const run = async (...args) => (await exec(process.execPath, [cli, ...args], { cwd: root })).stdout;
 const { embedCommandReference } = await import("../dist/cli/embed-command-reference.js");

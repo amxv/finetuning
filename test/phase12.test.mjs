@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { canonicalSerialize, canonicalSha256 } from "../dist/core/canonical.js";
 import { embeddingText, validateEmbeddingRecord, withEmbeddingHash } from "../dist/experimental/embeddings-phase11.js";
 import { decodeEmbeddingRow, encodeEmbeddingRow } from "../dist/embeddings/formats.js";
@@ -22,8 +23,8 @@ import {
 import { parseJsonl } from "../dist/formats/streaming.js";
 
 const exec = promisify(execFile),
-  root = new URL("../", import.meta.url),
-  cli = new URL("../dist/cli/index.js", import.meta.url);
+  root = fileURLToPath(new URL("../", import.meta.url)),
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 const teacher = {
   provider: "fixture",
   model: "teacher",
@@ -357,35 +358,33 @@ test("embed data CLI covers every subcommand, JSON/dry-run/stdin/overwrite and s
         .join("\n") + "\n",
     );
     for (const verb of ["validate", "inspect"]) {
-      const { stdout } = await exec(process.execPath, [cli.pathname, "embed", "data", verb, input, "--json"]);
+      const { stdout } = await exec(process.execPath, [cli, "embed", "data", verb, input, "--json"]);
       assert.doesNotThrow(() => JSON.parse(stdout));
     }
     for (const verb of ["import", "convert", "export"]) {
-      const { stdout } = await exec(process.execPath, [cli.pathname, "embed", "data", verb, input, "--out", "-"], {
+      const { stdout } = await exec(process.execPath, [cli, "embed", "data", verb, input, "--out", "-"], {
         cwd: root,
       });
       assert.match(stdout, /embeddingRecordVersion/);
     }
-    const split = await exec(
-      process.execPath,
-      [cli.pathname, "embed", "data", "split", input, "--salt", "s", "--out", "-"],
-      { cwd: root },
-    );
+    const split = await exec(process.execPath, [cli, "embed", "data", "split", input, "--salt", "s", "--out", "-"], {
+      cwd: root,
+    });
     assert.match(split.stdout, /"split"/);
-    const dedupe = await exec(process.execPath, [cli.pathname, "embed", "data", "dedupe", input, "--out", "-"], {
+    const dedupe = await exec(process.execPath, [cli, "embed", "data", "dedupe", input, "--out", "-"], {
       cwd: root,
     });
     assert.match(dedupe.stdout, /clusterId/);
-    await exec(process.execPath, [cli.pathname, "embed", "data", "create", "--out", out, "--json"], { cwd: root });
+    await exec(process.execPath, [cli, "embed", "data", "create", "--out", out, "--json"], { cwd: root });
     await assert.rejects(
-      () => exec(process.execPath, [cli.pathname, "embed", "data", "create", "--out", out], { cwd: root }),
+      () => exec(process.execPath, [cli, "embed", "data", "create", "--out", out], { cwd: root }),
       /already exists/,
     );
-    await exec(process.execPath, [cli.pathname, "embed", "data", "create", "--out", out, "--force"], { cwd: root });
+    await exec(process.execPath, [cli, "embed", "data", "create", "--out", out, "--force"], { cwd: root });
     const dry = join(dir, "dry");
     const d = await exec(
       process.execPath,
-      [cli.pathname, "embed", "data", "import", input, "--out", dry, "--dry-run", "--json"],
+      [cli, "embed", "data", "import", input, "--out", dry, "--dry-run", "--json"],
       { cwd: root },
     );
     assert.equal(JSON.parse(d.stdout).dryRun, true);
@@ -393,11 +392,11 @@ test("embed data CLI covers every subcommand, JSON/dry-run/stdin/overwrite and s
     const stdin = await cliInput(["embed", "data", "validate", "-", "--json"], await readFile(input));
     assert.equal(JSON.parse(stdin).valid, true);
     const frozen = join(dir, "frozen");
-    await exec(process.execPath, [cli.pathname, "embed", "data", "freeze", input, "--out", frozen, "--json"], {
+    await exec(process.execPath, [cli, "embed", "data", "freeze", input, "--out", frozen, "--json"], {
       cwd: root,
     });
     assert.equal((await readFile(join(frozen, "manifest.json"), "utf8")).includes("recordsHash"), true);
-    const help = await exec(process.execPath, [cli.pathname, "--help"], { cwd: root });
+    const help = await exec(process.execPath, [cli, "--help"], { cwd: root });
     assert.match(help.stdout, /embed data create/);
     assert.doesNotMatch(help.stdout, /Qwen3-Embedding.*available/i);
   } finally {
@@ -416,7 +415,7 @@ test("embedding subpaths are additive and model locks remain unavailable", async
 });
 function cliInput(args, input) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cli.pathname, ...args], { cwd: root }),
+    const child = spawn(process.execPath, [cli, ...args], { cwd: root }),
       out = [],
       err = [];
     child.stdout.on("data", (x) => out.push(x));

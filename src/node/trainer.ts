@@ -64,7 +64,7 @@ export async function runPythonTrainer(options: TrainerBridgeOptions): Promise<T
     }
     const exitCode = await closed;
     if (termination) await termination;
-    return { exitCode, events, stderr };
+    return { exitCode: options.signal?.aborted ? 130 : exitCode, events, stderr };
   } catch (error) {
     reader.close();
     await terminate();

@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
-const root = new URL("../", import.meta.url);
+const root = fileURLToPath(new URL("../", import.meta.url));
 const scripts = [
   "verify-fixtures.mjs",
   "verify-cli.mjs",

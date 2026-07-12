@@ -2,22 +2,23 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { retailSupportScenarioProfile } from "../dist/core/index.js";
 
 const execFileAsync = promisify(execFile);
-const workspace = new URL("../tmp/cli-verify/", import.meta.url);
-const cliPath = new URL("../dist/cli/index.js", import.meta.url).pathname;
+const workspace = fileURLToPath(new URL("../tmp/cli-verify/", import.meta.url));
+const cliPath = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 
 await rm(workspace, { recursive: true, force: true });
 await mkdir(workspace, { recursive: true });
 
-const configPath = join(workspace.pathname, "retail-scenario.json");
-const personasPath = join(workspace.pathname, "personas.json");
-const datasetPath = join(workspace.pathname, "dataset.jsonl");
-const malformedPath = join(workspace.pathname, "malformed.jsonl");
-const unsupportedRolePath = join(workspace.pathname, "unsupported-role.jsonl");
-const providerConfigPath = join(workspace.pathname, "provider-config.json");
-const toolkitConfigPath = join(workspace.pathname, "toolkit-config.json");
+const configPath = join(workspace, "retail-scenario.json");
+const personasPath = join(workspace, "personas.json");
+const datasetPath = join(workspace, "dataset.jsonl");
+const malformedPath = join(workspace, "malformed.jsonl");
+const unsupportedRolePath = join(workspace, "unsupported-role.jsonl");
+const providerConfigPath = join(workspace, "provider-config.json");
+const toolkitConfigPath = join(workspace, "toolkit-config.json");
 
 await writeFile(configPath, `${JSON.stringify(retailSupportScenarioProfile, null, 2)}\n`);
 
@@ -93,7 +94,7 @@ const configSimulationRun = await expectCliFailure([
   "--provider-config",
   providerConfigPath,
   "--out",
-  join(workspace.pathname, "provider-config-simulation.jsonl"),
+  join(workspace, "provider-config-simulation.jsonl"),
   "--limit",
   "1",
 ]);
@@ -109,7 +110,7 @@ const overrideSimulationRun = await expectCliFailure([
   "--provider-config",
   providerConfigPath,
   "--out",
-  join(workspace.pathname, "provider-config-override.jsonl"),
+  join(workspace, "provider-config-override.jsonl"),
   "--limit",
   "1",
   "--simulation-api-key-env",
@@ -127,7 +128,7 @@ const configPersonaRun = await expectCliFailure([
   "--provider-config",
   providerConfigPath,
   "--out",
-  join(workspace.pathname, "provider-config-personas.json"),
+  join(workspace, "provider-config-personas.json"),
 ]);
 
 if (!configPersonaRun.stderr.includes("Missing PHASE6_PERSONA_KEY for anthropic provider")) {
@@ -157,7 +158,7 @@ const toolkitConfigRun = await expectCliFailure([
   "--config",
   toolkitConfigPath,
   "--out",
-  join(workspace.pathname, "toolkit-config-simulation.jsonl"),
+  join(workspace, "toolkit-config-simulation.jsonl"),
   "--limit",
   "1",
 ]);
@@ -204,7 +205,7 @@ console.log(
 
 async function runCli(args) {
   return execFileAsync(process.execPath, [cliPath, ...args], {
-    cwd: new URL("..", import.meta.url).pathname,
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
   });
 }
 

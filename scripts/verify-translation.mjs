@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import {
   assertValidOpenAIFineTuningRow,
   buildOpenAIFineTuningRow,
@@ -14,8 +15,8 @@ import {
 } from "../dist/index.js";
 
 const execFileAsync = promisify(execFile);
-const workspace = new URL("../tmp/translation-verify/", import.meta.url);
-const cliPath = new URL("../dist/cli/index.js", import.meta.url).pathname;
+const workspace = fileURLToPath(new URL("../tmp/translation-verify/", import.meta.url));
+const cliPath = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 
 await rm(workspace, { recursive: true, force: true });
 await mkdir(workspace, { recursive: true });
@@ -124,8 +125,8 @@ if (!malformedProviderFailed) {
   throw new Error("Malformed provider translation output did not fail.");
 }
 
-const sourcePath = join(workspace.pathname, "source.jsonl");
-const outPath = join(workspace.pathname, "translated.jsonl");
+const sourcePath = join(workspace, "source.jsonl");
+const outPath = join(workspace, "translated.jsonl");
 await writeFile(sourcePath, serializeOpenAIJsonlRows([row]));
 
 const cliRun = await execFileAsync(process.execPath, [
@@ -160,7 +161,7 @@ const missingModelRun = await expectCliFailure([
   "--target-locale",
   "es-ES",
   "--out",
-  join(workspace.pathname, "provider-missing-model.jsonl"),
+  join(workspace, "provider-missing-model.jsonl"),
   "--strategy",
   "openai",
 ]);
@@ -175,7 +176,7 @@ const missingKeyRun = await expectCliFailure([
   "--target-locale",
   "es-ES",
   "--out",
-  join(workspace.pathname, "provider-missing-key.jsonl"),
+  join(workspace, "provider-missing-key.jsonl"),
   "--strategy",
   "anthropic",
   "--translation-model",

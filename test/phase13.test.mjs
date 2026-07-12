@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { embeddingText, withEmbeddingHash } from "../dist/experimental/embeddings-phase11.js";
 import {
   EmbeddingDistillationPipeline,
@@ -14,8 +15,8 @@ import {
   validateEmbeddingDistillationConfig,
 } from "../dist/embeddings/distillation.js";
 const exec = promisify(execFile),
-  root = new URL("../", import.meta.url),
-  cli = new URL("../dist/cli/index.js", import.meta.url);
+  root = fileURLToPath(new URL("../", import.meta.url)),
+  cli = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
 const t = (x, id) => embeddingText(x, { language: "en", domain: "test", documentId: id, corpusId: "c" });
 const record = (id, split = "train") =>
   withEmbeddingHash({
@@ -234,12 +235,12 @@ test("Phase 13 CLI verbs provide dry-run JSON, run/resume/status and additive he
       ["embed", "mine", "negatives", "--dry-run", "--json"],
       ["embed", "distill", "plan", "--config", cfg, "--json"],
     ])
-      JSON.parse((await exec(process.execPath, [cli.pathname, ...args], { cwd: root })).stdout);
+      JSON.parse((await exec(process.execPath, [cli, ...args], { cwd: root })).stdout);
     const run = JSON.parse(
       (
         await exec(
           process.execPath,
-          [cli.pathname, "embed", "distill", "run", "--config", cfg, "--input", input, "--state", state, "--json"],
+          [cli, "embed", "distill", "run", "--config", cfg, "--input", input, "--state", state, "--json"],
           { cwd: root },
         )
       ).stdout,
@@ -247,7 +248,7 @@ test("Phase 13 CLI verbs provide dry-run JSON, run/resume/status and additive he
     assert.equal(run.trainOnly, true);
     const status = JSON.parse(
       (
-        await exec(process.execPath, [cli.pathname, "embed", "distill", "status", "--state", state, "--json"], {
+        await exec(process.execPath, [cli, "embed", "distill", "status", "--state", state, "--json"], {
           cwd: root,
         })
       ).stdout,
@@ -257,13 +258,13 @@ test("Phase 13 CLI verbs provide dry-run JSON, run/resume/status and additive he
       (
         await exec(
           process.execPath,
-          [cli.pathname, "embed", "distill", "resume", "--config", cfg, "--input", input, "--state", state, "--json"],
+          [cli, "embed", "distill", "resume", "--config", cfg, "--input", input, "--state", state, "--json"],
           { cwd: root },
         )
       ).stdout,
     );
     assert.equal(resume.recordCount, run.recordCount);
-    const help = (await exec(process.execPath, [cli.pathname, "--help"], { cwd: root })).stdout;
+    const help = (await exec(process.execPath, [cli, "--help"], { cwd: root })).stdout;
     assert.match(help, /embed distill vectors\|scores\|rankings/);
     assert.doesNotMatch(help, /Qwen3-Embedding.*supported/i);
   } finally {
