@@ -14,6 +14,7 @@ import {
 import type { JsonObject } from "../core/model.js";
 import { atomicWrite } from "../node/storage.js";
 import type { NormalizedUsage, TeacherEnvelope, TeacherRequest } from "../providers/contracts.js";
+import { ProviderBudgetExceededError } from "../providers/reliable.js";
 
 export const distillationApiVersion = "1.0.0" as const;
 export const distillationRecordVersion = "1.0.0" as const;
@@ -231,10 +232,19 @@ export class DistillationPipeline {
     ) => {
       const cached = paidSuccesses[identity];
       if (cached) return cached;
-      const envelope = await provider.generate(req);
+      let envelope: TeacherEnvelope;
+      let budgetError: ProviderBudgetExceededError | undefined;
+      try {
+        envelope = await provider.generate(req);
+      } catch (error) {
+        if (!(error instanceof ProviderBudgetExceededError)) throw error;
+        envelope = error.envelope;
+        budgetError = error;
+      }
       paidSuccesses[identity] = envelope;
       addUsage(usage, envelope.usage);
       await this.checkpoint?.(snapshot());
+      if (budgetError) throw budgetError;
       return envelope;
     };
     const doStage = async (stage: DistillationStage, fn: () => Promise<void> | void) => {

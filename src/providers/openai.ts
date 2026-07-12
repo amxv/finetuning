@@ -63,7 +63,13 @@ class OpenAIModelClient implements ModelClient {
     );
 
     try {
-      const response = await (await this.#getClient()).responses.create(sdkRequest);
+      const response = await (
+        await this.#getClient()
+      ).responses.create(sdkRequest, {
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.timeoutMs ? { timeout: request.timeoutMs } : {}),
+        ...(request.idempotencyKey ? { headers: { "Idempotency-Key": request.idempotencyKey } } : {}),
+      });
       return mapOpenAIResponsesResponse(response, { provider: "openai", model });
     } catch (error) {
       throw normalizeOpenAIError(error, model);

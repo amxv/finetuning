@@ -54,6 +54,9 @@ export interface ModelInvocationRequest {
     tools?: ToolSchema[];
     temperature?: number;
     metadata?: JsonObject;
+    signal?: AbortSignal;
+    timeoutMs?: number;
+    idempotencyKey?: string;
 }
 export type ModelInvocationResponse = {
     kind: "text";

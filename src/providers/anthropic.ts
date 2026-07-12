@@ -63,7 +63,12 @@ class AnthropicModelClient implements ModelClient {
     );
 
     try {
-      const response = await (await this.#getClient()).messages.create(sdkRequest);
+      const response = await (
+        await this.#getClient()
+      ).messages.create(sdkRequest, {
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.timeoutMs ? { timeout: request.timeoutMs } : {}),
+      });
       return mapAnthropicMessagesResponse(response, { provider: "anthropic", model });
     } catch (error) {
       throw normalizeAnthropicError(error, model);

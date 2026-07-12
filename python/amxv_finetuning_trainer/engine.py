@@ -18,6 +18,25 @@ def execute_production(spec: dict[str, Any], rows: list[dict[str, Any]], framewo
 FULL_STATE = ("model", "optimizer", "scheduler", "scaler", "rng", "sampler_position", "global_step")
 
 
+def resume_identity(spec: dict[str, Any]) -> dict[str, Any]:
+    """Canonical immutable semantics for restoring optimizer/RNG/sampler state."""
+    return {
+        "trainingSpecVersion": spec["trainingSpecVersion"],
+        "dataset": spec["dataset"],
+        "recipeId": spec["recipeId"],
+        "recipeIdentity": spec.get("recipeIdentity"),
+        "objective": spec["objective"],
+        "seed": spec["seed"],
+        "quantization": spec.get("quantization", "bf16"),
+        "adapter": spec.get("adapter", "lora"),
+        "trainingArguments": spec.get("trainingArguments", {}),
+    }
+
+
+def resume_identity_hash(spec: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(resume_identity(spec), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def preflight(spec: dict[str, Any]) -> dict[str, Any]:
     parse_spec(spec)
     recipe = spec["recipeId"]
@@ -82,11 +101,15 @@ def discover_lora_targets(module_names: list[str]) -> list[str]:
     return targets
 
 
-def classify_checkpoint(path: Path) -> str:
+def classify_checkpoint(path: Path, expected_identity_hash: str | None = None) -> str:
     if not path.exists():
-        return "none"
+        return "missing"
     value = json.loads(path.read_text())
-    return "full-resume" if all(key in value for key in FULL_STATE) else "weights-only-warm-start"
+    if not all(key in value for key in FULL_STATE) or not isinstance(value.get("identityHash"), str):
+        return "weights-only"
+    if expected_identity_hash is not None and value["identityHash"] != expected_identity_hash:
+        return "incompatible"
+    return "full-resume"
 
 
 def _examples(records_path: Path) -> list[tuple[float, float]]:
@@ -112,6 +135,14 @@ def _examples(records_path: Path) -> list[tuple[float, float]]:
 
 def train(spec: dict[str, Any], resume: Path | None = None) -> dict[str, Any]:
     info = preflight(spec)
+    identity_hash = resume_identity_hash(spec)
+    classification = "missing"
+    state = None
+    if resume:
+        classification = classify_checkpoint(resume, identity_hash)
+        if classification != "full-resume":
+            raise ValueError(f"CHECKPOINT_INCOMPATIBLE: {classification}")
+        state = json.loads(resume.read_text())
     out = Path(spec["outputDirectory"])
     out.mkdir(parents=True, exist_ok=True)
     records = Path(spec["dataset"]["manifestPath"]).parent / "records.jsonl"
@@ -121,10 +152,7 @@ def train(spec: dict[str, Any], resume: Path | None = None) -> dict[str, Any]:
     step = 0
     optimizer = {"momentum": 0.0}
     scheduler = {"rate": 0.1}
-    classification = "none"
-    if resume:
-        classification = classify_checkpoint(resume)
-        state = json.loads(resume.read_text())
+    if state is not None:
         weight = float(state["model"]["weight"])
         step = int(state.get("global_step", 0))
         optimizer = state.get("optimizer", optimizer)
@@ -148,6 +176,8 @@ def train(spec: dict[str, Any], resume: Path | None = None) -> dict[str, Any]:
             "rng": list(rng.getstate()),
             "sampler_position": index % len(examples),
             "global_step": step,
+            "identityHash": identity_hash,
+            "immutableIdentity": resume_identity(spec),
         }
         (out / f"checkpoint-{step}.json").write_text(json.dumps(state) + "\n")
     metric = evaluate_weight(weight, examples)

@@ -36,7 +36,7 @@ test("registry exposes explicit OpenAI and Anthropic capabilities", () => {
   assert.equal(inspectProvider("openai").structuredOutput, "native");
   assert.throws(() => inspectProvider("custom"));
 });
-test("429, eligible 5xx, transport, and timeouts retry with fake sleep", async () => {
+test("429, eligible 5xx, and idempotent transport failures retry with fake sleep", async () => {
   for (const failure of [
     new ProviderRateLimitError("429", { details: { retryAfterMs: 7 } }),
     new ProviderResponseError("500", { details: { status: 500 } }),
@@ -63,16 +63,18 @@ test("429, eligible 5xx, transport, and timeouts retry with fake sleep", async (
   let calls = 0;
   const provider = new ReliableTeacherProvider({
     transport: {
-      async invoke() {
+      async invoke(req) {
         calls++;
-        return new Promise(() => {});
+        return new Promise((_, reject) =>
+          req.signal.addEventListener("abort", () => reject(req.signal.reason), { once: true }),
+        );
       },
     },
     maxRetries: 1,
     sleep: async () => {},
   });
-  await assert.rejects(provider.generate({ ...request, requestId: "timeout", timeoutMs: 1 }));
-  assert.equal(calls, 2);
+  await assert.rejects(provider.generate({ ...request, provider: "anthropic", requestId: "timeout", timeoutMs: 1 }));
+  assert.equal(calls, 1);
 });
 test("refusal, content-policy, and schema failures are terminal", async () => {
   for (const finishReason of ["refusal", "content_policy", "schema_failure"]) {

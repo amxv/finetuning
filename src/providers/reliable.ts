@@ -68,7 +68,7 @@ export class ReliableTeacherProvider {
       let last: unknown;
       for (let attempt = 0; attempt <= (this.options.maxRetries ?? 2); attempt++) {
         try {
-          const result = await this.withTimeout(request);
+          const result = await this.withTimeout(request, capabilities.idempotency ? identity : undefined);
           if (
             result.finishReason === "refusal" ||
             result.finishReason === "content_policy" ||
@@ -93,7 +93,6 @@ export class ReliableTeacherProvider {
           usage.cost = actual;
           usage.currency = this.options.budgets?.currency ?? "USD";
           this.#spent += actual;
-          this.assertBudget(0, "actual");
           const nativeRequestRef = await this.retain(result.nativeRequest);
           const nativeResponseRef = await this.retain(result.nativeResponse);
           const envelope: TeacherEnvelope = {
@@ -118,11 +117,26 @@ export class ReliableTeacherProvider {
             cached: false,
           };
           this.#successes.set(identity, envelope);
+          try {
+            this.assertBudget(0, "actual");
+          } catch {
+            throw new ProviderBudgetExceededError(envelope);
+          }
           return envelope;
         } catch (error) {
-          if (error instanceof TerminalProviderOutcome || request.signal?.aborted) throw error;
+          if (
+            error instanceof TerminalProviderOutcome ||
+            error instanceof ProviderBudgetExceededError ||
+            request.signal?.aborted
+          )
+            throw error;
           last = error;
-          if (!retryable(error) || attempt >= (this.options.maxRetries ?? 2)) throw error;
+          if (
+            !retryable(error) ||
+            (ambiguous(error) && !capabilities.idempotency) ||
+            attempt >= (this.options.maxRetries ?? 2)
+          )
+            throw error;
           const delayMs = retryDelay(error, attempt, this.options.jitter?.() ?? 0);
           retries.push({ attempt: attempt + 1, classification: classify(error), delayMs });
           await (this.options.sleep ?? defaultSleep)(delayMs);
@@ -133,13 +147,26 @@ export class ReliableTeacherProvider {
       this.release();
     }
   }
-  private async withTimeout(request: TeacherRequest) {
+  private async withTimeout(request: TeacherRequest, idempotencyKey?: string) {
     if (request.signal?.aborted) throw request.signal.reason ?? new Error("Aborted");
-    if (!request.timeoutMs) return this.options.transport.invoke(request);
-    return Promise.race([
-      this.options.transport.invoke(request),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new ProviderTimeoutError()), request.timeoutMs)),
-    ]);
+    const controller = new AbortController();
+    const abort = () => controller.abort(request.signal?.reason ?? new Error("Aborted"));
+    request.signal?.addEventListener("abort", abort, { once: true });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (request.timeoutMs) timer = setTimeout(() => controller.abort(new ProviderTimeoutError()), request.timeoutMs);
+    try {
+      return await this.options.transport.invoke({
+        ...request,
+        signal: controller.signal,
+        ...(idempotencyKey ? { idempotencyKey } : {}),
+      });
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+      request.signal?.removeEventListener("abort", abort);
+    }
   }
   private cost(request: TeacherRequest, usage: NormalizedUsage, snapshot?: string): number {
     if (!this.options.budgets) return 0;
@@ -190,7 +217,12 @@ class TerminalProviderOutcome extends Error {
     super(`Terminal provider outcome: ${outcome}`);
   }
 }
-class ProviderTimeoutError extends Error {}
+export class ProviderTimeoutError extends Error {}
+export class ProviderBudgetExceededError extends Error {
+  constructor(readonly envelope: TeacherEnvelope) {
+    super("Budget exceeded (actual)");
+  }
+}
 function classify(error: unknown) {
   if (error instanceof ProviderRateLimitError) return "rate_limit";
   if (error instanceof ProviderTimeoutError) return "timeout";
@@ -204,6 +236,9 @@ function retryable(error: unknown) {
     (error instanceof ProviderResponseError && Number(error.details?.status) >= 500) ||
     error instanceof TypeError
   );
+}
+function ambiguous(error: unknown) {
+  return error instanceof ProviderTimeoutError || error instanceof TypeError;
 }
 function retryDelay(error: unknown, attempt: number, jitter: number) {
   const hint =

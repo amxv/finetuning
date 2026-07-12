@@ -72,7 +72,26 @@ class Phase7(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "warm.json"
             path.write_text(json.dumps({"model": {"weight": 1}}))
-            self.assertEqual(classify_checkpoint(path), "weights-only-warm-start")
+            self.assertEqual(classify_checkpoint(path), "weights-only")
+
+    def test_resume_identity_rejects_changed_immutable_semantics_before_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.fixture(root, "source")
+            train(source)
+            checkpoint = root / "source" / "checkpoint-1.json"
+            for field, value in (("seed", 8), ("recipeId", "other-fixture"), ("trainingArguments", {"epochs": 9})):
+                target = self.fixture(root, f"changed-{field}")
+                target[field] = value
+                output = Path(target["outputDirectory"])
+                with self.assertRaisesRegex(ValueError, "CHECKPOINT_INCOMPATIBLE: incompatible"):
+                    train(target, checkpoint)
+                self.assertFalse(output.exists())
+            target = self.fixture(root, "changed-dataset")
+            target["dataset"] = {**target["dataset"], "recordsHash": "b" * 64}
+            with self.assertRaisesRegex(ValueError, "CHECKPOINT_INCOMPATIBLE: incompatible"):
+                train(target, checkpoint)
+            self.assertFalse(Path(target["outputDirectory"]).exists())
 
     def test_production_and_hardware_preflight_are_actionable(self):
         with tempfile.TemporaryDirectory() as d:
