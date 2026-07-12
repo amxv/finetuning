@@ -154,7 +154,7 @@
     "api:report": "npm run build && node scripts/api-report.mjs --write",
     "api:check": "npm run build && node scripts/api-report.mjs --check",
     "docs:dev": "astro dev",
-    "docs:check": "astro check --tsconfig tsconfig.astro.json",
+    "docs:check": "npm run build && astro check --tsconfig tsconfig.astro.json",
     "docs:build": "astro build && node scripts/verify-docs-build.mjs",
     "docs:preview": "astro preview",
     "verify:provider-config": "npm run build && node scripts/verify-provider-config.mjs",
