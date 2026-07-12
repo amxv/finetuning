@@ -14,6 +14,7 @@ import {
   preflightQualification,
   qualificationRecipes,
   qualificationEvidenceDigest,
+  qualificationBlockerCatalog,
   qualificationTrustPolicyDigest,
   recipeIdentityHash,
   recordQualificationEvidence,
@@ -82,6 +83,14 @@ test("all exact recipes are configured but neither qualified nor supported", () 
 
 test("machine-readable lock records explicit blockers for every configured recipe", async () => {
   const lock = JSON.parse(await readFile(new URL("../locks/model-qualification-v2.json", import.meta.url), "utf8"));
+  const blockerLock = JSON.parse(
+    await readFile(new URL("../locks/qualification-blockers-v2.json", import.meta.url), "utf8"),
+  );
+  const python = JSON.parse(
+    await readFile(new URL("../python/amxv_finetuning_trainer/recipe-evidence.json", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(blockerLock.catalog, qualificationBlockerCatalog);
+  assert.deepEqual(python.blockerCatalog, qualificationBlockerCatalog);
   assert.equal(lock.version, "2.0.0");
   assert.deepEqual(lock.qualificationStates, ["configured", "smokeAuthorized", "smokePassed", "qualified"]);
   assert.deepEqual(lock.supportStates, ["unavailable", "experimental", "supported"]);
@@ -109,6 +118,13 @@ test("machine-readable lock records explicit blockers for every configured recip
       },
       `${recipe.id} lock/SDK parity`,
     );
+    assert.equal(python.recipes[recipe.id].modelRevision, sdk.revision);
+    assert.deepEqual(python.recipes[recipe.id].unavailableReasons, sdk.blockers);
+    assert.deepEqual(
+      python.recipes[recipe.id].blockerCodes,
+      sdk.blockerRecords.map((blocker) => blocker.code),
+    );
+    assert.deepEqual(blockerLock.recipes[recipe.id], python.recipes[recipe.id].blockerCodes);
   }
 });
 
@@ -314,7 +330,7 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
   await write(make());
   const first = await record();
   assert.equal(first.store.recipes[recipe.id].state, "smokeAuthorized");
-  assert.ok(!first.evidence.authorization.dischargedBlockers.includes("GPU mechanics evidence absent"));
+  assert.ok(!first.evidence.authorization.dischargedBlockers.includes("GPU_MECHANICS_EVIDENCE_ABSENT"));
   assert.equal(
     (
       await preflightQualification(recipe.id, {
@@ -376,6 +392,7 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
     state: "smokePassed",
     previousState: "smokeAuthorized",
     predecessorDigest: first.digest,
+    expiresAt: "2026-07-15T11:00:00.000Z",
     assertions: {
       forwardBackward: true,
       finiteLoss: true,
@@ -396,7 +413,7 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
   await write(secondEvidence);
   const second = await record();
   assert.equal(second.store.recipes[recipe.id].state, "smokePassed");
-  assert.deepEqual(second.evidence.authorization.dischargedBlockers, ["GPU mechanics evidence absent"]);
+  assert.deepEqual(second.evidence.authorization.dischargedBlockers, ["GPU_MECHANICS_EVIDENCE_ABSENT"]);
   assert.equal(second.store.recipes[recipe.id].currentDigest, qualificationEvidenceDigest(secondEvidence));
   assert.equal(
     (
@@ -411,12 +428,27 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
     ).executable,
     true,
   );
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath,
+        artifactPaths: { "evidence-1": artifactPath, "evidence-2": artifactPath },
+        operationClass: "qualificationRun",
+        trustPolicy,
+        expectedTrustPolicySha256,
+        now: new Date("2026-07-14T12:00:00.000Z"),
+      })
+    ).executable,
+    true,
+    "an expired historical authorization must not invalidate a current promoted head",
+  );
   const thirdEvidence = make({
     evidenceId: "evidence-3",
     sequence: 3,
     state: "qualified",
     previousState: "smokePassed",
     predecessorDigest: second.digest,
+    expiresAt: "2026-07-16T11:00:00.000Z",
     assertions: { repeatedCleanRun: true, evaluation: true, export: true, artifactManifestVerified: true },
     authorization: {
       operationClass: "experimentalUse",
@@ -485,6 +517,8 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
   await assert.rejects(record(join(root, "premature-store.json")), /assertions/i);
   await write(make({ artifactSha256: "0".repeat(64) }));
   await assert.rejects(record(join(root, "artifact-store.json")), /artifact digest/i);
+  await write(make({ expiresAt: "2026-07-12T10:00:00.000Z" }));
+  await assert.rejects(record(join(root, "invalid-at-acceptance-store.json")), /timestamps/i);
   const staleBindings = { ...bindings, dependencyIdentitySha256: hash("drifted-dependencies") };
   await write(make({ bindings: staleBindings }));
   await assert.rejects(record(join(root, "stale-store.json"), { expectedBindings: bindings }), /stale/i);

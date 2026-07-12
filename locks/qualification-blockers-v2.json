@@ -1,0 +1,126 @@
+{
+  "version": "2.0.0",
+  "catalog": {
+    "TEXT_ONLY_LOADER_UNIMPLEMENTED": {
+      "phase": "smokeAuthorization",
+      "message": "verified text-only conditional-generation loader not implemented"
+    },
+    "ARCHITECTURE_INVENTORY_REQUIRED": {
+      "phase": "smokeAuthorization",
+      "message": "architecture inventory hash required"
+    },
+    "ASSISTANT_MASK_FIXTURES_REQUIRED": {
+      "phase": "smokeAuthorization",
+      "message": "manual assistant-mask fixtures required"
+    },
+    "GPU_MECHANICS_EVIDENCE_ABSENT": { "phase": "smokePass", "message": "GPU mechanics evidence absent" },
+    "FIRST_SMOKE_WAVE_NOT_AUTHORIZED": {
+      "phase": "smokeAuthorization",
+      "message": "not authorized in first smoke wave"
+    },
+    "PACKED_EXPERT_TARGETS_UNRESOLVED": {
+      "phase": "smokeAuthorization",
+      "message": "packed expert target_parameters unresolved"
+    },
+    "ROUTER_EXPERT_RELOAD_EVIDENCE_ABSENT": {
+      "phase": "smokeAuthorization",
+      "message": "router/expert save-reload evidence absent"
+    },
+    "LICENSE_ARTIFACT_ABSENT": { "phase": "smokeAuthorization", "message": "pinned LICENSE artifact absent" },
+    "REMOTE_CODE_KERNELS_UNREVIEWED": {
+      "phase": "smokeAuthorization",
+      "message": "remote code and Mamba kernels unreviewed"
+    },
+    "NEMOTRON_ADAPTER_ABSENT": { "phase": "smokeAuthorization", "message": "dedicated Nemotron adapter absent" },
+    "REASONING_MASK_POLICY_EVIDENCE_ABSENT": {
+      "phase": "smokeAuthorization",
+      "message": "reasoning-mask policy evidence absent"
+    },
+    "REMOTE_CODE_IDENTITY_REVIEW_REQUIRED": {
+      "phase": "smokeAuthorization",
+      "message": "remote code revision/hash review required"
+    },
+    "BGE_MIT_INVENTORY_UNAPPROVED": {
+      "phase": "smokeAuthorization",
+      "message": "corrected MIT legal inventory not yet approved"
+    },
+    "SPARSE_COLBERT_HYBRID_HEADS_EXCLUDED": {
+      "phase": "smokeAuthorization",
+      "message": "sparse/ColBERT/hybrid heads excluded"
+    },
+    "NATIVE_CONTRASTORS_MEGABLOCKS_LANE_REQUIRED": {
+      "phase": "smokeAuthorization",
+      "message": "native Contrastors/MegaBlocks lane required"
+    },
+    "EXTERNAL_CODE_LICENSE_REVIEW_ABSENT": {
+      "phase": "smokeAuthorization",
+      "message": "external code revision/license review absent"
+    },
+    "ROUTER_TELEMETRY_EVIDENCE_ABSENT": {
+      "phase": "smokeAuthorization",
+      "message": "router auxiliary-loss and utilization evidence absent"
+    },
+    "GTE_NEW_IMPL_REVIEW_REQUIRED": {
+      "phase": "smokeAuthorization",
+      "message": "Alibaba-NLP/new-impl revision/hash/license review required"
+    },
+    "SPARSE_HEAD_EXCLUDED": { "phase": "smokeAuthorization", "message": "sparse head excluded" }
+  },
+  "recipes": {
+    "qwen3.6-27b": [
+      "TEXT_ONLY_LOADER_UNIMPLEMENTED",
+      "ARCHITECTURE_INVENTORY_REQUIRED",
+      "ASSISTANT_MASK_FIXTURES_REQUIRED",
+      "GPU_MECHANICS_EVIDENCE_ABSENT"
+    ],
+    "qwen3.6-35b-a3b": [
+      "FIRST_SMOKE_WAVE_NOT_AUTHORIZED",
+      "PACKED_EXPERT_TARGETS_UNRESOLVED",
+      "ROUTER_EXPERT_RELOAD_EVIDENCE_ABSENT"
+    ],
+    "nemotron-cascade-2-30b-a3b": [
+      "FIRST_SMOKE_WAVE_NOT_AUTHORIZED",
+      "LICENSE_ARTIFACT_ABSENT",
+      "REMOTE_CODE_KERNELS_UNREVIEWED",
+      "NEMOTRON_ADAPTER_ABSENT"
+    ],
+    "nemotron-3-nano-30b-a3b": [
+      "FIRST_SMOKE_WAVE_NOT_AUTHORIZED",
+      "LICENSE_ARTIFACT_ABSENT",
+      "REMOTE_CODE_KERNELS_UNREVIEWED",
+      "NEMOTRON_ADAPTER_ABSENT"
+    ],
+    "olmo-3.1-32b-instruct": [
+      "LICENSE_ARTIFACT_ABSENT",
+      "ASSISTANT_MASK_FIXTURES_REQUIRED",
+      "GPU_MECHANICS_EVIDENCE_ABSENT"
+    ],
+    "olmo-3.1-32b-think": [
+      "LICENSE_ARTIFACT_ABSENT",
+      "REASONING_MASK_POLICY_EVIDENCE_ABSENT",
+      "GPU_MECHANICS_EVIDENCE_ABSENT"
+    ],
+    "qwen3-embed-0.6b-lora": ["LICENSE_ARTIFACT_ABSENT", "GPU_MECHANICS_EVIDENCE_ABSENT"],
+    "arctic-m-v2-full": [
+      "LICENSE_ARTIFACT_ABSENT",
+      "REMOTE_CODE_IDENTITY_REVIEW_REQUIRED",
+      "GPU_MECHANICS_EVIDENCE_ABSENT"
+    ],
+    "bge-m3-dense": [
+      "BGE_MIT_INVENTORY_UNAPPROVED",
+      "SPARSE_COLBERT_HYBRID_HEADS_EXCLUDED",
+      "GPU_MECHANICS_EVIDENCE_ABSENT"
+    ],
+    "nomic-v2-moe-native": [
+      "FIRST_SMOKE_WAVE_NOT_AUTHORIZED",
+      "NATIVE_CONTRASTORS_MEGABLOCKS_LANE_REQUIRED",
+      "EXTERNAL_CODE_LICENSE_REVIEW_ABSENT",
+      "ROUTER_TELEMETRY_EVIDENCE_ABSENT"
+    ],
+    "gte-multilingual-base-full": [
+      "GTE_NEW_IMPL_REVIEW_REQUIRED",
+      "SPARSE_HEAD_EXCLUDED",
+      "GPU_MECHANICS_EVIDENCE_ABSENT"
+    ]
+  }
+}

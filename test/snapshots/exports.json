@@ -213,6 +213,7 @@
     "parseTrainingSpec",
     "planRunPodSmoke",
     "preflightQualification",
+    "qualificationBlockerCatalog",
     "qualificationEvidenceDigest",
     "qualificationRecipes",
     "qualificationSchemaVersion",

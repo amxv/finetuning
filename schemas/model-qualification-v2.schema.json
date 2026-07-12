@@ -15,6 +15,7 @@
     "qualification",
     "optimization",
     "blockers",
+    "blockerRecords",
     "runtime"
   ],
   "properties": {
@@ -43,6 +44,20 @@
       "required": ["methods", "targetModules", "targetParameters", "modulesToSave", "frozen"]
     },
     "blockers": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "blockerRecords": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "phase", "message"],
+        "properties": {
+          "code": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
+          "phase": { "enum": ["smokeAuthorization", "smokePass"] },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "runtime": {
       "type": "object",
       "required": ["gpu", "vramGiB", "storageGiB", "image", "distributed"],

@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -109,6 +110,37 @@ class ModelRecipes(unittest.TestCase):
             require_execution_gates({"qualificationSchemaVersion": "2.0.0", "executionGates": gates})
 
     @unittest.skipIf(Ed25519PrivateKey is None, "cryptography training dependency is unavailable")
+    def test_typescript_recorded_evidence_is_consumed_unchanged_for_every_recipe_and_state(self):
+        repository = Path(__file__).parent.parent
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(
+                ["node", str(repository / "test" / "generate-cross-runtime-qualification.mjs"), directory],
+                cwd=repository,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            bundle = json.loads((Path(directory) / "bundle.json").read_text())
+            with patch.dict(
+                "os.environ",
+                {
+                    "AMXV_QUALIFICATION_TRUST_POLICY_SHA256": bundle["trustPolicySha256"],
+                    "AMXV_QUALIFICATION_TRUST_POLICY_PATH": bundle["trustPolicyPath"],
+                },
+                clear=True,
+            ):
+                for item in bundle["bundles"]:
+                    require_execution_gates(item["spec"])
+            current = [item for item in bundle["bundles"] if item["scenario"] == "current"]
+            self.assertEqual(len(current), len(RECIPES) * 3)
+            self.assertEqual({item["recipeId"] for item in current}, set(RECIPES))
+            self.assertEqual({item["state"] for item in current}, {"smokeAuthorized", "smokePassed", "qualified"})
+            expired = [item for item in bundle["bundles"] if item["scenario"] == "expired-predecessor"]
+            self.assertEqual(
+                [(item["recipeId"], item["state"]) for item in expired], [("qwen3-embed-0.6b-lora", "smokePassed")]
+            )
+
+    @unittest.skipIf(Ed25519PrivateKey is None, "cryptography training dependency is unavailable")
     def test_python_execution_authorizes_full_lifecycle_with_public_verification_only(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -183,7 +215,7 @@ class ModelRecipes(unittest.TestCase):
                     "smokeAuthorized",
                     "mechanicsSmoke",
                     "run",
-                    ["pinned LICENSE artifact absent"],
+                    ["LICENSE_ARTIFACT_ABSENT"],
                     {
                         "policyGatesReviewed": True,
                         "licenseAccepted": True,
@@ -197,7 +229,7 @@ class ModelRecipes(unittest.TestCase):
                     "smokePassed",
                     "qualificationRun",
                     "evaluate",
-                    ["GPU mechanics evidence absent"],
+                    ["GPU_MECHANICS_EVIDENCE_ABSENT"],
                     {
                         "forwardBackward": True,
                         "finiteLoss": True,
@@ -387,9 +419,14 @@ class ModelRecipes(unittest.TestCase):
                     require_execution_gates(qualified_spec)
 
     def test_all_recipe_revisions_are_exact_and_non_wave_recipes_block(self):
-        evidence = json.loads((Path(__file__).parent / "amxv_finetuning_trainer" / "recipe-evidence.json").read_text())[
-            "recipes"
-        ]
+        evidence_document = json.loads(
+            (Path(__file__).parent / "amxv_finetuning_trainer" / "recipe-evidence.json").read_text()
+        )
+        evidence = evidence_document["recipes"]
+        lock = json.loads((Path(__file__).parent.parent / "locks" / "model-qualification-v2.json").read_text())
+        blockers = json.loads((Path(__file__).parent.parent / "locks" / "qualification-blockers-v2.json").read_text())
+        lock_by_id = {recipe["id"]: recipe for recipe in lock["recipes"]}
+        self.assertEqual(evidence_document["blockerCatalog"], blockers["catalog"])
         self.assertEqual(set(evidence), set(RECIPES))
         for recipe_id in (
             "qwen3.6-27b",
@@ -408,6 +445,12 @@ class ModelRecipes(unittest.TestCase):
             self.assertEqual(evidence[recipe_id]["modelRevision"], RECIPES[recipe_id]["modelRevision"])
             self.assertEqual(evidence[recipe_id]["supportState"], "unavailable")
             self.assertEqual(evidence[recipe_id]["qualificationState"], "configured")
+            self.assertEqual(RECIPES[recipe_id]["architecture"], lock_by_id[recipe_id]["architecture"])
+            self.assertEqual(evidence[recipe_id]["blockerCodes"], blockers["recipes"][recipe_id])
+            self.assertEqual(
+                evidence[recipe_id]["unavailableReasons"],
+                [blockers["catalog"][code]["message"] for code in evidence[recipe_id]["blockerCodes"]],
+            )
         for recipe_id in (
             "qwen3.6-35b-a3b",
             "nemotron-cascade-2-30b-a3b",

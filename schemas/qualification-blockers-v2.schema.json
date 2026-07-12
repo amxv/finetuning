@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/schemas/qualification-blockers-v2.schema.json",
+  "title": "Qualification Blocker Catalog V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "catalog", "recipes"],
+  "properties": {
+    "version": { "const": "2.0.0" },
+    "catalog": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["phase", "message"],
+        "properties": {
+          "phase": { "enum": ["smokeAuthorization", "smokePass"] },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "recipes": {
+      "type": "object",
+      "minProperties": 11,
+      "maxProperties": 11,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }
+      }
+    }
+  }
+}

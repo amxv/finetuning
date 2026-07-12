@@ -7,6 +7,12 @@ export type QualificationState = "configured" | "smokeAuthorized" | "smokePassed
 export type QualificationOperationClass = "mechanicsSmoke" | "qualificationRun" | "experimentalUse";
 export type SupportState = "unavailable" | "experimental" | "supported";
 export type ArchitectureFamily = "dense" | "hybrid" | "moe" | "hybrid-moe" | "custom-code";
+export type QualificationBlockerPhase = "smokeAuthorization" | "smokePass";
+export interface QualificationBlocker {
+  code: string;
+  phase: QualificationBlockerPhase;
+  message: string;
+}
 
 export interface QualificationRecipeV2 {
   recipeSchemaVersion: typeof qualificationSchemaVersion;
@@ -32,6 +38,7 @@ export interface QualificationRecipeV2 {
     frozen: string[];
   };
   blockers: string[];
+  blockerRecords: QualificationBlocker[];
   runtime: {
     gpu: string;
     vramGiB: number;
@@ -89,7 +96,79 @@ const opt = (
   modulesToSave: string[] = [],
 ) => ({ methods, targetModules, targetParameters, modulesToSave, frozen });
 
-const baseQualificationRecipes: readonly Omit<QualificationRecipeV2, "identity">[] = [
+export const qualificationBlockerCatalog: Record<string, Omit<QualificationBlocker, "code">> = {
+  TEXT_ONLY_LOADER_UNIMPLEMENTED: {
+    phase: "smokeAuthorization",
+    message: "verified text-only conditional-generation loader not implemented",
+  },
+  ARCHITECTURE_INVENTORY_REQUIRED: { phase: "smokeAuthorization", message: "architecture inventory hash required" },
+  ASSISTANT_MASK_FIXTURES_REQUIRED: {
+    phase: "smokeAuthorization",
+    message: "manual assistant-mask fixtures required",
+  },
+  GPU_MECHANICS_EVIDENCE_ABSENT: { phase: "smokePass", message: "GPU mechanics evidence absent" },
+  FIRST_SMOKE_WAVE_NOT_AUTHORIZED: { phase: "smokeAuthorization", message: "not authorized in first smoke wave" },
+  PACKED_EXPERT_TARGETS_UNRESOLVED: {
+    phase: "smokeAuthorization",
+    message: "packed expert target_parameters unresolved",
+  },
+  ROUTER_EXPERT_RELOAD_EVIDENCE_ABSENT: {
+    phase: "smokeAuthorization",
+    message: "router/expert save-reload evidence absent",
+  },
+  LICENSE_ARTIFACT_ABSENT: { phase: "smokeAuthorization", message: "pinned LICENSE artifact absent" },
+  REMOTE_CODE_KERNELS_UNREVIEWED: {
+    phase: "smokeAuthorization",
+    message: "remote code and Mamba kernels unreviewed",
+  },
+  NEMOTRON_ADAPTER_ABSENT: { phase: "smokeAuthorization", message: "dedicated Nemotron adapter absent" },
+  REASONING_MASK_POLICY_EVIDENCE_ABSENT: {
+    phase: "smokeAuthorization",
+    message: "reasoning-mask policy evidence absent",
+  },
+  REMOTE_CODE_IDENTITY_REVIEW_REQUIRED: {
+    phase: "smokeAuthorization",
+    message: "remote code revision/hash review required",
+  },
+  BGE_MIT_INVENTORY_UNAPPROVED: {
+    phase: "smokeAuthorization",
+    message: "corrected MIT legal inventory not yet approved",
+  },
+  SPARSE_COLBERT_HYBRID_HEADS_EXCLUDED: {
+    phase: "smokeAuthorization",
+    message: "sparse/ColBERT/hybrid heads excluded",
+  },
+  NATIVE_CONTRASTORS_MEGABLOCKS_LANE_REQUIRED: {
+    phase: "smokeAuthorization",
+    message: "native Contrastors/MegaBlocks lane required",
+  },
+  EXTERNAL_CODE_LICENSE_REVIEW_ABSENT: {
+    phase: "smokeAuthorization",
+    message: "external code revision/license review absent",
+  },
+  ROUTER_TELEMETRY_EVIDENCE_ABSENT: {
+    phase: "smokeAuthorization",
+    message: "router auxiliary-loss and utilization evidence absent",
+  },
+  GTE_NEW_IMPL_REVIEW_REQUIRED: {
+    phase: "smokeAuthorization",
+    message: "Alibaba-NLP/new-impl revision/hash/license review required",
+  },
+  SPARSE_HEAD_EXCLUDED: { phase: "smokeAuthorization", message: "sparse head excluded" },
+};
+const blockerCodeByMessage = new Map(
+  Object.entries(qualificationBlockerCatalog).map(([code, blocker]) => [blocker.message, code]),
+);
+const blockerRecords = (messages: string[]): QualificationBlocker[] =>
+  messages.map((message) => {
+    const code = blockerCodeByMessage.get(message);
+    if (!code) throw new Error(`Missing qualification blocker code for: ${message}`);
+    const blocker = qualificationBlockerCatalog[code];
+    if (!blocker) throw new Error(`Missing qualification blocker definition for: ${code}`);
+    return { code, ...blocker };
+  });
+
+const baseQualificationRecipes: readonly Omit<QualificationRecipeV2, "identity" | "blockerRecords">[] = [
   {
     ...common,
     id: "qwen3.6-27b",
@@ -435,13 +514,14 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = baseQualif
   if (recipe.track === "embedding") {
     const embedding = embeddingSemantics[recipe.id];
     if (!embedding) throw new Error(`Missing embedding semantics for ${recipe.id}`);
-    return { ...recipe, identity, embedding };
+    return { ...recipe, identity, blockerRecords: blockerRecords(recipe.blockers), embedding };
   }
   const policy = chatPolicies[recipe.id];
   if (!policy) throw new Error(`Missing chat render policy for ${recipe.id}`);
   return {
     ...recipe,
     identity,
+    blockerRecords: blockerRecords(recipe.blockers),
     rendering: {
       maskStrategy: "verified-token-boundaries-v1",
       assistantBoundaryPolicy: "assistant-delimiter-content-and-template-eos-only",
@@ -480,8 +560,11 @@ export function inspectQualificationRecipe(id: string): QualificationRecipeV2 {
 }
 export function blockersForState(recipe: QualificationRecipeV2, state: Exclude<QualificationState, "configured">) {
   if (state === "smokeAuthorized")
-    return recipe.blockers.filter((blocker) => blocker !== "GPU mechanics evidence absent");
-  if (state === "smokePassed") return recipe.blockers.filter((blocker) => blocker === "GPU mechanics evidence absent");
+    return recipe.blockerRecords
+      .filter((blocker) => blocker.phase === "smokeAuthorization")
+      .map((blocker) => blocker.code);
+  if (state === "smokePassed")
+    return recipe.blockerRecords.filter((blocker) => blocker.phase === "smokePass").map((blocker) => blocker.code);
   return [];
 }
 const operationForState: Record<Exclude<QualificationState, "configured">, QualificationOperationClass> = {
@@ -530,6 +613,7 @@ export async function preflightQualification(id: string, input?: QualificationPr
           expectedPredecessorDigest: predecessorDigest,
           expectedPreviousState: previousState,
           expectedSequence: index + 1,
+          enforceCurrentExpiry: index === current.acceptedEvidence.length - 1,
           ...(index === current.acceptedEvidence.length - 1 && input.expectedBindings
             ? { expectedBindings: input.expectedBindings }
             : {}),
@@ -660,6 +744,7 @@ export interface EvidenceValidationOptions {
   expectedSequence: number;
   expectedBindings?: QualificationEvidenceV2["bindings"];
   now?: Date;
+  enforceCurrentExpiry?: boolean;
 }
 
 export interface QualificationTrustPolicyV1 {
@@ -725,7 +810,13 @@ async function validateQualificationEvidenceValue(
   const issued = Date.parse(evidence.issuedAt),
     expires = Date.parse(evidence.expiresAt),
     now = (options.now ?? new Date()).getTime();
-  if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued > now || expires <= now || expires <= issued)
+  if (
+    !Number.isFinite(issued) ||
+    !Number.isFinite(expires) ||
+    issued > now ||
+    expires <= issued ||
+    ((options.enforceCurrentExpiry ?? true) && expires <= now)
+  )
     throw new Error("Qualification evidence is stale or has invalid timestamps");
   const publicKey = options.trustPolicy.keys[evidence.signerKeyId];
   if (!publicKey) throw new Error("Qualification evidence signer is not trusted");

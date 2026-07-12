@@ -237,12 +237,13 @@ def _is_sha256(value: Any) -> bool:
 
 def _phase_blockers(recipe_id: str, state: str) -> list[str]:
     evidence_path = Path(__file__).with_name("recipe-evidence.json")
-    catalog = json.loads(evidence_path.read_text()).get("recipes", {})
-    blockers = catalog.get(recipe_id, {}).get("unavailableReasons", [])
+    evidence = json.loads(evidence_path.read_text())
+    catalog = evidence.get("blockerCatalog", {})
+    blocker_codes = evidence.get("recipes", {}).get(recipe_id, {}).get("blockerCodes", [])
     if state == "smokeAuthorized":
-        return [blocker for blocker in blockers if blocker != "GPU mechanics evidence absent"]
+        return [code for code in blocker_codes if catalog.get(code, {}).get("phase") == "smokeAuthorization"]
     if state == "smokePassed":
-        return [blocker for blocker in blockers if blocker == "GPU mechanics evidence absent"]
+        return [code for code in blocker_codes if catalog.get(code, {}).get("phase") == "smokePass"]
     return []
 
 
@@ -331,8 +332,10 @@ def _validate_evidence_chain(
         except (KeyError, TypeError, ValueError) as error:
             raise RuntimeError("QUALIFICATION_EVIDENCE_EXPIRY_INVALID") from error
         now = datetime.now(timezone.utc)
-        if evidence_issued > now or evidence_expiry <= now or evidence_expiry <= evidence_issued:
+        if evidence_issued > now or evidence_expiry <= evidence_issued:
             raise RuntimeError("QUALIFICATION_EVIDENCE_EXPIRED")
+        if index == sequence and evidence_expiry <= now:
+            raise RuntimeError("CURRENT_QUALIFICATION_EVIDENCE_EXPIRED")
         signer_key = trust_policy.get("keys", {}).get(evidence.get("signerKeyId"))
         if not signer_key:
             raise RuntimeError("QUALIFICATION_EVIDENCE_SIGNER_UNTRUSTED")
@@ -473,7 +476,8 @@ RECIPES = {
         "modelId": "Qwen/Qwen3.6-27B",
         "modelRevision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
         "tokenizerRevision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
-        "architecture": "hybrid-dense",
+        "architecture": "qwen3_5",
+        "architectureFamily": "hybrid-dense",
         "reasoning": "unified",
         "templateHash": None,
         "templateHashStatus": "required-before-smoke",
@@ -502,7 +506,8 @@ RECIPES = {
         "modelId": "Qwen/Qwen3.6-35B-A3B",
         "modelRevision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
         "tokenizerRevision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
-        "architecture": "hybrid-moe",
+        "architecture": "qwen3_5_moe",
+        "architectureFamily": "hybrid-moe",
         "reasoning": "unified",
         "templateHash": None,
         "templateHashStatus": "required-before-smoke",
@@ -521,7 +526,8 @@ RECIPES = {
         "modelId": "nvidia/Nemotron-Cascade-2-30B-A3B",
         "modelRevision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
         "tokenizerRevision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
-        "architecture": "custom-nemotron-h",
+        "architecture": "nemotron_h",
+        "architectureFamily": "custom-nemotron-h",
         "reasoning": "thinking-policy-required",
         "templateHash": None,
         "templateHashStatus": "required-before-smoke",
@@ -534,7 +540,8 @@ RECIPES = {
         "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
         "modelRevision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
         "tokenizerRevision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
-        "architecture": "custom-nemotron-h",
+        "architecture": "nemotron_h",
+        "architectureFamily": "custom-nemotron-h",
         "reasoning": "explicit",
         "templateHash": None,
         "templateHashStatus": "required-before-smoke",
@@ -547,7 +554,8 @@ RECIPES = {
         "modelId": "allenai/Olmo-3.1-32B-Instruct",
         "modelRevision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
         "tokenizerRevision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
-        "architecture": "dense",
+        "architecture": "olmo3",
+        "architectureFamily": "dense",
         "reasoning": "instruct",
         "templateHash": None,
         "templateHashStatus": "required-before-smoke",
@@ -566,7 +574,8 @@ RECIPES = {
         "modelId": "allenai/Olmo-3.1-32B-Think",
         "modelRevision": "832c3f543499af8fe68b88359501de9cb7840544",
         "tokenizerRevision": "832c3f543499af8fe68b88359501de9cb7840544",
-        "architecture": "dense",
+        "architecture": "olmo3",
+        "architectureFamily": "dense",
         "reasoning": "think",
         "templateHash": None,
         "templateHashStatus": "required-before-smoke",
@@ -585,6 +594,7 @@ RECIPES = {
         "methods": ["lora"],
         "modelId": "Qwen/Qwen3-Embedding-0.6B",
         "architecture": "qwen3",
+        "architectureFamily": "dense",
         "modelRevision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
         "tokenizerRevision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
         "pooling": "last-token",
@@ -610,7 +620,8 @@ RECIPES = {
         "track": "embedding",
         "methods": ["lora"],
         "modelId": "Snowflake/snowflake-arctic-embed-m-v2.0",
-        "architecture": "custom-gte",
+        "architecture": "gte",
+        "architectureFamily": "custom-gte",
         "modelRevision": "95c2741480856aa9666782eb4afe11959938017f",
         "tokenizerRevision": "95c2741480856aa9666782eb4afe11959938017f",
         "pooling": "cls",
@@ -632,6 +643,7 @@ RECIPES = {
         "methods": ["lora"],
         "modelId": "BAAI/bge-m3",
         "architecture": "xlm-roberta",
+        "architectureFamily": "dense",
         "modelRevision": "5617a9f61b028005a4858fdac845db406aefb181",
         "tokenizerRevision": "5617a9f61b028005a4858fdac845db406aefb181",
         "pooling": "cls",
@@ -652,7 +664,8 @@ RECIPES = {
         "track": "embedding",
         "methods": ["lora"],
         "modelId": "nomic-ai/nomic-embed-text-v2-moe",
-        "architecture": "custom-nomic-bert",
+        "architecture": "nomic_bert",
+        "architectureFamily": "custom-nomic-bert",
         "modelRevision": "1066b6599d099fbb93dfcb64f9c37a7c9e503e85",
         "tokenizerRevision": "1066b6599d099fbb93dfcb64f9c37a7c9e503e85",
         "pooling": "mean",
@@ -674,7 +687,8 @@ RECIPES = {
         "track": "embedding",
         "methods": ["lora"],
         "modelId": "Alibaba-NLP/gte-multilingual-base",
-        "architecture": "custom-new",
+        "architecture": "new",
+        "architectureFamily": "custom-new",
         "modelRevision": "9bbca17d9273fd0d03d5725c7a4b0f6b45142062",
         "tokenizerRevision": "9bbca17d9273fd0d03d5725c7a4b0f6b45142062",
         "pooling": "cls",
@@ -758,7 +772,7 @@ def execute_recipe(
             raise RuntimeError("LORA_TARGETS_UNRESOLVED")
     if recipe["modelId"].startswith("Qwen/Qwen3.6-"):
         raise RuntimeError("QWEN_TEXT_ONLY_ADAPTER_NOT_IMPLEMENTED")
-    if recipe.get("architecture", "").startswith("custom"):
+    if recipe.get("architectureFamily", "").startswith("custom"):
         code_identity = spec.get("codeIdentity", {})
         if (
             not isinstance(code_identity.get("revision"), str)
