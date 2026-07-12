@@ -215,6 +215,7 @@
     "qualificationEvidenceDigest",
     "qualificationRecipes",
     "qualificationSchemaVersion",
+    "qualificationTrustPolicyDigest",
     "recipeIdentityHash",
     "recordQualificationEvidence",
     "requiredAuthorizationGates",

@@ -1,5 +1,5 @@
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export const qualificationSchemaVersion = "2.0.0" as const;
@@ -477,35 +477,52 @@ export function inspectQualificationRecipe(id: string): QualificationRecipeV2 {
   if (!recipe) throw new Error(`Unknown qualification recipe: ${id}`);
   return recipe;
 }
-export interface AcceptedSmokeAuthorization {
-  state: "smokeAuthorized";
-  recipeId: string;
-  recipeIdentityHash: string;
-  evidenceDigest: string;
-  dischargedBlockers: string[];
-  gates: AuthorizationGates;
+export interface QualificationPreflightInput {
+  storePath: string;
+  artifactPath: string;
+  trustPolicy: QualificationTrustPolicyV1;
+  expectedTrustPolicySha256: string;
+  expectedBindings?: QualificationEvidenceV2["bindings"];
+  now?: Date;
 }
-export function preflightQualification(id: string, authorization?: AcceptedSmokeAuthorization) {
+export async function preflightQualification(id: string, input?: QualificationPreflightInput) {
   const recipe = inspectQualificationRecipe(id);
   const blockers: string[] = [];
   if (!recipe.qualification.firstWaveExecutable) blockers.push("recipe is non-executable in first smoke wave");
-  if (
-    !authorization ||
-    authorization.state !== "smokeAuthorized" ||
-    authorization.recipeId !== id ||
-    authorization.recipeIdentityHash !== recipeIdentityHash(recipe) ||
-    !/^[a-f0-9]{64}$/.test(authorization.evidenceDigest)
-  ) {
+  if (!input) {
     blockers.push("accepted recipe-bound smokeAuthorized evidence required");
   } else {
-    const closed = requiredAuthorizationGates.filter((gate) => authorization.gates[gate] !== true);
-    blockers.push(...closed.map((gate) => `authorization gate closed: ${gate}`));
-    if (authorization.gates.uploadRequested && !authorization.gates.uploadApproved)
-      blockers.push("upload requested without approval");
-    if (!authorization.gates.uploadRequested && authorization.gates.uploadApproved)
-      blockers.push("upload approval must remain false for no-upload smoke execution");
-    const undisclosed = recipe.blockers.filter((blocker) => !authorization.dischargedBlockers.includes(blocker));
-    blockers.push(...undisclosed.map((blocker) => `evidence requirement not discharged: ${blocker}`));
+    try {
+      const store = JSON.parse(await readFile(input.storePath, "utf8")) as QualificationStoreV2;
+      const policyDigest = qualificationTrustPolicyDigest(input.trustPolicy);
+      const current = store.recipes[id];
+      if (
+        store.storeVersion !== "2.0.0" ||
+        store.trustPolicySha256 !== policyDigest ||
+        policyDigest !== input.expectedTrustPolicySha256 ||
+        current?.state !== "smokeAuthorized" ||
+        current.sequence !== 1 ||
+        current.acceptedEvidence.length !== 1
+      )
+        throw new Error("persisted smoke authorization state is invalid");
+      const evidence = current.acceptedEvidence[0];
+      if (!evidence || qualificationEvidenceDigest(evidence) !== current.currentDigest)
+        throw new Error("persisted smoke authorization digest is invalid");
+      await validateQualificationEvidenceValue(evidence, await readFile(input.artifactPath), {
+        artifactPath: input.artifactPath,
+        trustPolicy: input.trustPolicy,
+        expectedTrustPolicySha256: input.expectedTrustPolicySha256,
+        expectedPredecessorDigest: recipeIdentityHash(recipe),
+        expectedPreviousState: "configured",
+        expectedSequence: 1,
+        ...(input.expectedBindings ? { expectedBindings: input.expectedBindings } : {}),
+        ...(input.now ? { now: input.now } : {}),
+      });
+    } catch (error) {
+      blockers.push(
+        `accepted recipe-bound smokeAuthorized evidence invalid: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
   return {
     recipeId: id,
@@ -548,6 +565,7 @@ export interface QualificationEvidenceV2 {
   issuedAt: string;
   expiresAt: string;
   signerKeyId: string;
+  trustPolicySha256: string;
   artifactSha256: string;
   bindings: {
     commandSha256: string;
@@ -561,6 +579,7 @@ export interface QualificationEvidenceV2 {
     dependencyIdentitySha256: string;
   };
   assertions: Record<string, boolean>;
+  authorization?: { gates: AuthorizationGates; dischargedBlockers: string[] };
   signatureBase64: string;
 }
 const transitions: Record<QualificationState, QualificationState[]> = {
@@ -589,6 +608,7 @@ export const qualificationEvidenceDigest = (evidence: QualificationEvidenceV2): 
 
 export interface QualificationStoreV2 {
   storeVersion: "2.0.0";
+  trustPolicySha256: string;
   recipes: Record<
     string,
     {
@@ -603,7 +623,8 @@ export interface QualificationStoreV2 {
 }
 export interface EvidenceValidationOptions {
   artifactPath: string;
-  trustedPublicKeys: Record<string, string>;
+  trustPolicy: QualificationTrustPolicyV1;
+  expectedTrustPolicySha256: string;
   expectedPredecessorDigest: string;
   expectedPreviousState: QualificationState;
   expectedSequence: number;
@@ -611,13 +632,23 @@ export interface EvidenceValidationOptions {
   now?: Date;
 }
 
-export async function validateQualificationEvidence(
-  path: string,
+export interface QualificationTrustPolicyV1 {
+  policyVersion: "1.0.0";
+  policyId: string;
+  keys: Record<string, string>;
+}
+export const qualificationTrustPolicyDigest = (policy: QualificationTrustPolicyV1): string =>
+  sha256(JSON.stringify(policy));
+
+async function validateQualificationEvidenceValue(
+  evidence: QualificationEvidenceV2,
+  artifact: Uint8Array,
   options: EvidenceValidationOptions,
 ): Promise<QualificationEvidenceV2> {
-  const raw = await readFile(path, "utf8"),
-    evidence = JSON.parse(raw) as QualificationEvidenceV2;
   const recipe = inspectQualificationRecipe(evidence.recipeId);
+  const policyDigest = qualificationTrustPolicyDigest(options.trustPolicy);
+  if (policyDigest !== options.expectedTrustPolicySha256 || evidence.trustPolicySha256 !== policyDigest)
+    throw new Error("Qualification evidence trust policy is not independently pinned");
   if (evidence.evidenceVersion !== "2.0.0" || !/^[A-Za-z0-9._-]{8,128}$/.test(evidence.evidenceId))
     throw new Error("Qualification evidence envelope is invalid");
   if (
@@ -633,7 +664,6 @@ export async function validateQualificationEvidence(
     !transitions[evidence.previousState]?.includes(evidence.state)
   )
     throw new Error("Qualification evidence transition is not monotonic");
-  const artifact = await readFile(options.artifactPath);
   if (evidence.artifactSha256 !== sha256(artifact)) throw new Error("Qualification evidence artifact digest mismatch");
   const bindingValues = Object.values(evidence.bindings ?? {});
   if (bindingValues.length !== 9 || bindingValues.some((value) => !/^[a-f0-9]{64}$/.test(value)))
@@ -646,12 +676,27 @@ export async function validateQualificationEvidence(
     required.some((key) => evidence.assertions?.[key] !== true)
   )
     throw new Error("Qualification evidence assertions are incomplete");
+  if (evidence.state === "smokeAuthorized") {
+    if (!evidence.authorization) throw new Error("Signed smoke authorization decisions are required");
+    if (JSON.stringify(evidence.authorization.dischargedBlockers) !== JSON.stringify(recipe.blockers))
+      throw new Error("Signed blocker discharge does not exactly match the recipe");
+    const gateKeys = [...requiredAuthorizationGates, "uploadRequested", "uploadApproved"];
+    if (
+      Object.keys(evidence.authorization.gates).sort().join(",") !== gateKeys.sort().join(",") ||
+      requiredAuthorizationGates.some((gate) => evidence.authorization?.gates[gate] !== true) ||
+      evidence.authorization.gates.uploadRequested !== false ||
+      evidence.authorization.gates.uploadApproved !== false
+    )
+      throw new Error("Signed smoke authorization gates are invalid");
+  } else if (evidence.authorization !== undefined) {
+    throw new Error("Authorization decisions are valid only for smokeAuthorized evidence");
+  }
   const issued = Date.parse(evidence.issuedAt),
     expires = Date.parse(evidence.expiresAt),
     now = (options.now ?? new Date()).getTime();
   if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued > now || expires <= now || expires <= issued)
     throw new Error("Qualification evidence is stale or has invalid timestamps");
-  const publicKey = options.trustedPublicKeys[evidence.signerKeyId];
+  const publicKey = options.trustPolicy.keys[evidence.signerKeyId];
   if (!publicKey) throw new Error("Qualification evidence signer is not trusted");
   const valid = verifySignature(
     null,
@@ -663,21 +708,58 @@ export async function validateQualificationEvidence(
   return evidence;
 }
 
-export async function recordQualificationEvidence(input: {
+export async function validateQualificationEvidence(
+  path: string,
+  options: EvidenceValidationOptions,
+): Promise<QualificationEvidenceV2> {
+  const evidence = JSON.parse(await readFile(path, "utf8")) as QualificationEvidenceV2;
+  return validateQualificationEvidenceValue(evidence, await readFile(options.artifactPath), options);
+}
+
+export interface RecordQualificationEvidenceInput {
   evidencePath: string;
   artifactPath: string;
   storePath: string;
-  trustedPublicKeys: Record<string, string>;
+  trustPolicy: QualificationTrustPolicyV1;
+  expectedTrustPolicySha256: string;
   expectedBindings?: QualificationEvidenceV2["bindings"];
   now?: Date;
-}): Promise<{ evidence: QualificationEvidenceV2; digest: string; store: QualificationStoreV2 }> {
-  let store: QualificationStoreV2 = { storeVersion: "2.0.0", recipes: {} };
+}
+export async function recordQualificationEvidence(
+  input: RecordQualificationEvidenceInput,
+): Promise<{ evidence: QualificationEvidenceV2; digest: string; store: QualificationStoreV2 }> {
+  await mkdir(dirname(input.storePath), { recursive: true });
+  const lockPath = `${input.storePath}.lock`;
+  let lock;
+  try {
+    lock = await open(lockPath, "wx");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST")
+      throw new Error("Qualification store update is already in progress; compare-and-swap rejected");
+    throw error;
+  }
+  try {
+    return await recordQualificationEvidenceUnlocked(input);
+  } finally {
+    await lock.close();
+    await rm(lockPath, { force: true });
+  }
+}
+
+async function recordQualificationEvidenceUnlocked(
+  input: RecordQualificationEvidenceInput,
+): Promise<{ evidence: QualificationEvidenceV2; digest: string; store: QualificationStoreV2 }> {
+  const trustPolicySha256 = qualificationTrustPolicyDigest(input.trustPolicy);
+  if (trustPolicySha256 !== input.expectedTrustPolicySha256)
+    throw new Error("Qualification trust policy digest is not independently pinned");
+  let store: QualificationStoreV2 = { storeVersion: "2.0.0", trustPolicySha256, recipes: {} };
   try {
     store = JSON.parse(await readFile(input.storePath, "utf8")) as QualificationStoreV2;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  if (store.storeVersion !== "2.0.0") throw new Error("Qualification store version is incompatible");
+  if (store.storeVersion !== "2.0.0" || store.trustPolicySha256 !== trustPolicySha256)
+    throw new Error("Qualification store version/trust policy is incompatible");
   const raw = JSON.parse(await readFile(input.evidencePath, "utf8")) as QualificationEvidenceV2;
   const recipe = inspectQualificationRecipe(raw.recipeId);
   const current = store.recipes[raw.recipeId] ?? {
@@ -690,7 +772,8 @@ export async function recordQualificationEvidence(input: {
   };
   const evidence = await validateQualificationEvidence(input.evidencePath, {
     artifactPath: input.artifactPath,
-    trustedPublicKeys: input.trustedPublicKeys,
+    trustPolicy: input.trustPolicy,
+    expectedTrustPolicySha256: input.expectedTrustPolicySha256,
     expectedPredecessorDigest: current.currentDigest,
     expectedPreviousState: current.state,
     expectedSequence: current.sequence + 1,

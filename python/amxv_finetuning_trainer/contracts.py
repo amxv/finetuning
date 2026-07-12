@@ -60,6 +60,10 @@ def parse_spec(value: Any) -> dict[str, Any]:
                 or any(not isinstance(item, str) for item in authorization["dischargedBlockers"])
                 or not isinstance(authorization.get("storePath"), str)
                 or not _sha(authorization.get("storeSha256"), 64)
+                or not _sha(authorization.get("trustPolicySha256"), 64)
+                or not isinstance(authorization.get("expiresAt"), str)
+                or not _sha(authorization.get("architectureEvidenceSha256"), 64)
+                or not _sha(authorization.get("authorizationHmacSha256"), 64)
                 or not isinstance(authorization.get("sequence"), int)
                 or authorization["sequence"] < 1
             ):

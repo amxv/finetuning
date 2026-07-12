@@ -62,7 +62,11 @@
         "sequence",
         "dischargedBlockers",
         "storePath",
-        "storeSha256"
+        "storeSha256",
+        "trustPolicySha256",
+        "expiresAt",
+        "architectureEvidenceSha256",
+        "authorizationHmacSha256"
       ],
       "properties": {
         "state": { "const": "smokeAuthorized" },
@@ -72,7 +76,11 @@
         "sequence": { "type": "integer", "minimum": 1 },
         "dischargedBlockers": { "type": "array", "items": { "type": "string" } },
         "storePath": { "type": "string" },
-        "storeSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "storeSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "trustPolicySha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "architectureEvidenceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "authorizationHmacSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       }
     },
     "recipeIdentity": {

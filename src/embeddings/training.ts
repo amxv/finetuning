@@ -64,6 +64,10 @@ export interface EmbeddingTrainingSpecV1 {
     dischargedBlockers: string[];
     storePath: string;
     storeSha256: string;
+    trustPolicySha256: string;
+    expiresAt: string;
+    architectureEvidenceSha256: string;
+    authorizationHmacSha256: string;
   };
   recipeIdentity?: { modelRevision: string; tokenizerRevision: string };
   trainingArguments?: Record<string, unknown>;

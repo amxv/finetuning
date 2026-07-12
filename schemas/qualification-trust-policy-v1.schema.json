@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/schemas/qualification-trust-policy-v1.schema.json",
+  "title": "Administrator-controlled Qualification Trust Policy V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["policyVersion", "policyId", "keys"],
+  "properties": {
+    "policyVersion": { "const": "1.0.0" },
+    "policyId": { "type": "string", "minLength": 1 },
+    "keys": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "pattern": "^-----BEGIN PUBLIC KEY-----" }
+    }
+  }
+}

@@ -4,9 +4,10 @@
   "title": "Qualification Promotion Store V2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["storeVersion", "recipes"],
+  "required": ["storeVersion", "trustPolicySha256", "recipes"],
   "properties": {
     "storeVersion": { "const": "2.0.0" },
+    "trustPolicySha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "recipes": {
       "type": "object",
       "additionalProperties": {

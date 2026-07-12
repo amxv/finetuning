@@ -18,6 +18,7 @@
     "issuedAt",
     "expiresAt",
     "signerKeyId",
+    "trustPolicySha256",
     "artifactSha256",
     "bindings",
     "assertions",
@@ -37,6 +38,7 @@
     "issuedAt": { "type": "string", "format": "date-time" },
     "expiresAt": { "type": "string", "format": "date-time" },
     "signerKeyId": { "type": "string" },
+    "trustPolicySha256": { "$ref": "#/$defs/sha256" },
     "artifactSha256": { "$ref": "#/$defs/sha256" },
     "bindings": {
       "type": "object",
@@ -65,6 +67,15 @@
       }
     },
     "assertions": { "type": "object", "additionalProperties": { "const": true } },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gates", "dischargedBlockers"],
+      "properties": {
+        "gates": { "type": "object" },
+        "dischargedBlockers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "signatureBase64": { "type": "string", "minLength": 32 }
   },
   "$defs": { "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }

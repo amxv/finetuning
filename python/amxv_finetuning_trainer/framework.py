@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -203,6 +206,40 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
             or len(authorization["evidenceDigest"]) != 64
         ):
             raise RuntimeError("ACCEPTED_SMOKE_AUTHORIZATION_REQUIRED")
+        trust_policy_sha256 = os.environ.get("AMXV_QUALIFICATION_TRUST_POLICY_SHA256")
+        hmac_key = os.environ.get("AMXV_QUALIFICATION_AUTH_HMAC_KEY")
+        if not trust_policy_sha256 or authorization.get("trustPolicySha256") != trust_policy_sha256 or not hmac_key:
+            raise RuntimeError("INDEPENDENT_QUALIFICATION_TRUST_CONTEXT_REQUIRED")
+        try:
+            expires = datetime.fromisoformat(authorization["expiresAt"].replace("Z", "+00:00"))
+        except (KeyError, TypeError, ValueError) as error:
+            raise RuntimeError("QUALIFICATION_AUTHORIZATION_EXPIRY_INVALID") from error
+        if expires <= datetime.now(timezone.utc):
+            raise RuntimeError("QUALIFICATION_AUTHORIZATION_EXPIRED")
+        architecture_hash = hashlib.sha256(
+            json.dumps(spec.get("architectureEvidence", {}), sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        if architecture_hash != authorization.get("architectureEvidenceSha256"):
+            raise RuntimeError("SIGNED_ARCHITECTURE_EVIDENCE_MISMATCH")
+        hmac_payload = {
+            "recipeId": authorization.get("recipeId"),
+            "recipeIdentityHash": authorization.get("recipeIdentityHash"),
+            "evidenceDigest": authorization.get("evidenceDigest"),
+            "sequence": authorization.get("sequence"),
+            "dischargedBlockers": authorization.get("dischargedBlockers"),
+            "storeSha256": authorization.get("storeSha256"),
+            "trustPolicySha256": authorization.get("trustPolicySha256"),
+            "expiresAt": authorization.get("expiresAt"),
+            "architectureEvidenceSha256": authorization.get("architectureEvidenceSha256"),
+            "executionGates": gates,
+        }
+        expected_hmac = hmac.new(
+            hmac_key.encode(),
+            json.dumps(hmac_payload, sort_keys=True, separators=(",", ":")).encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected_hmac, authorization.get("authorizationHmacSha256", "")):
+            raise RuntimeError("QUALIFICATION_AUTHORIZATION_SIGNATURE_INVALID")
         store_path = Path(authorization.get("storePath", ""))
         if not store_path.is_file():
             raise RuntimeError("QUALIFICATION_STORE_REQUIRED")
@@ -217,6 +254,42 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
             or accepted.get("sequence") != authorization.get("sequence")
         ):
             raise RuntimeError("QUALIFICATION_STORE_AUTHORIZATION_MISMATCH")
+        accepted_evidence = accepted.get("acceptedEvidence", [])
+        if len(accepted_evidence) != authorization.get("sequence"):
+            raise RuntimeError("QUALIFICATION_EVIDENCE_CHAIN_LENGTH_MISMATCH")
+        current_evidence = accepted_evidence[-1] if accepted_evidence else {}
+        current_evidence_digest = hashlib.sha256(
+            json.dumps(current_evidence, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest()
+        signed_gates = current_evidence.get("authorization", {}).get("gates", {})
+        signed_blockers = current_evidence.get("authorization", {}).get("dischargedBlockers")
+        v2_gate_names = (
+            "experimentalExecutionApproved",
+            "stagingNetworkApproved",
+            "downloadsApproved",
+            "remoteCodeApproved",
+            "gpuApproved",
+            "budgetApproved",
+            "datasetRightsApproved",
+            "modelLicenseAccepted",
+            "uploadRequested",
+            "uploadApproved",
+            "architectureEvidenceApproved",
+            "frameworkEvidenceApproved",
+            "customKernelApproved",
+        )
+        if (
+            current_evidence_digest != authorization["evidenceDigest"]
+            or current_evidence.get("recipeId") != spec.get("recipeId")
+            or current_evidence.get("recipeIdentityHash") != authorization.get("recipeIdentityHash")
+            or current_evidence.get("trustPolicySha256") != authorization.get("trustPolicySha256")
+            or current_evidence.get("expiresAt") != authorization.get("expiresAt")
+            or signed_blockers != authorization.get("dischargedBlockers")
+            or any(signed_gates.get(name) != gates.get(name) for name in v2_gate_names)
+            or current_evidence.get("bindings", {}).get("targetInventorySha256")
+            != spec.get("architectureEvidence", {}).get("inventorySha256")
+        ):
+            raise RuntimeError("SIGNED_QUALIFICATION_EVIDENCE_MISMATCH")
         if not isinstance(gates.get("uploadRequested"), bool) or not isinstance(gates.get("uploadApproved"), bool):
             raise RuntimeError("UPLOAD_GATE_VALUES_REQUIRED")
         if gates["uploadRequested"] is not False or gates["uploadApproved"] is not False:
@@ -528,7 +601,7 @@ def execute_recipe(
     if spec.get("adapter") in ("lora", "qlora"):
         adapter_config = architecture_adapter_config(model, recipe, spec)
         model = framework.attach_adapter(model, adapter_config)
-        validate_trainable_inventory(model, spec)
+        validate_trainable_inventory(model, recipe, spec)
     if track == "embedding":
         dimension = spec.get("dimension")
         if dimension is not None and dimension not in recipe["dimensions"]:
@@ -591,7 +664,7 @@ def architecture_adapter_config(model, recipe, spec):
     return config
 
 
-def validate_trainable_inventory(model, spec):
+def validate_trainable_inventory(model, recipe, spec):
     if spec.get("qualificationSchemaVersion") != "2.0.0":
         return
     trainable = sorted(
@@ -600,6 +673,10 @@ def validate_trainable_inventory(model, spec):
     actual = hashlib.sha256(json.dumps(trainable, separators=(",", ":")).encode()).hexdigest()
     if spec.get("architectureEvidence", {}).get("trainableNamesSha256") != actual:
         raise RuntimeError("TRAINABLE_PARAMETER_INVENTORY_MISMATCH")
+    forbidden = tuple(recipe.get("frozen", ()))
+    unexpectedly_trainable = [name for name in trainable if any(part in name for part in forbidden)]
+    if unexpectedly_trainable:
+        raise RuntimeError("FORBIDDEN_PARAMETER_TRAINABLE: " + ", ".join(unexpectedly_trainable))
 
 
 def publish_checkpoint_descriptor(spec: dict[str, Any], trainer: Any) -> str | None:
@@ -660,7 +737,7 @@ def _template_ids(tokenizer, messages):
     return rendered
 
 
-def manual_assistant_labels(tokenizer, messages):
+def manual_assistant_labels(tokenizer, messages, terminal_token_ids=None):
     """Derive assistant labels from stable cumulative template boundaries, never Jinja generation masks."""
     if not messages or not isinstance(messages, list):
         raise ValueError("CHAT_MESSAGES_REQUIRED")
@@ -683,8 +760,11 @@ def manual_assistant_labels(tokenizer, messages):
         if message.get("role") == "assistant":
             delta = current[len(previous) :]
             eos_id = getattr(tokenizer, "eos_token_id", None)
-            if isinstance(eos_id, int) and eos_id not in delta:
-                raise ValueError(f"CHAT_ASSISTANT_EOS_MISSING: message {index}")
+            expected_terminal = (
+                terminal_token_ids if terminal_token_ids is not None else ([eos_id] if isinstance(eos_id, int) else [])
+            )
+            if expected_terminal and delta[-len(expected_terminal) :] != expected_terminal:
+                raise ValueError(f"CHAT_ASSISTANT_TERMINAL_SEQUENCE_MISSING: message {index}")
             labels[len(previous) : len(current)] = delta
         previous = current
     if previous != final_ids:

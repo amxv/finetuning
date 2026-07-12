@@ -23,7 +23,7 @@ import {
   preflightQualification,
   qualificationRecipes,
   recordQualificationEvidence,
-  type AcceptedSmokeAuthorization,
+  type QualificationTrustPolicyV1,
 } from "../training/qualification.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { runEmbedCommand } from "./embed-data.js";
@@ -176,29 +176,43 @@ async function runRecipeQualificationCommand(rawArgs: string[]): Promise<void> {
     return;
   }
   if (verb === "preflight") {
-    const authorizationPath = readOptionalStringFlag(args, "authorization");
-    const gates = authorizationPath
-      ? (JSON.parse(await readFile(authorizationPath, "utf8")) as AcceptedSmokeAuthorization)
-      : undefined;
-    const result = preflightQualification(readRequiredStringFlag(args, "recipe"), gates);
+    const trust = await readQualificationTrustPolicy(args);
+    const result = await preflightQualification(readRequiredStringFlag(args, "recipe"), {
+      storePath: readRequiredStringFlag(args, "store"),
+      artifactPath: readRequiredStringFlag(args, "artifact"),
+      trustPolicy: trust.policy,
+      expectedTrustPolicySha256: trust.expectedDigest,
+    });
     printResult(result, args);
     if (!result.executable && readBooleanFlag(args, "require-executable")) throw new Error(result.blockers.join("; "));
     return;
   }
   if (verb === "record-evidence") {
-    const trustedPublicKeys = JSON.parse(
-      await readFile(readRequiredStringFlag(args, "trusted-keys"), "utf8"),
-    ) as Record<string, string>;
+    const trust = await readQualificationTrustPolicy(args);
     const result = await recordQualificationEvidence({
       evidencePath: readRequiredStringFlag(args, "evidence"),
       artifactPath: readRequiredStringFlag(args, "artifact"),
       storePath: readRequiredStringFlag(args, "store"),
-      trustedPublicKeys,
+      trustPolicy: trust.policy,
+      expectedTrustPolicySha256: trust.expectedDigest,
     });
     printResult({ recorded: true, evidence: result.evidence, digest: result.digest, state: result.store }, args);
     return;
   }
   throw new Error(`Unknown command: recipes ${verb}`);
+}
+
+async function readQualificationTrustPolicy(args: ReturnType<typeof parseArgs>): Promise<{
+  policy: QualificationTrustPolicyV1;
+  expectedDigest: string;
+}> {
+  const expectedDigest = process.env.AMXV_QUALIFICATION_TRUST_POLICY_SHA256;
+  if (!expectedDigest || !/^[a-f0-9]{64}$/.test(expectedDigest))
+    throw new Error("AMXV_QUALIFICATION_TRUST_POLICY_SHA256 must pin the administrator-controlled trust policy");
+  const policy = JSON.parse(
+    await readFile(readRequiredStringFlag(args, "trust-policy"), "utf8"),
+  ) as QualificationTrustPolicyV1;
+  return { policy, expectedDigest };
 }
 
 async function datasetFreeze(args: ReturnType<typeof parseArgs>): Promise<void> {

@@ -14,12 +14,12 @@ Qualification progresses monotonically from `configured` to `smokeAuthorized`, `
 ```sh
 finetuning recipes list --json
 finetuning recipes inspect --recipe qwen3-embed-0.6b-lora --json
-finetuning recipes preflight --recipe qwen3-embed-0.6b-lora --json
+AMXV_QUALIFICATION_TRUST_POLICY_SHA256=<admin-pinned-sha256> finetuning recipes preflight --recipe qwen3-embed-0.6b-lora --store ./qualification-store.json --artifact ./artifact-manifest.json --trust-policy /admin/reviewer-trust-policy.json --json
 finetuning recipes plan --recipe qwen3-embed-0.6b-lora --json
-finetuning recipes record-evidence --evidence ./reviewed-evidence.json --artifact ./artifact-manifest.json --trusted-keys ./reviewer-public-keys.json --store ./qualification-store.json --json
+AMXV_QUALIFICATION_TRUST_POLICY_SHA256=<admin-pinned-sha256> finetuning recipes record-evidence --evidence ./reviewed-evidence.json --artifact ./artifact-manifest.json --trust-policy /admin/reviewer-trust-policy.json --store ./qualification-store.json --json
 ```
 
-Preflight accepts a recipe-bound `smokeAuthorized` record, not raw user Booleans. Staging network/download authorization is distinct from offline execution, and upload remains false unless it is both requested and separately approved. `plan` only emits a RunPod-oriented GPU, storage, image, and distributed-strategy proposal. It sets `createsResources: false`, `executableEnvironment: false`, makes no network call, spends nothing, and represents the image digest as missing rather than using a runnable-looking placeholder.
+The administrator-controlled trust policy and its expected SHA-256 must be supplied independently of submitted evidence. Preflight reloads the persisted store, revalidates its current signed Ed25519 envelope, predecessor, expiry, artifact, identities, exact gate decisions, and exact blocker discharge; it does not accept caller-shaped authorization JSON. Store promotion is serialized with an exclusive compare-and-swap lock. Python execution additionally requires an administrator-provided `AMXV_QUALIFICATION_AUTH_HMAC_KEY` and verifies a time-limited HMAC authorization over the accepted evidence digest, store/trust-policy digests, all gates, exact blocker discharge, and the complete architecture-evidence hash. Staging network/download authorization is distinct from offline execution, and upload remains false unless it is both requested and separately approved. `plan` only emits a RunPod-oriented GPU, storage, image, and distributed-strategy proposal. It sets `createsResources: false`, `executableEnvironment: false`, makes no network call, spends nothing, and represents the image digest as missing rather than using a runnable-looking placeholder.
 
 The planned first-wave order is Qwen3 Embedding, Arctic Embed, OLMo 3.1 Instruct, OLMo 3.1 Think, Qwen3.6 dense, BGE dense after corrected MIT inventory approval, then GTE dense after external-code review. Each still has blockers and none is smoke-passed, qualified, or supported.
 

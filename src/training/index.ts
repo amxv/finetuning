@@ -47,6 +47,10 @@ export interface TrainingSpecV1 {
     dischargedBlockers: string[];
     storePath: string;
     storeSha256: string;
+    trustPolicySha256: string;
+    expiresAt: string;
+    architectureEvidenceSha256: string;
+    authorizationHmacSha256: string;
   };
   recipeIdentity?: {
     modelRevision: string;
@@ -127,6 +131,10 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
         !sha64(authorization.evidenceDigest) ||
         typeof authorization.storePath !== "string" ||
         !sha64(authorization.storeSha256) ||
+        !sha64(authorization.trustPolicySha256) ||
+        typeof authorization.expiresAt !== "string" ||
+        !sha64(authorization.architectureEvidenceSha256) ||
+        !sha64(authorization.authorizationHmacSha256) ||
         !Array.isArray(authorization.dischargedBlockers) ||
         authorization.dischargedBlockers.some((item) => typeof item !== "string") ||
         typeof authorization.sequence !== "number" ||

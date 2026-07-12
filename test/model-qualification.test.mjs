@@ -13,6 +13,7 @@ import {
   preflightQualification,
   qualificationRecipes,
   qualificationEvidenceDigest,
+  qualificationTrustPolicyDigest,
   recipeIdentityHash,
   recordQualificationEvidence,
   requiredAuthorizationGates,
@@ -119,8 +120,8 @@ test("existing support registry keeps every planned recipe unavailable", async (
   }
 });
 
-test("preflight requires accepted evidence and first-wave exclusions cannot execute", () => {
-  assert.equal(preflightQualification("qwen3-embed-0.6b-lora").executable, false);
+test("preflight requires persisted signed evidence and first-wave exclusions cannot execute", async () => {
+  assert.equal((await preflightQualification("qwen3-embed-0.6b-lora")).executable, false);
   for (const id of [
     "qwen3.6-27b",
     "qwen3.6-35b-a3b",
@@ -128,25 +129,10 @@ test("preflight requires accepted evidence and first-wave exclusions cannot exec
     "nemotron-cascade-2-30b-a3b",
     "nemotron-3-nano-30b-a3b",
   ]) {
-    const result = preflightQualification(id);
+    const result = await preflightQualification(id);
     assert.equal(result.executable, false);
     assert.match(result.blockers.join(" "), /first smoke wave/);
   }
-  const recipe = inspectQualificationRecipe("qwen3-embed-0.6b-lora");
-  const authorization = {
-    state: "smokeAuthorized",
-    recipeId: recipe.id,
-    recipeIdentityHash: recipeIdentityHash(recipe),
-    evidenceDigest: "a".repeat(64),
-    dischargedBlockers: [...recipe.blockers],
-    gates: {
-      ...Object.fromEntries(requiredAuthorizationGates.map((gate) => [gate, true])),
-      uploadRequested: false,
-      uploadApproved: false,
-    },
-  };
-  assert.equal(preflightQualification(recipe.id, authorization).executable, true);
-  assert.equal(preflightQualification("arctic-m-v2-full", authorization).executable, false);
 });
 
 test("qualification v2 training contracts reject raw gates without accepted authorization", () => {
@@ -190,6 +176,10 @@ test("qualification v2 training contracts reject raw gates without accepted auth
     dischargedBlockers: ["reviewed"],
     storePath: "qualification-store.json",
     storeSha256: "e".repeat(64),
+    trustPolicySha256: "f".repeat(64),
+    expiresAt: "2026-07-13T00:00:00.000Z",
+    architectureEvidenceSha256: "1".repeat(64),
+    authorizationHmacSha256: "2".repeat(64),
   };
   assert.equal(parseTrainingSpec(spec).qualificationAuthorization.state, "smokeAuthorized");
 });
@@ -216,7 +206,12 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
     artifact = Buffer.from("reviewed manifest bytes"),
     recipe = inspectQualificationRecipe("qwen3-embed-0.6b-lora"),
     { privateKey, publicKey } = generateKeyPairSync("ed25519"),
-    trustedPublicKeys = { reviewer: publicKey.export({ type: "spki", format: "pem" }).toString() },
+    trustPolicy = {
+      policyVersion: "1.0.0",
+      policyId: "independently-pinned-test-admin",
+      keys: { reviewer: publicKey.export({ type: "spki", format: "pem" }).toString() },
+    },
+    expectedTrustPolicySha256 = qualificationTrustPolicyDigest(trustPolicy),
     hash = (value) => createHash("sha256").update(value).digest("hex"),
     bindings = Object.fromEntries(
       [
@@ -248,6 +243,7 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
       issuedAt: "2026-07-12T11:00:00.000Z",
       expiresAt: "2026-07-13T11:00:00.000Z",
       signerKeyId: "reviewer",
+      trustPolicySha256: expectedTrustPolicySha256,
       artifactSha256: hash(artifact),
       bindings,
       assertions: {
@@ -257,6 +253,14 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
         frameworkReviewed: true,
         datasetRightsReviewed: true,
         offlineExecutionNoUpload: true,
+      },
+      authorization: {
+        gates: {
+          ...Object.fromEntries(requiredAuthorizationGates.map((gate) => [gate, true])),
+          uploadRequested: false,
+          uploadApproved: false,
+        },
+        dischargedBlockers: [...recipe.blockers],
       },
       signatureBase64: "",
       ...overrides,
@@ -269,13 +273,58 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
     return evidence;
   };
   const write = async (value) => writeFile(evidencePath, JSON.stringify(value));
+  const record = (path = storePath, extra = {}) =>
+    recordQualificationEvidence({
+      evidencePath,
+      artifactPath,
+      storePath: path,
+      trustPolicy,
+      expectedTrustPolicySha256,
+      now,
+      ...extra,
+    });
   await write(make());
-  const first = await recordQualificationEvidence({ evidencePath, artifactPath, storePath, trustedPublicKeys, now });
+  const first = await record();
   assert.equal(first.store.recipes[recipe.id].state, "smokeAuthorized");
-  await assert.rejects(
-    recordQualificationEvidence({ evidencePath, artifactPath, storePath, trustedPublicKeys, now }),
-    /transition|replay/i,
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath,
+        artifactPath,
+        trustPolicy,
+        expectedTrustPolicySha256,
+        expectedBindings: bindings,
+        now,
+      })
+    ).executable,
+    true,
   );
+  const fabricatedStorePath = join(root, "fabricated-preflight-store.json");
+  const fabricatedStore = structuredClone(first.store);
+  fabricatedStore.recipes[recipe.id].currentDigest = "a".repeat(64);
+  fabricatedStore.recipes[recipe.id].acceptedEvidence[0].authorization.gates.budgetApproved = false;
+  fabricatedStore.recipes[recipe.id].acceptedEvidence[0].authorization.dischargedBlockers = [];
+  await writeFile(fabricatedStorePath, JSON.stringify(fabricatedStore));
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath: fabricatedStorePath,
+        artifactPath,
+        trustPolicy,
+        expectedTrustPolicySha256,
+        now,
+      })
+    ).executable,
+    false,
+  );
+  const concurrentStorePath = join(root, "concurrent-store.json");
+  await writeFile(`${concurrentStorePath}.lock`, "held by another recorder");
+  await assert.rejects(record(concurrentStorePath), /compare-and-swap/i);
+  await assert.rejects(
+    record(join(root, "untrusted-store.json"), { expectedTrustPolicySha256: "0".repeat(64) }),
+    /independently pinned/i,
+  );
+  await assert.rejects(record(), /transition|replay/i);
   const secondEvidence = make({
     evidenceId: "evidence-2",
     sequence: 2,
@@ -289,47 +338,20 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
       checkpointResume: true,
       offlineReload: true,
     },
+    authorization: undefined,
   });
   await write(secondEvidence);
-  const second = await recordQualificationEvidence({ evidencePath, artifactPath, storePath, trustedPublicKeys, now });
+  const second = await record();
   assert.equal(second.store.recipes[recipe.id].state, "smokePassed");
   assert.equal(second.store.recipes[recipe.id].currentDigest, qualificationEvidenceDigest(secondEvidence));
   const forged = make({ evidenceId: "forged-self-consistent", assertions: { invented: true } });
   await write(forged);
-  await assert.rejects(
-    recordQualificationEvidence({
-      evidencePath,
-      artifactPath,
-      storePath: join(root, "forged-store.json"),
-      trustedPublicKeys,
-      now,
-    }),
-    /assertions/i,
-  );
+  await assert.rejects(record(join(root, "forged-store.json")), /assertions/i);
   await write(make({ artifactSha256: "0".repeat(64) }));
-  await assert.rejects(
-    recordQualificationEvidence({
-      evidencePath,
-      artifactPath,
-      storePath: join(root, "artifact-store.json"),
-      trustedPublicKeys,
-      now,
-    }),
-    /artifact digest/i,
-  );
+  await assert.rejects(record(join(root, "artifact-store.json")), /artifact digest/i);
   const staleBindings = { ...bindings, dependencyIdentitySha256: hash("drifted-dependencies") };
   await write(make({ bindings: staleBindings }));
-  await assert.rejects(
-    recordQualificationEvidence({
-      evidencePath,
-      artifactPath,
-      storePath: join(root, "stale-store.json"),
-      trustedPublicKeys,
-      expectedBindings: bindings,
-      now,
-    }),
-    /stale/i,
-  );
+  await assert.rejects(record(join(root, "stale-store.json"), { expectedBindings: bindings }), /stale/i);
   await write(
     make({
       evidenceId: "never-accepted-predecessor",
@@ -344,29 +366,12 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
         checkpointResume: true,
         offlineReload: true,
       },
+      authorization: undefined,
     }),
   );
-  await assert.rejects(
-    recordQualificationEvidence({
-      evidencePath,
-      artifactPath,
-      storePath: join(root, "orphan-store.json"),
-      trustedPublicKeys,
-      now,
-    }),
-    /transition/i,
-  );
+  await assert.rejects(record(join(root, "orphan-store.json")), /transition/i);
   await write(make({ recipeId: "arctic-m-v2-full" }));
-  await assert.rejects(
-    recordQualificationEvidence({
-      evidencePath,
-      artifactPath,
-      storePath: join(root, "cross-store.json"),
-      trustedPublicKeys,
-      now,
-    }),
-    /identity/i,
-  );
+  await assert.rejects(record(join(root, "cross-store.json")), /identity/i);
 });
 
 test("qualification CLI lists and plans without side effects", async () => {
