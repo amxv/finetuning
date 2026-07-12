@@ -12,7 +12,13 @@ from .framework import execute_recipe
 
 
 def execute_production(spec: dict[str, Any], rows: list[dict[str, Any]], framework: Any) -> dict[str, Any]:
-    return execute_recipe(spec, rows, framework, "chat")
+    resolved = dict(spec)
+    resolved["resumeIdentityHash"] = resume_identity_hash(spec)
+    if spec.get("checkpointPath"):
+        resolved["checkpointPath"] = str(
+            resolve_framework_checkpoint(Path(spec["checkpointPath"]), resume_identity_hash(spec))
+        )
+    return execute_recipe(resolved, rows, framework, "chat")
 
 
 FULL_STATE = ("model", "optimizer", "scheduler", "scaler", "rng", "sampler_position", "global_step")
@@ -105,11 +111,32 @@ def classify_checkpoint(path: Path, expected_identity_hash: str | None = None) -
     if not path.exists():
         return "missing"
     value = json.loads(path.read_text())
-    if not all(key in value for key in FULL_STATE) or not isinstance(value.get("identityHash"), str):
+    fixture_complete = all(key in value for key in FULL_STATE)
+    framework_complete = (
+        value.get("checkpointManifestVersion") == "1.0.0"
+        and value.get("complete") is True
+        and isinstance(value.get("frameworkCheckpointPath"), str)
+    )
+    if not (fixture_complete or framework_complete) or not isinstance(value.get("identityHash"), str):
         return "weights-only"
     if expected_identity_hash is not None and value["identityHash"] != expected_identity_hash:
         return "incompatible"
     return "full-resume"
+
+
+def resolve_framework_checkpoint(path: Path, expected_identity_hash: str) -> Path:
+    value = json.loads(path.read_text())
+    if classify_checkpoint(path, expected_identity_hash) != "full-resume":
+        raise ValueError(f"CHECKPOINT_INCOMPATIBLE: {classify_checkpoint(path, expected_identity_hash)}")
+    framework_path = value.get("frameworkCheckpointPath")
+    if not isinstance(framework_path, str) or not framework_path:
+        raise ValueError("CHECKPOINT_FRAMEWORK_PATH_MISSING")
+    resolved = Path(framework_path)
+    if not resolved.is_absolute():
+        resolved = path.parent / resolved
+    if not resolved.is_dir():
+        raise ValueError("CHECKPOINT_FRAMEWORK_PATH_MISSING")
+    return resolved
 
 
 def _examples(records_path: Path) -> list[tuple[float, float]]:

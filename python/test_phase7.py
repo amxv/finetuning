@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -91,6 +93,41 @@ class Phase7(unittest.TestCase):
             target["dataset"] = {**target["dataset"], "recordsHash": "b" * 64}
             with self.assertRaisesRegex(ValueError, "CHECKPOINT_INCOMPATIBLE: incompatible"):
                 train(target, checkpoint)
+            self.assertFalse(Path(target["outputDirectory"]).exists())
+
+    def test_public_cli_resume_and_status_use_expected_identity(self):
+        from amxv_finetuning_trainer import cli
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.fixture(root, "source")
+            train(source)
+            checkpoint = root / "source" / "checkpoint-1.json"
+            target = self.fixture(root, "target")
+            target["seed"] = 99
+            spec_path = root / "spec.json"
+            spec_path.write_text(json.dumps(target))
+
+            def invoke(*args):
+                old_argv, old_out, old_err = sys.argv, sys.stdout, sys.stderr
+                sys.argv = ["trainer", *args]
+                sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+                try:
+                    code = cli.main()
+                    return code, sys.stdout.getvalue(), sys.stderr.getvalue()
+                finally:
+                    sys.argv, sys.stdout, sys.stderr = old_argv, old_out, old_err
+
+            code, _, error = invoke("resume", str(spec_path))
+            self.assertEqual(code, 2)
+            self.assertIn("CHECKPOINT_REQUIRED", error)
+            self.assertFalse(Path(target["outputDirectory"]).exists())
+            code, output, _ = invoke("status", str(spec_path), "--checkpoint", str(checkpoint))
+            self.assertEqual(code, 0)
+            self.assertEqual(json.loads(output)["checkpointClassification"], "incompatible")
+            code, _, error = invoke("resume", str(spec_path), "--checkpoint", str(checkpoint))
+            self.assertEqual(code, 2)
+            self.assertIn("incompatible", error)
             self.assertFalse(Path(target["outputDirectory"]).exists())
 
     def test_production_and_hardware_preflight_are_actionable(self):

@@ -8,6 +8,8 @@ from pathlib import Path
 
 from amxv_finetuning_trainer.embedding_training import execute_production as embedding
 from amxv_finetuning_trainer.engine import execute_production as chat
+from amxv_finetuning_trainer.engine import resume_identity_hash
+from amxv_finetuning_trainer.framework import publish_checkpoint_descriptor
 
 
 class Fake:
@@ -40,6 +42,7 @@ class Fake:
 
     def train_sft(self, *a):
         self.calls.append("sft")
+        self.training_config = a[3]
         return self
 
     def train_embedding(self, *a):
@@ -130,6 +133,64 @@ class Architecture(unittest.TestCase):
             f = Fake()
             self.assertRaisesRegex(RuntimeError, "PRODUCTION_GATE_CLOSED", chat, s, [], f)
             self.assertEqual(f.calls, [])
+
+    def test_production_resume_descriptor_passes_directory_and_rejects_incompatible_before_framework(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            spec = self.spec(root / "out")
+            spec.update(
+                {
+                    "trainingSpecVersion": "1.0.0",
+                    "runId": "r",
+                    "dataset": {"manifestPath": str(root / "manifest.json"), "recordsHash": "a" * 64},
+                    "objective": "sft",
+                    "seed": 1,
+                    "operation": "resume",
+                }
+            )
+            checkpoint_dir = root / "checkpoint-10"
+            checkpoint_dir.mkdir()
+            descriptor = root / "checkpoint.json"
+            descriptor.write_text(
+                json.dumps(
+                    {
+                        "checkpointManifestVersion": "1.0.0",
+                        "complete": True,
+                        "identityHash": resume_identity_hash(spec),
+                        "frameworkCheckpointPath": checkpoint_dir.name,
+                    }
+                )
+            )
+            spec["checkpointPath"] = str(descriptor)
+            fake = Fake()
+            chat(spec, [{"messages": []}], fake)
+            self.assertEqual(fake.training_config["resume_from_checkpoint"], str(checkpoint_dir))
+            descriptor.write_text(
+                json.dumps(
+                    {
+                        "checkpointManifestVersion": "1.0.0",
+                        "complete": True,
+                        "identityHash": "b" * 64,
+                        "frameworkCheckpointPath": checkpoint_dir.name,
+                    }
+                )
+            )
+            fake = Fake()
+            self.assertRaisesRegex(ValueError, "CHECKPOINT_INCOMPATIBLE", chat, spec, [], fake)
+            self.assertEqual(fake.calls, [])
+
+    def test_production_checkpoint_descriptor_is_published_atomically(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            checkpoint = root / "checkpoint-3"
+            checkpoint.mkdir()
+            trainer = type("Trainer", (), {"state": type("State", (), {"best_model_checkpoint": str(checkpoint)})()})()
+            spec = {"outputDirectory": str(root / "out"), "resumeIdentityHash": "a" * 64}
+            manifest = Path(publish_checkpoint_descriptor(spec, trainer))
+            value = json.loads(manifest.read_text())
+            self.assertEqual(value["identityHash"], "a" * 64)
+            self.assertEqual(value["frameworkCheckpointPath"], str(checkpoint.resolve()))
+            self.assertFalse(manifest.with_suffix(".tmp").exists())
 
     def test_normal_event_runner_reaches_injected_framework(self):
         from amxv_finetuning_trainer import runner

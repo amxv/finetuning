@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from .contracts import parse_spec
-from .engine import classify_checkpoint, export_artifacts, preflight, train, verify_artifacts
+from .engine import classify_checkpoint, export_artifacts, preflight, resume_identity_hash, train, verify_artifacts
 
 
 def main() -> int:
@@ -22,10 +22,17 @@ def main() -> int:
         elif args.command == "run":
             result = train(spec)
         elif args.command == "resume":
-            result = train(spec, Path(args.checkpoint) if args.checkpoint else None)
+            if not args.checkpoint:
+                raise ValueError("CHECKPOINT_REQUIRED: resume requires --checkpoint")
+            classification = classify_checkpoint(Path(args.checkpoint), resume_identity_hash(spec))
+            if classification != "full-resume":
+                raise ValueError(f"CHECKPOINT_NOT_FULL_RESUME: {classification}")
+            result = train(spec, Path(args.checkpoint))
         elif args.command == "status":
             result = {
-                "checkpointClassification": classify_checkpoint(Path(args.checkpoint)) if args.checkpoint else "none"
+                "checkpointClassification": classify_checkpoint(Path(args.checkpoint), resume_identity_hash(spec))
+                if args.checkpoint
+                else "missing"
             }
         elif args.command == "evaluate":
             result = json.loads((Path(spec["outputDirectory"]) / "evaluation.json").read_text())

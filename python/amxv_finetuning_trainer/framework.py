@@ -338,6 +338,7 @@ def execute_recipe(
         if track == "chat"
         else framework.train_embedding(model, tokenizer, data, config)
     )
+    checkpoint_manifest = publish_checkpoint_descriptor(spec, trainer)
     files = framework.save(
         trainer, Path(spec["outputDirectory"]) / "portable", adapter_only=spec.get("adapter") in ("lora", "qlora")
     )
@@ -347,7 +348,40 @@ def execute_recipe(
         "portableFiles": files,
         "framework": "huggingface",
         "uploads": False,
+        **({"checkpointManifest": checkpoint_manifest} if checkpoint_manifest else {}),
     }
+
+
+def publish_checkpoint_descriptor(spec: dict[str, Any], trainer: Any) -> str | None:
+    identity_hash = spec.get("resumeIdentityHash")
+    if not isinstance(identity_hash, str):
+        return None
+    checkpoint = getattr(getattr(trainer, "state", None), "best_model_checkpoint", None)
+    if not checkpoint:
+        output_dir = spec.get("trainingArguments", {}).get("output_dir")
+        if output_dir:
+            candidates = sorted(Path(output_dir).glob("checkpoint-*"), key=lambda p: p.name)
+            checkpoint = str(candidates[-1]) if candidates else None
+    if not checkpoint or not Path(checkpoint).is_dir():
+        return None
+    output = Path(spec["outputDirectory"])
+    output.mkdir(parents=True, exist_ok=True)
+    manifest = output / "checkpoint-manifest.json"
+    relative = Path(checkpoint)
+    try:
+        relative = relative.resolve().relative_to(manifest.parent.resolve())
+    except ValueError:
+        relative = Path(checkpoint).resolve()
+    payload = {
+        "checkpointManifestVersion": "1.0.0",
+        "complete": True,
+        "identityHash": identity_hash,
+        "frameworkCheckpointPath": str(relative),
+    }
+    temporary = manifest.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True) + "\n")
+    temporary.replace(manifest)
+    return str(manifest)
 
 
 class BiEncoder(_Module):

@@ -219,3 +219,66 @@ test("native envelopes are redacted and retained with attributable refs", async 
   assert.match(await blobs.get(envelope.nativeRequestRef), /\[REDACTED\]/);
   assert.doesNotMatch(await blobs.get(envelope.nativeResponseRef), /secret/);
 });
+
+test("OpenAI timeout retries sequentially with one stable idempotency key", async () => {
+  let calls = 0,
+    active = 0,
+    maximum = 0;
+  const keys = [];
+  const provider = new ReliableTeacherProvider({
+    transport: {
+      async invoke(req) {
+        calls++;
+        active++;
+        maximum = Math.max(maximum, active);
+        keys.push(req.idempotencyKey);
+        if (calls === 1)
+          return new Promise((_, reject) =>
+            req.signal.addEventListener(
+              "abort",
+              () => {
+                active--;
+                reject(req.signal.reason);
+              },
+              { once: true },
+            ),
+          );
+        active--;
+        return success;
+      },
+    },
+    maxRetries: 1,
+    sleep: async () => {},
+  });
+  await provider.generate({ ...request, requestId: "sequential", timeoutMs: 1 });
+  assert.equal(calls, 2);
+  assert.equal(maximum, 1);
+  assert.equal(keys[0], keys[1]);
+  assert.match(keys[0], /^[a-f0-9]{64}$/);
+});
+
+test("caller abort propagates into an in-flight transport", async () => {
+  const controller = new AbortController();
+  let observed;
+  const provider = new ReliableTeacherProvider({
+    transport: {
+      invoke(req) {
+        return new Promise((_, reject) =>
+          req.signal.addEventListener(
+            "abort",
+            () => {
+              observed = req.signal.reason;
+              reject(req.signal.reason);
+            },
+            { once: true },
+          ),
+        );
+      },
+    },
+  });
+  const pending = provider.generate({ ...request, requestId: "in-flight-abort", signal: controller.signal });
+  await new Promise((resolve) => setImmediate(resolve));
+  controller.abort(new Error("caller-cancelled"));
+  await assert.rejects(pending, /caller-cancelled/);
+  assert.match(String(observed), /caller-cancelled/);
+});

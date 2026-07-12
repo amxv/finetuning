@@ -12,6 +12,7 @@ import {
   scanSensitive,
   validateCompliance,
 } from "../dist/distillation/index.js";
+import { ReliableTeacherProvider } from "../dist/providers/index.js";
 
 const compliance = {
   sourceRights: { status: "approved", basis: "owned" },
@@ -213,4 +214,85 @@ test("interrupted paid success resumes without duplicate provider calls or candi
     2,
   );
   assert.equal(Object.keys(state.paidSuccesses).length, 6);
+});
+
+function budgetedProvider(kind, calls, initialSpent = 0) {
+  return new ReliableTeacherProvider({
+    transport: {
+      async invoke(request) {
+        calls.push(request);
+        const content =
+          kind === "judge"
+            ? JSON.stringify({ quality: 0.8, correctness: 0.9, safety: 1, style: 0.7 })
+            : `answer ${request.sampleId}`;
+        return {
+          response: { kind: "text", content },
+          usage: { inputTokens: 2_000_000, outputTokens: 0, totalTokens: 2_000_000 },
+          finishReason: "stop",
+        };
+      },
+    },
+    catalog: { price: () => ({ inputPerMillion: 1, outputPerMillion: 1, currency: "USD" }) },
+    budgets: { global: 1, stage: 1, provider: 1, currency: "USD" },
+    initialSpent,
+  });
+}
+
+test("generator actual overrun persists and cross-instance resume makes no duplicate or subsequent call", async () => {
+  let partial;
+  const firstCalls = [];
+  await assert.rejects(
+    new DistillationPipeline(
+      budgetedProvider("generator", firstCalls),
+      provider("judge", {}, []),
+      undefined,
+      () => new Date(0).toISOString(),
+      async (state) => {
+        partial = structuredClone(state);
+      },
+    ).run([example("a", "a"), example("b", "b")], config),
+    /Budget exceeded \(actual\)/,
+  );
+  assert.equal(firstCalls.length, 1);
+  assert.equal(Object.keys(partial.paidSuccesses).length, 1);
+  assert.equal(partial.costs.generator.cost, 2);
+  const resumedCalls = [];
+  await assert.rejects(
+    new DistillationPipeline(
+      budgetedProvider("generator", resumedCalls, partial.costs.generator.cost),
+      provider("judge", {}, []),
+    ).run([example("a", "a"), example("b", "b")], config, partial),
+    /Budget exceeded \(estimated\)/,
+  );
+  assert.equal(resumedCalls.length, 0);
+  assert.equal(Object.keys(partial.paidSuccesses).length, 1);
+});
+
+test("judge actual overrun persists and cross-instance resume makes no duplicate judge call", async () => {
+  let partial;
+  const judgeCalls = [];
+  await assert.rejects(
+    new DistillationPipeline(
+      provider("generator", {}, []),
+      budgetedProvider("judge", judgeCalls),
+      undefined,
+      () => new Date(0).toISOString(),
+      async (state) => {
+        partial = structuredClone(state);
+      },
+    ).run([example("a", "a")], config),
+    /Budget exceeded \(actual\)/,
+  );
+  assert.equal(judgeCalls.length, 1);
+  assert.equal(partial.costs.judge.cost, 2);
+  const resumedJudgeCalls = [];
+  await assert.rejects(
+    new DistillationPipeline(
+      provider("generator", {}, []),
+      budgetedProvider("judge", resumedJudgeCalls, partial.costs.judge.cost),
+    ).run([example("a", "a")], config, partial),
+    /Budget exceeded \(estimated\)/,
+  );
+  assert.equal(resumedJudgeCalls.length, 0);
+  assert.equal(Object.keys(partial.paidSuccesses).length, 2);
 });
