@@ -9,6 +9,7 @@
     "track",
     "modelId",
     "revision",
+    "identity",
     "license",
     "architecture",
     "qualification",
@@ -22,13 +23,17 @@
     "track": { "enum": ["chat", "embedding"] },
     "modelId": { "type": "string", "minLength": 3 },
     "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "identity": {
+      "type": "object",
+      "required": ["tokenizerRevision", "configRevision", "templateHash", "codeRevision"]
+    },
     "license": { "type": "object", "required": ["spdx", "pinnedArtifact", "note"] },
     "architecture": { "type": "object", "required": ["family", "modelType", "remoteCode", "customKernels"] },
     "qualification": {
       "type": "object",
       "required": ["state", "supportState", "firstWaveExecutable"],
       "properties": {
-        "state": { "const": "configured" },
+        "state": { "enum": ["configured", "smokeAuthorized", "smokePassed", "qualified"] },
         "supportState": { "const": "unavailable" },
         "firstWaveExecutable": { "type": "boolean" }
       }
@@ -38,7 +43,19 @@
       "required": ["methods", "targetModules", "targetParameters", "modulesToSave", "frozen"]
     },
     "blockers": { "type": "array", "minItems": 1, "items": { "type": "string" } },
-    "runtime": { "type": "object", "required": ["gpu", "vramGiB", "storageGiB", "image", "distributed"] }
+    "runtime": {
+      "type": "object",
+      "required": ["gpu", "vramGiB", "storageGiB", "image", "distributed"],
+      "properties": {
+        "image": {
+          "type": "object",
+          "required": ["status", "candidate", "digest"],
+          "properties": { "status": { "const": "required" }, "digest": { "type": "null" } }
+        }
+      }
+    },
+    "rendering": { "type": "object" },
+    "embedding": { "type": "object" }
   },
   "additionalProperties": false
 }

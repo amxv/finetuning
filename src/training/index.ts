@@ -24,14 +24,29 @@ export interface TrainingSpecV1 {
     revisionPinned: boolean;
     remoteCodeReviewed: boolean;
     gpuQualified: boolean;
-    networkApproved?: boolean;
+    experimentalExecutionApproved?: boolean;
+    stagingNetworkApproved?: boolean;
     downloadsApproved?: boolean;
+    remoteCodeApproved?: boolean;
+    gpuApproved?: boolean;
     budgetApproved?: boolean;
     datasetRightsApproved?: boolean;
+    modelLicenseAccepted?: boolean;
+    uploadRequested?: boolean;
     uploadApproved?: boolean;
-    architectureQualified?: boolean;
-    frameworkQualified?: boolean;
+    architectureEvidenceApproved?: boolean;
+    frameworkEvidenceApproved?: boolean;
     customKernelApproved?: boolean;
+  };
+  qualificationAuthorization?: {
+    state: "smokeAuthorized";
+    recipeId: string;
+    recipeIdentityHash: string;
+    evidenceDigest: string;
+    sequence: number;
+    dischargedBlockers: string[];
+    storePath: string;
+    storeSha256: string;
   };
   recipeIdentity?: {
     modelRevision: string;
@@ -86,17 +101,42 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
     if (
       value.qualificationSchemaVersion === "2.0.0" &&
       ![
-        "networkApproved",
+        "experimentalExecutionApproved",
+        "stagingNetworkApproved",
         "downloadsApproved",
+        "remoteCodeApproved",
+        "gpuApproved",
         "budgetApproved",
         "datasetRightsApproved",
+        "modelLicenseAccepted",
+        "uploadRequested",
         "uploadApproved",
-        "architectureQualified",
-        "frameworkQualified",
+        "architectureEvidenceApproved",
+        "frameworkEvidenceApproved",
         "customKernelApproved",
       ].every((k) => typeof gates[k] === "boolean")
     )
       throw new Error("Invalid qualification v2 executionGates");
+    if (value.qualificationSchemaVersion === "2.0.0") {
+      const authorization = value.qualificationAuthorization;
+      if (
+        !isObject(authorization) ||
+        authorization.state !== "smokeAuthorized" ||
+        authorization.recipeId !== value.recipeId ||
+        !sha64(authorization.recipeIdentityHash) ||
+        !sha64(authorization.evidenceDigest) ||
+        typeof authorization.storePath !== "string" ||
+        !sha64(authorization.storeSha256) ||
+        !Array.isArray(authorization.dischargedBlockers) ||
+        authorization.dischargedBlockers.some((item) => typeof item !== "string") ||
+        typeof authorization.sequence !== "number" ||
+        !Number.isInteger(authorization.sequence) ||
+        authorization.sequence < 1
+      )
+        throw new Error("Invalid qualification v2 authorization evidence");
+      if (gates.uploadRequested === false && gates.uploadApproved !== false)
+        throw new Error("No-upload execution requires uploadApproved=false");
+    }
     if (
       !isObject(value.recipeIdentity) ||
       !sha40(value.recipeIdentity.modelRevision) ||

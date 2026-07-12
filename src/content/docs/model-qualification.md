@@ -7,7 +7,7 @@ category: Concepts
 
 Every planned model recipe is currently **configured** and **unavailable for supported use**. Configuration means its canonical ID, immutable candidate revision, architecture, legal conclusion, optimization shape, runtime plan, and blockers are machine-readable. It does not authorize downloads or training and it is not GPU evidence.
 
-Qualification progresses monotonically from `configured` to `smokeAuthorized`, `smokePassed`, and `qualified`. `supported` is a separate release decision after legal, quality, operational, and compatibility review. Evidence is cryptographically bound to the recipe identity, revision, and architecture. A missing assertion, invalid digest, skipped state, dependency drift, tokenizer/template drift, or license drift fails closed. CLI users cannot promote a recipe by setting a status boolean.
+Qualification progresses monotonically from `configured` to `smokeAuthorized`, `smokePassed`, and `qualified`. `supported` is a separate release decision after legal, quality, operational, and compatibility review. Evidence uses a reviewer-trusted Ed25519 signature, hashes the referenced artifact bytes, binds command/image/environment/tokenizer/config/template-or-code/dataset/target/dependency identities, and links each transition to the accepted predecessor digest in a persisted store. Replay, skipped state, unknown assertions, stale identity, and cross-recipe reuse fail closed. CLI users cannot promote a recipe by setting a status Boolean or by recomputing an unkeyed digest.
 
 ## Offline workflow
 
@@ -16,10 +16,10 @@ finetuning recipes list --json
 finetuning recipes inspect --recipe qwen3-embed-0.6b-lora --json
 finetuning recipes preflight --recipe qwen3-embed-0.6b-lora --json
 finetuning recipes plan --recipe qwen3-embed-0.6b-lora --json
-finetuning recipes record-evidence --evidence ./reviewed-evidence.json --json
+finetuning recipes record-evidence --evidence ./reviewed-evidence.json --artifact ./artifact-manifest.json --trusted-keys ./reviewer-public-keys.json --store ./qualification-store.json --json
 ```
 
-Preflight gates cover experimental execution, network, downloads, remote code, GPU, budget, uploads, model-license acceptance, dataset rights, architecture/framework evidence, and custom kernels. `plan` only emits a RunPod-oriented GPU, storage, image, and distributed-strategy proposal. It sets `createsResources: false`, makes no network call, and spends nothing.
+Preflight accepts a recipe-bound `smokeAuthorized` record, not raw user Booleans. Staging network/download authorization is distinct from offline execution, and upload remains false unless it is both requested and separately approved. `plan` only emits a RunPod-oriented GPU, storage, image, and distributed-strategy proposal. It sets `createsResources: false`, `executableEnvironment: false`, makes no network call, spends nothing, and represents the image digest as missing rather than using a runnable-looking placeholder.
 
 The planned first-wave order is Qwen3 Embedding, Arctic Embed, OLMo 3.1 Instruct, OLMo 3.1 Think, Qwen3.6 dense, BGE dense after corrected MIT inventory approval, then GTE dense after external-code review. Each still has blockers and none is smoke-passed, qualified, or supported.
 
@@ -27,8 +27,8 @@ Nomic v2 MoE, both Nemotron variants, Qwen3.6 MoE, BGE sparse/ColBERT/hybrid, an
 
 ## Trainer semantics
 
-Chat recipes use verified cumulative token boundaries to construct assistant labels because the pinned templates do not expose valid Jinja generation spans. Non-prefix-stable rendering, an empty assistant target, template drift, EOS/pad drift, unsupported roles, and ambiguous reasoning/tool conversion fail closed.
+The framework has a cumulative token-boundary masking primitive because the candidate upstream templates do not expose valid Jinja generation spans. The primitive rejects prefix/final drift, empty assistant payloads, and missing assistant EOS tokens. However, upstream template SHA-256 values and model-specific golden reasoning/tool/EOS-pad fixtures have not been captured offline, so every chat recipe explicitly records `templateHash.status=required`, an empty golden-fixture list, and remains blocked. These docs do not claim those model-specific fixtures have passed.
 
-Embedding recipes use a two-tower contrastive objective with in-batch negatives. Hard negatives are appended as candidates. Matryoshka recipes compute normalized contrastive loss at every declared dimension and average the losses. Pooling, padding, normalization, query/document prompts, dimensions, and native-head exclusions are immutable identity.
+Embedding recipes use a two-tower contrastive objective with in-batch negatives. Uniform hard-negative batches append negatives as candidates; mixed pair/triplet batches are rejected instead of dropping data. Matryoshka recipes compute normalized contrastive loss at every declared dimension and average the losses. Pooling, left/right padding, L2 normalization, query/document prompts, dimensions, negative policy, and native-head exclusions are explicit identity. A required CPU-Torch CI lane checks hand-computed loss, left-padded last-token pooling, finite nonzero gradients, and actual Transformers `Trainer` consumption.
 
 License strings are evidence claims, not authorization. BGE-M3 is MIT; the former Apache assumption is recorded as erroneous and remains blocked pending inventory approval. NVIDIA entries use NVIDIA license references and are never described as Apache. Where the pinned repository lacks a LICENSE artifact, metadata alone cannot open the gate.

@@ -55,10 +55,6 @@ assert.deepEqual(
     .map((x) => x.id),
   canonicalEmbeddingRecipeIds.filter((x) => x !== "cpu-tiny-embedding-fixture"),
 );
-assert.deepEqual(
-  Object.keys(pythonEvidence.recipes),
-  canonicalEmbeddingRecipeIds.filter((x) => x !== "cpu-tiny-embedding-fixture"),
-);
 const pythonRecipeIds = JSON.parse(
   (
     await exec(
@@ -68,6 +64,7 @@ const pythonRecipeIds = JSON.parse(
     )
   ).stdout,
 );
+assert.deepEqual(Object.keys(pythonEvidence.recipes), pythonRecipeIds);
 assert.deepEqual(
   pythonRecipeIds.filter((x) => pythonEvidence.recipes[x]),
   Object.keys(pythonEvidence.recipes),

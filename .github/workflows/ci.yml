@@ -57,3 +57,14 @@ jobs:
       - run: npm run lint:python
       - run: npm run format:check:python
       - run: npm run verify:python
+  torch-objective:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - run: uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
+      - run: uv pip install --system "transformers>=4.57,<5" "accelerate>=1.10,<2"
+      - run: PYTHONPATH=python python -m unittest python.training_tests.torch_objective

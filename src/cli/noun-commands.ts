@@ -22,8 +22,8 @@ import {
   planRunPodSmoke,
   preflightQualification,
   qualificationRecipes,
-  validateQualificationEvidence,
-  type AuthorizationGates,
+  recordQualificationEvidence,
+  type AcceptedSmokeAuthorization,
 } from "../training/qualification.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { runEmbedCommand } from "./embed-data.js";
@@ -178,7 +178,7 @@ async function runRecipeQualificationCommand(rawArgs: string[]): Promise<void> {
   if (verb === "preflight") {
     const authorizationPath = readOptionalStringFlag(args, "authorization");
     const gates = authorizationPath
-      ? (JSON.parse(await readFile(authorizationPath, "utf8")) as Partial<AuthorizationGates>)
+      ? (JSON.parse(await readFile(authorizationPath, "utf8")) as AcceptedSmokeAuthorization)
       : undefined;
     const result = preflightQualification(readRequiredStringFlag(args, "recipe"), gates);
     printResult(result, args);
@@ -186,8 +186,16 @@ async function runRecipeQualificationCommand(rawArgs: string[]): Promise<void> {
     return;
   }
   if (verb === "record-evidence") {
-    const evidence = await validateQualificationEvidence(readRequiredStringFlag(args, "evidence"));
-    printResult({ validated: true, evidence }, args);
+    const trustedPublicKeys = JSON.parse(
+      await readFile(readRequiredStringFlag(args, "trusted-keys"), "utf8"),
+    ) as Record<string, string>;
+    const result = await recordQualificationEvidence({
+      evidencePath: readRequiredStringFlag(args, "evidence"),
+      artifactPath: readRequiredStringFlag(args, "artifact"),
+      storePath: readRequiredStringFlag(args, "store"),
+      trustedPublicKeys,
+    });
+    printResult({ recorded: true, evidence: result.evidence, digest: result.digest, state: result.store }, args);
     return;
   }
   throw new Error(`Unknown command: recipes ${verb}`);
@@ -270,7 +278,7 @@ async function pipelineResume(args: ReturnType<typeof parseArgs>): Promise<void>
 
 export function printNounRootHelp(): void {
   console.log(
-    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  embed data create|import|convert|validate|inspect|split|dedupe|freeze|export\n                        Process canonical/ST/HF embedding data without model recipe claims.\n  embed generate queries|documents|pairs | embed mine negatives\n  embed distill vectors|scores|rankings|plan|run|resume|status\n                        Run train-only embedding distillation workflows.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare|run|resume|status|evaluate|export\n                        Prepare and execute versioned local training runs.",
+    "\nNoun-oriented local commands:\n  dataset freeze       Freeze canonical JSONL into an immutable dataset directory.\n  embed data create|import|convert|validate|inspect|split|dedupe|freeze|export\n                        Process canonical/ST/HF embedding data without model recipe claims.\n  embed generate queries|documents|pairs | embed mine negatives\n  embed distill vectors|scores|rankings|plan|run|resume|status\n                        Run train-only embedding distillation workflows.\n  recipes list|inspect|preflight|plan|record-evidence\n                        Inspect configured recipes, plan offline smokes, and record signed evidence.\n  pipeline status      Read local stage-attempt status without mutation.\n  pipeline resume      Resume a declarative local constant-stage plan.\n  distill init|plan|responses|resume|status|freeze\n                        Run a compliant local response-distillation pipeline.\n  template inspect|render|audit\n                        Inspect late-bound template metadata and audit status.\n  training prepare|run|resume|status|evaluate|export\n                        Prepare and execute versioned local training runs.",
   );
 }
 function printNounHelp(noun: string): void {

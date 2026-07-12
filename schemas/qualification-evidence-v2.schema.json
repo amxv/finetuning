@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amxv.dev/schemas/qualification-evidence-v2.schema.json",
+  "title": "Signed Qualification Evidence V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidenceVersion",
+    "evidenceId",
+    "sequence",
+    "recipeId",
+    "recipeIdentityHash",
+    "architecture",
+    "revision",
+    "state",
+    "previousState",
+    "predecessorDigest",
+    "issuedAt",
+    "expiresAt",
+    "signerKeyId",
+    "artifactSha256",
+    "bindings",
+    "assertions",
+    "signatureBase64"
+  ],
+  "properties": {
+    "evidenceVersion": { "const": "2.0.0" },
+    "evidenceId": { "type": "string", "pattern": "^[A-Za-z0-9._-]{8,128}$" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "recipeId": { "type": "string" },
+    "recipeIdentityHash": { "$ref": "#/$defs/sha256" },
+    "architecture": { "type": "string" },
+    "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "state": { "enum": ["smokeAuthorized", "smokePassed", "qualified"] },
+    "previousState": { "enum": ["configured", "smokeAuthorized", "smokePassed"] },
+    "predecessorDigest": { "$ref": "#/$defs/sha256" },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "signerKeyId": { "type": "string" },
+    "artifactSha256": { "$ref": "#/$defs/sha256" },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandSha256",
+        "imageDigest",
+        "environmentLockSha256",
+        "tokenizerSha256",
+        "configSha256",
+        "templateOrCodeSha256",
+        "datasetSha256",
+        "targetInventorySha256",
+        "dependencyIdentitySha256"
+      ],
+      "properties": {
+        "commandSha256": { "$ref": "#/$defs/sha256" },
+        "imageDigest": { "$ref": "#/$defs/sha256" },
+        "environmentLockSha256": { "$ref": "#/$defs/sha256" },
+        "tokenizerSha256": { "$ref": "#/$defs/sha256" },
+        "configSha256": { "$ref": "#/$defs/sha256" },
+        "templateOrCodeSha256": { "$ref": "#/$defs/sha256" },
+        "datasetSha256": { "$ref": "#/$defs/sha256" },
+        "targetInventorySha256": { "$ref": "#/$defs/sha256" },
+        "dependencyIdentitySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "assertions": { "type": "object", "additionalProperties": { "const": true } },
+    "signatureBase64": { "type": "string", "minLength": 32 }
+  },
+  "$defs": { "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

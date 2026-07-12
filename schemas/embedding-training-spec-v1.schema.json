@@ -34,14 +34,43 @@
         "revisionPinned": { "type": "boolean" },
         "remoteCodeReviewed": { "type": "boolean" },
         "gpuQualified": { "type": "boolean" },
-        "networkApproved": { "type": "boolean" },
+        "experimentalExecutionApproved": { "type": "boolean" },
+        "stagingNetworkApproved": { "type": "boolean" },
         "downloadsApproved": { "type": "boolean" },
+        "remoteCodeApproved": { "type": "boolean" },
+        "gpuApproved": { "type": "boolean" },
         "budgetApproved": { "type": "boolean" },
         "datasetRightsApproved": { "type": "boolean" },
+        "modelLicenseAccepted": { "type": "boolean" },
+        "uploadRequested": { "type": "boolean" },
         "uploadApproved": { "type": "boolean" },
-        "architectureQualified": { "type": "boolean" },
-        "frameworkQualified": { "type": "boolean" },
+        "architectureEvidenceApproved": { "type": "boolean" },
+        "frameworkEvidenceApproved": { "type": "boolean" },
         "customKernelApproved": { "type": "boolean" }
+      }
+    },
+    "qualificationAuthorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "recipeId",
+        "recipeIdentityHash",
+        "evidenceDigest",
+        "sequence",
+        "dischargedBlockers",
+        "storePath",
+        "storeSha256"
+      ],
+      "properties": {
+        "state": { "const": "smokeAuthorized" },
+        "recipeId": { "type": "string" },
+        "recipeIdentityHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "evidenceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "dischargedBlockers": { "type": "array", "items": { "type": "string" } },
+        "storePath": { "type": "string" },
+        "storeSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       }
     },
     "recipeIdentity": {
@@ -91,5 +120,40 @@
     },
     "allowedRuntimeChanges": { "type": "array", "items": { "type": "string" } }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": { "qualificationSchemaVersion": { "const": "2.0.0" } },
+        "required": ["qualificationSchemaVersion"]
+      },
+      "then": {
+        "required": ["executionGates", "qualificationAuthorization"],
+        "properties": {
+          "executionGates": {
+            "required": [
+              "allowModelLoad",
+              "licenseApproved",
+              "revisionPinned",
+              "remoteCodeReviewed",
+              "gpuQualified",
+              "experimentalExecutionApproved",
+              "stagingNetworkApproved",
+              "downloadsApproved",
+              "remoteCodeApproved",
+              "gpuApproved",
+              "budgetApproved",
+              "datasetRightsApproved",
+              "modelLicenseAccepted",
+              "uploadRequested",
+              "uploadApproved",
+              "architectureEvidenceApproved",
+              "frameworkEvidenceApproved",
+              "customKernelApproved"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

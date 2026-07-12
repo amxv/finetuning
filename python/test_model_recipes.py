@@ -1,6 +1,14 @@
+import json
 import unittest
+from pathlib import Path
 
-from amxv_finetuning_trainer.framework import RECIPES, BiEncoder, manual_assistant_labels, require_execution_gates
+from amxv_finetuning_trainer.framework import (
+    RECIPES,
+    BiEncoder,
+    HuggingFaceFramework,
+    manual_assistant_labels,
+    require_execution_gates,
+)
 
 try:
     import torch
@@ -9,6 +17,9 @@ except ImportError:
 
 
 class FakeTokenizer:
+    eos_token_id = 99
+    pad_token_id = 0
+
     def apply_chat_template(self, messages, tokenize=True, add_generation_prompt=False):
         del tokenize, add_generation_prompt
         result = []
@@ -29,11 +40,11 @@ class DriftingTokenizer(FakeTokenizer):
 class ModelRecipes(unittest.TestCase):
     def test_manual_mask_covers_only_assistant_spans_with_eos(self):
         messages = [
-            {"role": "system", "tokens": [1]},
-            {"role": "user", "tokens": [2, 3]},
-            {"role": "assistant", "tokens": [4, 5]},
-            {"role": "tool", "tokens": [6]},
-            {"role": "assistant", "tokens": [7]},
+            {"role": "system", "tokens": [1], "content": "policy"},
+            {"role": "user", "tokens": [2, 3], "content": "question"},
+            {"role": "assistant", "tokens": [4, 5], "content": "<think>reason</think> answer"},
+            {"role": "tool", "tokens": [6], "content": "result"},
+            {"role": "assistant", "tokens": [7], "content": "final"},
         ]
         ids, labels = manual_assistant_labels(FakeTokenizer(), messages)
         self.assertEqual(ids, [10, 1, 99, 20, 2, 3, 99, 30, 4, 5, 99, 40, 6, 99, 30, 7, 99])
@@ -42,20 +53,30 @@ class ModelRecipes(unittest.TestCase):
     def test_manual_mask_fails_closed_on_template_drift_and_empty_assistant(self):
         with self.assertRaisesRegex(ValueError, "DRIFT"):
             manual_assistant_labels(
-                DriftingTokenizer(), [{"role": "user", "tokens": [1]}, {"role": "assistant", "tokens": [2]}]
+                DriftingTokenizer(),
+                [{"role": "user", "tokens": [1], "content": "q"}, {"role": "assistant", "tokens": [2], "content": "a"}],
             )
         with self.assertRaisesRegex(ValueError, "EMPTY"):
             manual_assistant_labels(FakeTokenizer(), [{"role": "user", "tokens": [1]}])
+        with self.assertRaisesRegex(ValueError, "EMPTY_ASSISTANT"):
+            manual_assistant_labels(
+                FakeTokenizer(),
+                [{"role": "user", "tokens": [1], "content": "q"}, {"role": "assistant", "tokens": [], "content": ""}],
+            )
 
     def test_version_two_gates_cover_mutating_and_evidence_boundaries(self):
         gates = {
             name: True
             for name in ("allowModelLoad", "licenseApproved", "revisionPinned", "remoteCodeReviewed", "gpuQualified")
         }
-        with self.assertRaisesRegex(RuntimeError, "networkApproved"):
+        with self.assertRaisesRegex(RuntimeError, "experimentalExecutionApproved"):
             require_execution_gates({"qualificationSchemaVersion": "2.0.0", "executionGates": gates})
 
     def test_all_recipe_revisions_are_exact_and_non_wave_recipes_block(self):
+        evidence = json.loads((Path(__file__).parent / "amxv_finetuning_trainer" / "recipe-evidence.json").read_text())[
+            "recipes"
+        ]
+        self.assertEqual(set(evidence), set(RECIPES))
         for recipe_id in (
             "qwen3.6-27b",
             "qwen3.6-35b-a3b",
@@ -70,6 +91,9 @@ class ModelRecipes(unittest.TestCase):
             "gte-multilingual-base-full",
         ):
             self.assertRegex(RECIPES[recipe_id]["modelRevision"], r"^[0-9a-f]{40}$")
+            self.assertEqual(evidence[recipe_id]["modelRevision"], RECIPES[recipe_id]["modelRevision"])
+            self.assertEqual(evidence[recipe_id]["supportState"], "unavailable")
+            self.assertEqual(evidence[recipe_id]["qualificationState"], "configured")
         for recipe_id in (
             "qwen3.6-35b-a3b",
             "nemotron-cascade-2-30b-a3b",
@@ -77,6 +101,43 @@ class ModelRecipes(unittest.TestCase):
             "nomic-v2-moe-native",
         ):
             self.assertIn("first smoke wave", RECIPES[recipe_id]["blocked"])
+
+    def test_embedding_recipe_applies_prompt_padding_normalization_and_rejects_mixed_negatives(self):
+        class Dataset:
+            @staticmethod
+            def from_list(rows):
+                return rows
+
+        class Tokenizer:
+            padding_side = "right"
+
+            def __call__(self, text, **kwargs):
+                return {"text": text, **kwargs}
+
+            def pad(self, rows, return_tensors):
+                return {"rows": rows, "return_tensors": return_tensors}
+
+        framework = HuggingFaceFramework.__new__(HuggingFaceFramework)
+        framework.Dataset = Dataset
+        tokenizer = Tokenizer()
+        recipe = RECIPES["qwen3-embed-0.6b-lora"]
+        self.assertEqual(recipe["normalization"], "l2")
+        dataset, collate = framework.prepare_embedding(
+            [
+                {"query": "q1", "document": "d1", "hardNegative": "n1"},
+                {"query": "q2", "document": "d2"},
+            ],
+            tokenizer,
+            recipe,
+        )
+        self.assertEqual(tokenizer.padding_side, "left")
+        self.assertEqual(
+            dataset[0]["query"]["text"],
+            "Instruct: Given a web search query, retrieve relevant passages that answer the query.\nQuery:q1",
+        )
+        self.assertEqual(dataset[0]["document"]["text"], "d1")
+        with self.assertRaisesRegex(ValueError, "MIXED_HARD_NEGATIVES"):
+            collate(dataset)
 
     @unittest.skipIf(torch is None, "torch optional dependency is unavailable")
     def test_contrastive_matryoshka_loss_uses_hard_and_in_batch_negatives(self):

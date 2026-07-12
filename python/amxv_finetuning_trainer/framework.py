@@ -58,10 +58,12 @@ class HuggingFaceFramework:
         self.SFTConfig, self.SFTTrainer, self.Trainer = SFTConfig, SFTTrainer, Trainer
 
     def load_tokenizer(self, model_id, revision, trust_remote_code=False):
-        return self.AutoTokenizer.from_pretrained(model_id, revision=revision, trust_remote_code=trust_remote_code)
+        return self.AutoTokenizer.from_pretrained(
+            model_id, revision=revision, trust_remote_code=trust_remote_code, local_files_only=True
+        )
 
     def load_model(self, model_id, revision, *, quantization, trust_remote_code=False, track="chat"):
-        kwargs = {"revision": revision, "trust_remote_code": trust_remote_code}
+        kwargs = {"revision": revision, "trust_remote_code": trust_remote_code, "local_files_only": True}
         if quantization == "4bit":
             kwargs["quantization_config"] = self.BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -84,6 +86,8 @@ class HuggingFaceFramework:
         return self.Dataset.from_list(prepared)
 
     def prepare_embedding(self, rows, tokenizer, recipe):
+        tokenizer.padding_side = recipe["paddingSide"]
+
         def encode(text):
             return tokenizer(text, truncation=True, max_length=recipe["maxLength"])
 
@@ -111,7 +115,10 @@ class HuggingFaceFramework:
 
         def collate(batch):
             sides = ["query", "document"]
-            if all("hard_negative" in x for x in batch):
+            negative_count = sum("hard_negative" in x for x in batch)
+            if negative_count not in (0, len(batch)):
+                raise ValueError("EMBED_MIXED_HARD_NEGATIVES: each batch must be uniformly paired or triplet")
+            if negative_count:
                 sides.append("hard_negative")
             return {side: tokenizer.pad([x[side] for x in batch], return_tensors="pt") for side in sides}
 
@@ -169,13 +176,16 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
     if spec.get("qualificationSchemaVersion") == "2.0.0":
         required.extend(
             [
-                "networkApproved",
+                "experimentalExecutionApproved",
+                "stagingNetworkApproved",
                 "downloadsApproved",
+                "remoteCodeApproved",
+                "gpuApproved",
                 "budgetApproved",
                 "datasetRightsApproved",
-                "uploadApproved",
-                "architectureQualified",
-                "frameworkQualified",
+                "modelLicenseAccepted",
+                "architectureEvidenceApproved",
+                "frameworkEvidenceApproved",
                 "customKernelApproved",
             ]
         )
@@ -184,60 +194,122 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
         raise RuntimeError("PRODUCTION_GATE_CLOSED: " + ", ".join(missing))
     if spec.get("trustRemoteCode") and not gates.get("remoteCodeReviewed"):
         raise RuntimeError("REMOTE_CODE_REVIEW_REQUIRED")
+    if spec.get("qualificationSchemaVersion") == "2.0.0":
+        authorization = spec.get("qualificationAuthorization", {})
+        if (
+            authorization.get("state") != "smokeAuthorized"
+            or authorization.get("recipeId") != spec.get("recipeId")
+            or not isinstance(authorization.get("evidenceDigest"), str)
+            or len(authorization["evidenceDigest"]) != 64
+        ):
+            raise RuntimeError("ACCEPTED_SMOKE_AUTHORIZATION_REQUIRED")
+        store_path = Path(authorization.get("storePath", ""))
+        if not store_path.is_file():
+            raise RuntimeError("QUALIFICATION_STORE_REQUIRED")
+        store_bytes = store_path.read_bytes()
+        if hashlib.sha256(store_bytes).hexdigest() != authorization.get("storeSha256"):
+            raise RuntimeError("QUALIFICATION_STORE_HASH_MISMATCH")
+        store = json.loads(store_bytes)
+        accepted = store.get("recipes", {}).get(spec.get("recipeId"), {})
+        if (
+            accepted.get("state") != "smokeAuthorized"
+            or accepted.get("currentDigest") != authorization["evidenceDigest"]
+            or accepted.get("sequence") != authorization.get("sequence")
+        ):
+            raise RuntimeError("QUALIFICATION_STORE_AUTHORIZATION_MISMATCH")
+        if not isinstance(gates.get("uploadRequested"), bool) or not isinstance(gates.get("uploadApproved"), bool):
+            raise RuntimeError("UPLOAD_GATE_VALUES_REQUIRED")
+        if gates["uploadRequested"] is not False or gates["uploadApproved"] is not False:
+            raise RuntimeError("TRAINING_UPLOADS_FORBIDDEN")
 
 
 RECIPES = {
     "qwen3.6-27b": {
+        "firstWaveExecutable": False,
         "track": "chat",
         "modelId": "Qwen/Qwen3.6-27B",
         "modelRevision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
         "tokenizerRevision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
         "architecture": "hybrid-dense",
         "reasoning": "unified",
+        "templateHash": None,
+        "templateHashStatus": "required-before-smoke",
+        "eosPolicy": "tokenizer-native-im-end",
+        "padPolicy": "tokenizer-native-endoftext-distinct-from-eos",
         "roles": ["system", "user", "assistant", "tool"],
         "lora": {
             "r": 16,
             "lora_alpha": 32,
-            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+            "target_modules": [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+                "linear_attn",
+            ],
         },
+        "frozen": ["vision", "lm_head"],
     },
     "qwen3.6-35b-a3b": {
+        "firstWaveExecutable": False,
         "track": "chat",
         "modelId": "Qwen/Qwen3.6-35B-A3B",
         "modelRevision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
         "tokenizerRevision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
         "architecture": "hybrid-moe",
         "reasoning": "unified",
+        "templateHash": None,
+        "templateHashStatus": "required-before-smoke",
         "roles": ["system", "user", "assistant", "tool"],
+        "lora": {
+            "r": 16,
+            "lora_alpha": 32,
+            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "linear_attn"],
+        },
+        "frozen": ["router", "experts", "vision", "lm_head"],
         "blocked": "not authorized in first smoke wave; packed expert target_parameters unresolved",
     },
     "nemotron-cascade-2-30b-a3b": {
+        "firstWaveExecutable": False,
         "track": "chat",
         "modelId": "nvidia/Nemotron-Cascade-2-30B-A3B",
         "modelRevision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
         "tokenizerRevision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
         "architecture": "custom-nemotron-h",
         "reasoning": "thinking-policy-required",
+        "templateHash": None,
+        "templateHashStatus": "required-before-smoke",
         "roles": ["system", "user", "assistant", "tool"],
         "blocked": "not authorized in first smoke wave; NVIDIA license artifact, remote code, Mamba kernels, and dedicated adapter unresolved",
     },
     "nemotron-3-nano-30b-a3b": {
+        "firstWaveExecutable": False,
         "track": "chat",
         "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
         "modelRevision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
         "tokenizerRevision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
-        "architecture": "mamba-transformer-moe",
+        "architecture": "custom-nemotron-h",
         "reasoning": "explicit",
+        "templateHash": None,
+        "templateHashStatus": "required-before-smoke",
         "roles": ["system", "user", "assistant", "tool"],
         "blocked": "not authorized in first smoke wave; NVIDIA license artifact, remote code, Mamba kernels, and dedicated adapter unresolved",
     },
     "olmo-3.1-32b-instruct": {
+        "firstWaveExecutable": True,
         "track": "chat",
         "modelId": "allenai/Olmo-3.1-32B-Instruct",
         "modelRevision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
         "tokenizerRevision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
         "architecture": "dense",
         "reasoning": "instruct",
+        "templateHash": None,
+        "templateHashStatus": "required-before-smoke",
+        "eosPolicy": "last-assistant-endoftext",
+        "padPolicy": "pad-token-distinct-from-eos",
         "roles": ["system", "user", "assistant", "tool"],
         "lora": {
             "r": 16,
@@ -246,12 +318,17 @@ RECIPES = {
         },
     },
     "olmo-3.1-32b-think": {
+        "firstWaveExecutable": True,
         "track": "chat",
         "modelId": "allenai/Olmo-3.1-32B-Think",
         "modelRevision": "832c3f543499af8fe68b88359501de9cb7840544",
         "tokenizerRevision": "832c3f543499af8fe68b88359501de9cb7840544",
         "architecture": "dense",
         "reasoning": "think",
+        "templateHash": None,
+        "templateHashStatus": "required-before-smoke",
+        "eosPolicy": "last-assistant-endoftext",
+        "padPolicy": "pad-token-distinct-from-eos",
         "roles": ["system", "user", "assistant"],
         "lora": {
             "r": 16,
@@ -260,11 +337,18 @@ RECIPES = {
         },
     },
     "qwen3-embed-0.6b-lora": {
+        "firstWaveExecutable": True,
         "track": "embedding",
+        "methods": ["lora"],
         "modelId": "Qwen/Qwen3-Embedding-0.6B",
+        "architecture": "qwen3",
         "modelRevision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
         "tokenizerRevision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
         "pooling": "last-token",
+        "paddingSide": "left",
+        "normalization": "l2",
+        "negativePolicy": "in-batch-and-optional-uniform-hard-negatives",
+        "nativeHeads": ["dense"],
         "objective": "multiple-negatives",
         "dimensions": [32, 64, 128, 256, 512, 768, 1024],
         "maxLength": 32768,
@@ -279,59 +363,88 @@ RECIPES = {
         "blocked": "license artifact unresolved",
     },
     "arctic-m-v2-full": {
+        "firstWaveExecutable": True,
         "track": "embedding",
+        "methods": ["lora"],
         "modelId": "Snowflake/snowflake-arctic-embed-m-v2.0",
+        "architecture": "custom-gte",
         "modelRevision": "95c2741480856aa9666782eb4afe11959938017f",
         "tokenizerRevision": "95c2741480856aa9666782eb4afe11959938017f",
         "pooling": "cls",
+        "paddingSide": "right",
+        "normalization": "l2",
+        "negativePolicy": "in-batch-and-optional-uniform-hard-negatives",
+        "nativeHeads": ["dense"],
         "objective": "multiple-negatives",
         "dimensions": [256, 768],
         "maxLength": 8192,
         "queryPrefix": "query: ",
         "documentPrefix": "",
-        "lora": {},
+        "lora": {"r": 16, "lora_alpha": 32, "target_modules": ["packed_qkv", "output", "ffn"]},
         "blocked": "license and remote code unresolved",
     },
     "bge-m3-dense": {
+        "firstWaveExecutable": True,
         "track": "embedding",
+        "methods": ["lora"],
         "modelId": "BAAI/bge-m3",
+        "architecture": "xlm-roberta",
         "modelRevision": "5617a9f61b028005a4858fdac845db406aefb181",
         "tokenizerRevision": "5617a9f61b028005a4858fdac845db406aefb181",
         "pooling": "cls",
+        "paddingSide": "right",
+        "normalization": "l2",
+        "negativePolicy": "in-batch-and-optional-uniform-hard-negatives",
+        "nativeHeads": ["dense"],
         "objective": "multiple-negatives",
         "dimensions": [1024],
         "maxLength": 8192,
         "queryPrefix": "",
         "documentPrefix": "",
-        "lora": {},
+        "lora": {"r": 16, "lora_alpha": 32, "target_modules": ["query", "key", "value", "dense"]},
         "blocked": "corrected MIT legal inventory approval required; sparse/ColBERT/hybrid heads excluded",
     },
     "nomic-v2-moe-native": {
+        "firstWaveExecutable": False,
         "track": "embedding",
+        "methods": ["lora"],
         "modelId": "nomic-ai/nomic-embed-text-v2-moe",
+        "architecture": "custom-nomic-bert",
         "modelRevision": "1066b6599d099fbb93dfcb64f9c37a7c9e503e85",
         "tokenizerRevision": "1066b6599d099fbb93dfcb64f9c37a7c9e503e85",
         "pooling": "mean",
+        "paddingSide": "right",
+        "normalization": "l2",
+        "negativePolicy": "native-lane-required",
+        "nativeHeads": ["dense", "moe-router"],
         "objective": "multiple-negatives",
         "dimensions": [256, 768],
         "maxLength": 512,
         "queryPrefix": "search_query: ",
         "documentPrefix": "search_document: ",
         "lora": {},
+        "frozen": ["router"],
         "blocked": "not authorized in first smoke wave; native Contrastors/MegaBlocks lane and external-code evidence unresolved",
     },
     "gte-multilingual-base-full": {
+        "firstWaveExecutable": True,
         "track": "embedding",
+        "methods": ["lora"],
         "modelId": "Alibaba-NLP/gte-multilingual-base",
+        "architecture": "custom-new",
         "modelRevision": "9bbca17d9273fd0d03d5725c7a4b0f6b45142062",
         "tokenizerRevision": "9bbca17d9273fd0d03d5725c7a4b0f6b45142062",
         "pooling": "cls",
+        "paddingSide": "right",
+        "normalization": "l2",
+        "negativePolicy": "in-batch-and-optional-uniform-hard-negatives",
+        "nativeHeads": ["dense"],
         "objective": "multiple-negatives",
         "dimensions": [768],
         "maxLength": 8192,
         "queryPrefix": "",
         "documentPrefix": "",
-        "lora": {},
+        "lora": {"r": 16, "lora_alpha": 32, "target_modules": ["reviewed-encoder-linears"]},
         "blocked": "license and remote code unresolved",
     },
 }
@@ -344,8 +457,8 @@ def resolve_recipe(recipe_id, track):
     evidence_path = Path(__file__).with_name("recipe-evidence.json")
     evidence = json.loads(evidence_path.read_text())["recipes"].get(recipe_id, {}) if evidence_path.exists() else {}
     resolved = {**recipe, **{k: v for k, v in evidence.items() if k in ("modelRevision", "tokenizerRevision")}}
-    if evidence.get("status") != "supported" and evidence.get("unavailableReasons"):
-        resolved["blocked"] = "; ".join(evidence["unavailableReasons"])
+    if evidence.get("supportState") != "supported" and evidence.get("unavailableReasons"):
+        resolved["blockers"] = evidence["unavailableReasons"]
     return resolved
 
 
@@ -353,8 +466,18 @@ def execute_recipe(
     spec: dict[str, Any], rows: list[dict[str, Any]], framework: FrameworkAdapter, track: str
 ) -> dict[str, Any]:
     recipe = resolve_recipe(spec["recipeId"], track)
-    if recipe.get("blocked"):
-        raise RuntimeError("RECIPE_EVIDENCE_UNAVAILABLE: " + recipe["blocked"])
+    blockers = recipe.get("blockers") or ([recipe["blocked"]] if recipe.get("blocked") else [])
+    discharged = spec.get("qualificationAuthorization", {}).get("dischargedBlockers", [])
+    if not recipe.get("firstWaveExecutable", True):
+        raise RuntimeError("RECIPE_FIRST_WAVE_NON_EXECUTABLE: " + "; ".join(blockers))
+    if blockers and (
+        spec.get("qualificationSchemaVersion") != "2.0.0"
+        or not isinstance(discharged, list)
+        or any(blocker not in discharged for blocker in blockers)
+    ):
+        raise RuntimeError("RECIPE_EVIDENCE_UNAVAILABLE: " + "; ".join(blockers))
+    if recipe.get("methods") and spec.get("adapter") not in recipe["methods"]:
+        raise RuntimeError("RECIPE_OPTIMIZATION_METHOD_UNSUPPORTED")
     for key in ("modelRevision", "tokenizerRevision", "templateHash" if track == "chat" else "modelRevision"):
         if not isinstance(recipe.get(key), str) or (
             key != "templateHash" and (len(recipe[key]) != 40 or any(c not in "0123456789abcdef" for c in recipe[key]))
@@ -384,6 +507,17 @@ def execute_recipe(
             raise RuntimeError("CHAT_ROLE_UNSUPPORTED")
         if not recipe.get("lora", {}).get("target_modules") and spec.get("adapter") in ("lora", "qlora"):
             raise RuntimeError("LORA_TARGETS_UNRESOLVED")
+    if recipe["modelId"].startswith("Qwen/Qwen3.6-"):
+        raise RuntimeError("QWEN_TEXT_ONLY_ADAPTER_NOT_IMPLEMENTED")
+    if recipe.get("architecture", "").startswith("custom"):
+        code_identity = spec.get("codeIdentity", {})
+        if (
+            not isinstance(code_identity.get("revision"), str)
+            or len(code_identity["revision"]) != 40
+            or not isinstance(code_identity.get("sha256"), str)
+            or len(code_identity["sha256"]) != 64
+        ):
+            raise RuntimeError("REMOTE_CODE_IDENTITY_REQUIRED")
     model = framework.load_model(
         recipe["modelId"],
         recipe["modelRevision"],
@@ -392,7 +526,9 @@ def execute_recipe(
         track=track,
     )
     if spec.get("adapter") in ("lora", "qlora"):
-        model = framework.attach_adapter(model, recipe["lora"])
+        adapter_config = architecture_adapter_config(model, recipe, spec)
+        model = framework.attach_adapter(model, adapter_config)
+        validate_trainable_inventory(model, spec)
     if track == "embedding":
         dimension = spec.get("dimension")
         if dimension is not None and dimension not in recipe["dimensions"]:
@@ -424,6 +560,46 @@ def execute_recipe(
         "uploads": False,
         **({"checkpointManifest": checkpoint_manifest} if checkpoint_manifest else {}),
     }
+
+
+def architecture_adapter_config(model, recipe, spec):
+    config = dict(recipe.get("lora", {}))
+    if spec.get("qualificationSchemaVersion") != "2.0.0":
+        return config
+    evidence = spec.get("architectureEvidence", {})
+    if not hasattr(model, "named_modules") or not hasattr(model, "named_parameters"):
+        raise RuntimeError("ARCHITECTURE_INVENTORY_UNAVAILABLE")
+    modules = sorted(name for name, _ in model.named_modules())
+    parameters = sorted(name for name, _ in model.named_parameters())
+    inventory = hashlib.sha256(
+        json.dumps({"modules": modules, "parameters": parameters}, separators=(",", ":")).encode()
+    ).hexdigest()
+    if evidence.get("inventorySha256") != inventory:
+        raise RuntimeError("ARCHITECTURE_INVENTORY_MISMATCH")
+    resolved = evidence.get("resolvedTargetModules")
+    if not isinstance(resolved, list) or sorted(resolved) != sorted(config.get("target_modules", [])):
+        raise RuntimeError("LORA_RESOLVED_TARGETS_MISMATCH")
+    excluded = tuple(recipe.get("frozen", ()))
+    if any(any(part in name for part in excluded) for name in resolved):
+        raise RuntimeError("LORA_EXCLUDED_TARGET_SELECTED")
+    target_parameters = evidence.get("targetParameters", [])
+    modules_to_save = evidence.get("modulesToSave", [])
+    if target_parameters:
+        config["target_parameters"] = target_parameters
+    if modules_to_save:
+        config["modules_to_save"] = modules_to_save
+    return config
+
+
+def validate_trainable_inventory(model, spec):
+    if spec.get("qualificationSchemaVersion") != "2.0.0":
+        return
+    trainable = sorted(
+        name for name, parameter in model.named_parameters() if getattr(parameter, "requires_grad", False)
+    )
+    actual = hashlib.sha256(json.dumps(trainable, separators=(",", ":")).encode()).hexdigest()
+    if spec.get("architectureEvidence", {}).get("trainableNamesSha256") != actual:
+        raise RuntimeError("TRAINABLE_PARAMETER_INVENTORY_MISMATCH")
 
 
 def publish_checkpoint_descriptor(spec: dict[str, Any], trainer: Any) -> str | None:
@@ -492,13 +668,24 @@ def manual_assistant_labels(tokenizer, messages):
     labels = [-100] * len(final_ids)
     previous = []
     for index, message in enumerate(messages):
+        if message.get("role") == "assistant":
+            content = message.get("content")
+            has_content = isinstance(content, str) and bool(content.strip())
+            has_content = has_content or (isinstance(content, list) and bool(content))
+            has_tool_call = bool(message.get("tool_calls"))
+            if not (has_content or has_tool_call):
+                raise ValueError(f"CHAT_EMPTY_ASSISTANT_TARGET: message {index}")
         current = _template_ids(tokenizer, messages[: index + 1])
         if len(current) < len(previous) or current[: len(previous)] != previous:
             raise ValueError(f"CHAT_TEMPLATE_PREFIX_DRIFT: message {index}")
         if final_ids[: len(current)] != current:
             raise ValueError(f"CHAT_TEMPLATE_FINAL_DRIFT: message {index}")
         if message.get("role") == "assistant":
-            labels[len(previous) : len(current)] = current[len(previous) :]
+            delta = current[len(previous) :]
+            eos_id = getattr(tokenizer, "eos_token_id", None)
+            if isinstance(eos_id, int) and eos_id not in delta:
+                raise ValueError(f"CHAT_ASSISTANT_EOS_MISSING: message {index}")
+            labels[len(previous) : len(current)] = delta
         previous = current
     if previous != final_ids:
         raise ValueError("CHAT_TEMPLATE_FINAL_MISMATCH")
@@ -545,7 +732,9 @@ class BiEncoder(_Module):
         if self.pooling == "cls":
             pooled = hidden[:, 0]
         elif self.pooling == "last-token":
-            pooled = hidden[torch.arange(hidden.shape[0], device=hidden.device), mask.sum(1) - 1]
+            positions = torch.arange(mask.shape[1], device=hidden.device).expand_as(mask)
+            last_non_pad = (positions * mask).argmax(dim=1)
+            pooled = hidden[torch.arange(hidden.shape[0], device=hidden.device), last_non_pad]
         else:
             pooled = (hidden * mask.unsqueeze(-1)).sum(1) / mask.sum(1, keepdim=True).clamp(min=1)
         return pooled

@@ -32,17 +32,40 @@ def parse_spec(value: Any) -> dict[str, Any]:
         if value.get("qualificationSchemaVersion") == "2.0.0" and any(
             not isinstance(gates.get(k), bool)
             for k in (
-                "networkApproved",
+                "experimentalExecutionApproved",
+                "stagingNetworkApproved",
                 "downloadsApproved",
+                "remoteCodeApproved",
+                "gpuApproved",
                 "budgetApproved",
                 "datasetRightsApproved",
+                "modelLicenseAccepted",
+                "uploadRequested",
                 "uploadApproved",
-                "architectureQualified",
-                "frameworkQualified",
+                "architectureEvidenceApproved",
+                "frameworkEvidenceApproved",
                 "customKernelApproved",
             )
         ):
             raise ValueError("invalid qualification v2 executionGates")
+        if value.get("qualificationSchemaVersion") == "2.0.0":
+            authorization = value.get("qualificationAuthorization")
+            if (
+                not isinstance(authorization, dict)
+                or authorization.get("state") != "smokeAuthorized"
+                or authorization.get("recipeId") != value["recipeId"]
+                or not _sha(authorization.get("recipeIdentityHash"), 64)
+                or not _sha(authorization.get("evidenceDigest"), 64)
+                or not isinstance(authorization.get("dischargedBlockers"), list)
+                or any(not isinstance(item, str) for item in authorization["dischargedBlockers"])
+                or not isinstance(authorization.get("storePath"), str)
+                or not _sha(authorization.get("storeSha256"), 64)
+                or not isinstance(authorization.get("sequence"), int)
+                or authorization["sequence"] < 1
+            ):
+                raise ValueError("invalid qualification v2 authorization evidence")
+            if gates["uploadRequested"] is False and gates["uploadApproved"] is not False:
+                raise ValueError("no-upload execution requires uploadApproved=false")
         if (
             not isinstance(identity, dict)
             or any(not _sha(identity.get(k), 40) for k in ("modelRevision", "tokenizerRevision"))

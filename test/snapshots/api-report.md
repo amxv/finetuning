@@ -407,14 +407,29 @@ export interface TrainingSpecV1 {
         revisionPinned: boolean;
         remoteCodeReviewed: boolean;
         gpuQualified: boolean;
-        networkApproved?: boolean;
+        experimentalExecutionApproved?: boolean;
+        stagingNetworkApproved?: boolean;
         downloadsApproved?: boolean;
+        remoteCodeApproved?: boolean;
+        gpuApproved?: boolean;
         budgetApproved?: boolean;
         datasetRightsApproved?: boolean;
+        modelLicenseAccepted?: boolean;
+        uploadRequested?: boolean;
         uploadApproved?: boolean;
-        architectureQualified?: boolean;
-        frameworkQualified?: boolean;
+        architectureEvidenceApproved?: boolean;
+        frameworkEvidenceApproved?: boolean;
         customKernelApproved?: boolean;
+    };
+    qualificationAuthorization?: {
+        state: "smokeAuthorized";
+        recipeId: string;
+        recipeIdentityHash: string;
+        evidenceDigest: string;
+        sequence: number;
+        dischargedBlockers: string[];
+        storePath: string;
+        storeSha256: string;
     };
     recipeIdentity?: {
         modelRevision: string;
@@ -940,14 +955,29 @@ export interface EmbeddingTrainingSpecV1 {
         revisionPinned: boolean;
         remoteCodeReviewed: boolean;
         gpuQualified: boolean;
-        networkApproved?: boolean;
+        experimentalExecutionApproved?: boolean;
+        stagingNetworkApproved?: boolean;
         downloadsApproved?: boolean;
+        remoteCodeApproved?: boolean;
+        gpuApproved?: boolean;
         budgetApproved?: boolean;
         datasetRightsApproved?: boolean;
+        modelLicenseAccepted?: boolean;
+        uploadRequested?: boolean;
         uploadApproved?: boolean;
-        architectureQualified?: boolean;
-        frameworkQualified?: boolean;
+        architectureEvidenceApproved?: boolean;
+        frameworkEvidenceApproved?: boolean;
         customKernelApproved?: boolean;
+    };
+    qualificationAuthorization?: {
+        state: "smokeAuthorized";
+        recipeId: string;
+        recipeIdentityHash: string;
+        evidenceDigest: string;
+        sequence: number;
+        dischargedBlockers: string[];
+        storePath: string;
+        storeSha256: string;
     };
     recipeIdentity?: {
         modelRevision: string;

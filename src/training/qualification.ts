@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 export const qualificationSchemaVersion = "2.0.0" as const;
 export type QualificationState = "configured" | "smokeAuthorized" | "smokePassed" | "qualified";
@@ -12,6 +13,13 @@ export interface QualificationRecipeV2 {
   track: "chat" | "embedding";
   modelId: string;
   revision: string;
+  identity: {
+    tokenizerRevision: string;
+    configRevision: string;
+    templateHash:
+      { status: "required"; sha256: null } | { status: "pinned"; sha256: string } | { status: "not-required" };
+    codeRevision: { status: "not-required" } | { status: "required"; revision: null; sha256: null };
+  };
   license: { spdx: string; pinnedArtifact: boolean; note: string };
   architecture: { family: ArchitectureFamily; modelType: string; remoteCode: boolean; customKernels: string[] };
   qualification: { state: "configured"; supportState: "unavailable"; firstWaveExecutable: boolean };
@@ -23,7 +31,36 @@ export interface QualificationRecipeV2 {
     frozen: string[];
   };
   blockers: string[];
-  runtime: { gpu: string; vramGiB: number; storageGiB: number; image: string; distributed: string };
+  runtime: {
+    gpu: string;
+    vramGiB: number;
+    storageGiB: number;
+    image: { status: "required"; candidate: string; digest: null };
+    distributed: string;
+  };
+  rendering?: {
+    maskStrategy: "verified-token-boundaries-v1";
+    eosPolicy: string;
+    padPolicy: string;
+    assistantBoundaryPolicy: string;
+    reasoningPolicy: string;
+    historyThinking: string;
+    toolPolicy: string;
+    goldenFixtureIds: string[];
+    fixtureStatus: "blocked-pending-upstream-artifact-capture";
+  };
+  embedding?: {
+    queryPrompt: string;
+    documentPrompt: string;
+    pooling: "cls" | "last-token" | "mean";
+    paddingSide: "left" | "right";
+    normalization: "l2";
+    dimensions: number[];
+    objective: "info-nce-matryoshka" | "info-nce" | "native-lane-required";
+    negativePolicy: string;
+    nativeHeads: string[];
+    excludedHeads: string[];
+  };
 }
 
 const common = {
@@ -39,7 +76,7 @@ const runtime = (
   gpu,
   vramGiB,
   storageGiB,
-  image: "ubuntu-22.04-cuda-12.6-python-3.11-pytorch-2.8@sha256:required",
+  image: { status: "required" as const, candidate: "ubuntu-22.04-cuda-12.6-python-3.11-pytorch-2.8", digest: null },
   distributed,
 });
 const legal = (spdx: string, pinnedArtifact: boolean, note: string) => ({ spdx, pinnedArtifact, note });
@@ -51,7 +88,7 @@ const opt = (
   modulesToSave: string[] = [],
 ) => ({ methods, targetModules, targetParameters, modulesToSave, frozen });
 
-export const qualificationRecipes: readonly QualificationRecipeV2[] = [
+const baseQualificationRecipes: readonly Omit<QualificationRecipeV2, "identity">[] = [
   {
     ...common,
     id: "qwen3.6-27b",
@@ -60,12 +97,14 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = [
     revision: "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
     license: legal("Apache-2.0", true, "pinned repository LICENSE"),
     architecture: { family: "hybrid", modelType: "qwen3_5", remoteCode: false, customKernels: [] },
+    qualification: { ...common.qualification, firstWaveExecutable: false },
     optimization: opt(
       ["qlora", "lora"],
       ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj", "linear_attn"],
       ["vision", "lm_head"],
     ),
     blockers: [
+      "verified text-only conditional-generation loader not implemented",
       "architecture inventory hash required",
       "manual assistant-mask fixtures required",
       "GPU mechanics evidence absent",
@@ -187,7 +226,7 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = [
     license: legal("Apache-2.0", false, "metadata only; authoritative license artifact required"),
     architecture: { family: "dense", modelType: "qwen3", remoteCode: false, customKernels: [] },
     optimization: opt(
-      ["lora", "full"],
+      ["lora"],
       ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
       ["lm_head"],
     ),
@@ -202,7 +241,7 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = [
     revision: "95c2741480856aa9666782eb4afe11959938017f",
     license: legal("Apache-2.0", false, "metadata only; authoritative license artifact required"),
     architecture: { family: "custom-code", modelType: "gte", remoteCode: true, customKernels: [] },
-    optimization: opt(["lora", "full"], ["packed_qkv", "output", "ffn"]),
+    optimization: opt(["lora"], ["packed_qkv", "output", "ffn"]),
     blockers: [
       "pinned LICENSE artifact absent",
       "remote code revision/hash review required",
@@ -222,7 +261,7 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = [
       "former Apache assumption resolved as erroneous; model-card and upstream MIT inventory approval required",
     ),
     architecture: { family: "dense", modelType: "xlm-roberta", remoteCode: false, customKernels: [] },
-    optimization: opt(["lora", "full"], ["query", "key", "value", "dense"], [], [], []),
+    optimization: opt(["lora"], ["query", "key", "value", "dense"], [], [], []),
     blockers: [
       "corrected MIT legal inventory not yet approved",
       "sparse/ColBERT/hybrid heads excluded",
@@ -261,7 +300,7 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = [
     revision: "9bbca17d9273fd0d03d5725c7a4b0f6b45142062",
     license: legal("Apache-2.0", false, "metadata only; authoritative license artifact required"),
     architecture: { family: "custom-code", modelType: "new", remoteCode: true, customKernels: [] },
-    optimization: opt(["lora", "full"], ["reviewed-encoder-linears"]),
+    optimization: opt(["lora"], ["reviewed-encoder-linears"]),
     blockers: [
       "Alibaba-NLP/new-impl revision/hash/license review required",
       "sparse head excluded",
@@ -271,21 +310,164 @@ export const qualificationRecipes: readonly QualificationRecipeV2[] = [
   },
 ];
 
+const embeddingSemantics: Record<string, NonNullable<QualificationRecipeV2["embedding"]>> = {
+  "qwen3-embed-0.6b-lora": {
+    queryPrompt: "Instruct: {task}\\nQuery:{query}",
+    documentPrompt: "{document}",
+    pooling: "last-token",
+    paddingSide: "left",
+    normalization: "l2",
+    dimensions: [32, 64, 128, 256, 512, 768, 1024],
+    objective: "info-nce-matryoshka",
+    negativePolicy: "in-batch-and-optional-uniform-hard-negatives",
+    nativeHeads: ["dense"],
+    excludedHeads: [],
+  },
+  "arctic-m-v2-full": {
+    queryPrompt: "query: {query}",
+    documentPrompt: "{document}",
+    pooling: "cls",
+    paddingSide: "right",
+    normalization: "l2",
+    dimensions: [256, 768],
+    objective: "info-nce-matryoshka",
+    negativePolicy: "in-batch-and-optional-uniform-hard-negatives",
+    nativeHeads: ["dense"],
+    excludedHeads: [],
+  },
+  "bge-m3-dense": {
+    queryPrompt: "{query}",
+    documentPrompt: "{document}",
+    pooling: "cls",
+    paddingSide: "right",
+    normalization: "l2",
+    dimensions: [1024],
+    objective: "info-nce",
+    negativePolicy: "in-batch-and-optional-uniform-hard-negatives",
+    nativeHeads: ["dense", "sparse", "colbert"],
+    excludedHeads: ["sparse", "colbert", "hybrid"],
+  },
+  "nomic-v2-moe-native": {
+    queryPrompt: "search_query: {query}",
+    documentPrompt: "search_document: {document}",
+    pooling: "mean",
+    paddingSide: "right",
+    normalization: "l2",
+    dimensions: [256, 768],
+    objective: "native-lane-required",
+    negativePolicy: "native-Contrastors-router-aware",
+    nativeHeads: ["dense", "moe-router"],
+    excludedHeads: [],
+  },
+  "gte-multilingual-base-full": {
+    queryPrompt: "{query}",
+    documentPrompt: "{document}",
+    pooling: "cls",
+    paddingSide: "right",
+    normalization: "l2",
+    dimensions: [768],
+    objective: "info-nce",
+    negativePolicy: "in-batch-and-optional-uniform-hard-negatives",
+    nativeHeads: ["dense", "sparse"],
+    excludedHeads: ["sparse"],
+  },
+};
+const chatPolicies: Record<
+  string,
+  Pick<
+    NonNullable<QualificationRecipeV2["rendering"]>,
+    "eosPolicy" | "padPolicy" | "reasoningPolicy" | "historyThinking" | "toolPolicy"
+  >
+> = {
+  "qwen3.6-27b": {
+    eosPolicy: "tokenizer-native-im-end; verify stop IDs",
+    padPolicy: "tokenizer-native-endoftext-distinct-from-eos",
+    reasoningPolicy: "non-thinking",
+    historyThinking: "strip",
+    toolPolicy: "template-native-typed-tools",
+  },
+  "qwen3.6-35b-a3b": {
+    eosPolicy: "tokenizer-native-im-end; verify stop IDs",
+    padPolicy: "tokenizer-native-endoftext-distinct-from-eos",
+    reasoningPolicy: "non-thinking",
+    historyThinking: "strip",
+    toolPolicy: "template-native-typed-tools",
+  },
+  "nemotron-cascade-2-30b-a3b": {
+    eosPolicy: "im-end",
+    padPolicy: "im-end",
+    reasoningPolicy: "thinking-policy-required",
+    historyThinking: "truncate-or-summarize-reviewed",
+    toolPolicy: "tool-results-convert-to-user-with-report",
+  },
+  "nemotron-3-nano-30b-a3b": {
+    eosPolicy: "verify-config-tokenizer-identity",
+    padPolicy: "verify-config-tokenizer-identity",
+    reasoningPolicy: "explicit",
+    historyThinking: "review-required",
+    toolPolicy: "review-required",
+  },
+  "olmo-3.1-32b-instruct": {
+    eosPolicy: "last-assistant-endoftext",
+    padPolicy: "pad-token-distinct-from-eos",
+    reasoningPolicy: "none",
+    historyThinking: "none",
+    toolPolicy: "template-native-pending-roundtrip-fixture",
+  },
+  "olmo-3.1-32b-think": {
+    eosPolicy: "last-assistant-endoftext",
+    padPolicy: "pad-token-distinct-from-eos",
+    reasoningPolicy: "explicit-reasoning-or-final-only",
+    historyThinking: "preserve-policy-bound",
+    toolPolicy: "unsupported-until-fixture",
+  },
+};
+export const qualificationRecipes: readonly QualificationRecipeV2[] = baseQualificationRecipes.map((recipe) => {
+  const identity: NonNullable<QualificationRecipeV2["identity"]> = {
+    tokenizerRevision: recipe.revision,
+    configRevision: recipe.revision,
+    templateHash: recipe.track === "chat" ? { status: "required", sha256: null } : { status: "not-required" },
+    codeRevision: recipe.architecture.remoteCode
+      ? { status: "required", revision: null, sha256: null }
+      : { status: "not-required" },
+  };
+  if (recipe.track === "embedding") {
+    const embedding = embeddingSemantics[recipe.id];
+    if (!embedding) throw new Error(`Missing embedding semantics for ${recipe.id}`);
+    return { ...recipe, identity, embedding };
+  }
+  const policy = chatPolicies[recipe.id];
+  if (!policy) throw new Error(`Missing chat render policy for ${recipe.id}`);
+  return {
+    ...recipe,
+    identity,
+    rendering: {
+      maskStrategy: "verified-token-boundaries-v1",
+      assistantBoundaryPolicy: "assistant-delimiter-content-and-template-eos-only",
+      goldenFixtureIds: [],
+      fixtureStatus: "blocked-pending-upstream-artifact-capture",
+      ...policy,
+    },
+  };
+});
+
 export const requiredAuthorizationGates = [
   "experimentalExecutionApproved",
-  "networkApproved",
+  "stagingNetworkApproved",
   "downloadsApproved",
   "remoteCodeApproved",
   "gpuApproved",
   "budgetApproved",
-  "uploadsApproved",
   "modelLicenseAccepted",
   "datasetRightsApproved",
   "architectureEvidenceApproved",
   "frameworkEvidenceApproved",
   "customKernelApproved",
 ] as const;
-export type AuthorizationGates = Record<(typeof requiredAuthorizationGates)[number], boolean>;
+export type AuthorizationGates = Record<(typeof requiredAuthorizationGates)[number], boolean> & {
+  uploadRequested: boolean;
+  uploadApproved: boolean;
+};
 
 export function recipeIdentityHash(recipe: QualificationRecipeV2): string {
   return createHash("sha256").update(JSON.stringify(recipe)).digest("hex");
@@ -295,11 +477,36 @@ export function inspectQualificationRecipe(id: string): QualificationRecipeV2 {
   if (!recipe) throw new Error(`Unknown qualification recipe: ${id}`);
   return recipe;
 }
-export function preflightQualification(id: string, gates?: Partial<AuthorizationGates>) {
+export interface AcceptedSmokeAuthorization {
+  state: "smokeAuthorized";
+  recipeId: string;
+  recipeIdentityHash: string;
+  evidenceDigest: string;
+  dischargedBlockers: string[];
+  gates: AuthorizationGates;
+}
+export function preflightQualification(id: string, authorization?: AcceptedSmokeAuthorization) {
   const recipe = inspectQualificationRecipe(id);
-  const closed = requiredAuthorizationGates.filter((gate) => gates?.[gate] !== true);
-  const blockers = [...recipe.blockers, ...closed.map((gate) => `authorization gate closed: ${gate}`)];
-  if (!recipe.qualification.firstWaveExecutable) blockers.unshift("recipe is non-executable in first smoke wave");
+  const blockers: string[] = [];
+  if (!recipe.qualification.firstWaveExecutable) blockers.push("recipe is non-executable in first smoke wave");
+  if (
+    !authorization ||
+    authorization.state !== "smokeAuthorized" ||
+    authorization.recipeId !== id ||
+    authorization.recipeIdentityHash !== recipeIdentityHash(recipe) ||
+    !/^[a-f0-9]{64}$/.test(authorization.evidenceDigest)
+  ) {
+    blockers.push("accepted recipe-bound smokeAuthorized evidence required");
+  } else {
+    const closed = requiredAuthorizationGates.filter((gate) => authorization.gates[gate] !== true);
+    blockers.push(...closed.map((gate) => `authorization gate closed: ${gate}`));
+    if (authorization.gates.uploadRequested && !authorization.gates.uploadApproved)
+      blockers.push("upload requested without approval");
+    if (!authorization.gates.uploadRequested && authorization.gates.uploadApproved)
+      blockers.push("upload approval must remain false for no-upload smoke execution");
+    const undisclosed = recipe.blockers.filter((blocker) => !authorization.dischargedBlockers.includes(blocker));
+    blockers.push(...undisclosed.map((blocker) => `evidence requirement not discharged: ${blocker}`));
+  }
   return {
     recipeId: id,
     configured: true,
@@ -320,23 +527,41 @@ export function planRunPodSmoke(id: string) {
     minimumVramGiB: recipe.runtime.vramGiB,
     storageGiB: recipe.runtime.storageGiB,
     image: recipe.runtime.image,
+    executableEnvironment: false,
     distributedStrategy: recipe.runtime.distributed,
     executableInFirstWave: recipe.qualification.firstWaveExecutable,
     blockers: recipe.blockers,
   };
 }
 
-export interface QualificationEvidenceV1 {
-  evidenceVersion: "1.0.0";
+export interface QualificationEvidenceV2 {
+  evidenceVersion: "2.0.0";
+  evidenceId: string;
+  sequence: number;
   recipeId: string;
   recipeIdentityHash: string;
   architecture: string;
   revision: string;
   state: Exclude<QualificationState, "configured">;
   previousState: QualificationState;
+  predecessorDigest: string;
+  issuedAt: string;
+  expiresAt: string;
+  signerKeyId: string;
   artifactSha256: string;
+  bindings: {
+    commandSha256: string;
+    imageDigest: string;
+    environmentLockSha256: string;
+    tokenizerSha256: string;
+    configSha256: string;
+    templateOrCodeSha256: string;
+    datasetSha256: string;
+    targetInventorySha256: string;
+    dependencyIdentitySha256: string;
+  };
   assertions: Record<string, boolean>;
-  signatureSha256: string;
+  signatureBase64: string;
 }
 const transitions: Record<QualificationState, QualificationState[]> = {
   configured: ["smokeAuthorized"],
@@ -344,26 +569,148 @@ const transitions: Record<QualificationState, QualificationState[]> = {
   smokePassed: ["qualified"],
   qualified: [],
 };
-export async function validateQualificationEvidence(path: string): Promise<QualificationEvidenceV1> {
+const mandatoryAssertions: Record<Exclude<QualificationState, "configured">, readonly string[]> = {
+  smokeAuthorized: [
+    "policyGatesReviewed",
+    "licenseAccepted",
+    "architectureReviewed",
+    "frameworkReviewed",
+    "datasetRightsReviewed",
+    "offlineExecutionNoUpload",
+  ],
+  smokePassed: ["forwardBackward", "finiteLoss", "finiteNonzeroGradients", "checkpointResume", "offlineReload"],
+  qualified: ["repeatedCleanRun", "evaluation", "export", "artifactManifestVerified"],
+};
+const sha256 = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
+const canonicalEvidence = (evidence: QualificationEvidenceV2): string =>
+  JSON.stringify({ ...evidence, signatureBase64: "" });
+export const qualificationEvidenceDigest = (evidence: QualificationEvidenceV2): string =>
+  sha256(JSON.stringify(evidence));
+
+export interface QualificationStoreV2 {
+  storeVersion: "2.0.0";
+  recipes: Record<
+    string,
+    {
+      state: QualificationState;
+      sequence: number;
+      currentDigest: string;
+      evidenceIds: string[];
+      evidenceDigests: string[];
+      acceptedEvidence: QualificationEvidenceV2[];
+    }
+  >;
+}
+export interface EvidenceValidationOptions {
+  artifactPath: string;
+  trustedPublicKeys: Record<string, string>;
+  expectedPredecessorDigest: string;
+  expectedPreviousState: QualificationState;
+  expectedSequence: number;
+  expectedBindings?: QualificationEvidenceV2["bindings"];
+  now?: Date;
+}
+
+export async function validateQualificationEvidence(
+  path: string,
+  options: EvidenceValidationOptions,
+): Promise<QualificationEvidenceV2> {
   const raw = await readFile(path, "utf8"),
-    evidence = JSON.parse(raw) as QualificationEvidenceV1;
+    evidence = JSON.parse(raw) as QualificationEvidenceV2;
   const recipe = inspectQualificationRecipe(evidence.recipeId);
+  if (evidence.evidenceVersion !== "2.0.0" || !/^[A-Za-z0-9._-]{8,128}$/.test(evidence.evidenceId))
+    throw new Error("Qualification evidence envelope is invalid");
   if (
     evidence.recipeIdentityHash !== recipeIdentityHash(recipe) ||
     evidence.revision !== recipe.revision ||
     evidence.architecture !== recipe.architecture.modelType
   )
     throw new Error("Qualification evidence identity/revision/architecture mismatch");
-  if (!transitions[evidence.previousState]?.includes(evidence.state))
-    throw new Error("Qualification evidence transition is not monotonic");
   if (
-    !/^[a-f0-9]{64}$/.test(evidence.artifactSha256) ||
-    !Object.keys(evidence.assertions ?? {}).length ||
-    Object.values(evidence.assertions).some((v) => v !== true)
+    evidence.previousState !== options.expectedPreviousState ||
+    evidence.sequence !== options.expectedSequence ||
+    evidence.predecessorDigest !== options.expectedPredecessorDigest ||
+    !transitions[evidence.previousState]?.includes(evidence.state)
+  )
+    throw new Error("Qualification evidence transition is not monotonic");
+  const artifact = await readFile(options.artifactPath);
+  if (evidence.artifactSha256 !== sha256(artifact)) throw new Error("Qualification evidence artifact digest mismatch");
+  const bindingValues = Object.values(evidence.bindings ?? {});
+  if (bindingValues.length !== 9 || bindingValues.some((value) => !/^[a-f0-9]{64}$/.test(value)))
+    throw new Error("Qualification evidence bindings are incomplete");
+  if (options.expectedBindings && JSON.stringify(evidence.bindings) !== JSON.stringify(options.expectedBindings))
+    throw new Error("Qualification evidence dependency/template identity is stale");
+  const required = mandatoryAssertions[evidence.state];
+  if (
+    Object.keys(evidence.assertions ?? {}).some((key) => !required.includes(key)) ||
+    required.some((key) => evidence.assertions?.[key] !== true)
   )
     throw new Error("Qualification evidence assertions are incomplete");
-  const unsigned = { ...evidence, signatureSha256: "" };
-  const expected = createHash("sha256").update(JSON.stringify(unsigned)).digest("hex");
-  if (evidence.signatureSha256 !== expected) throw new Error("Qualification evidence signature mismatch");
+  const issued = Date.parse(evidence.issuedAt),
+    expires = Date.parse(evidence.expiresAt),
+    now = (options.now ?? new Date()).getTime();
+  if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued > now || expires <= now || expires <= issued)
+    throw new Error("Qualification evidence is stale or has invalid timestamps");
+  const publicKey = options.trustedPublicKeys[evidence.signerKeyId];
+  if (!publicKey) throw new Error("Qualification evidence signer is not trusted");
+  const valid = verifySignature(
+    null,
+    Buffer.from(canonicalEvidence(evidence)),
+    createPublicKey(publicKey),
+    Buffer.from(evidence.signatureBase64, "base64"),
+  );
+  if (!valid) throw new Error("Qualification evidence signature mismatch");
   return evidence;
+}
+
+export async function recordQualificationEvidence(input: {
+  evidencePath: string;
+  artifactPath: string;
+  storePath: string;
+  trustedPublicKeys: Record<string, string>;
+  expectedBindings?: QualificationEvidenceV2["bindings"];
+  now?: Date;
+}): Promise<{ evidence: QualificationEvidenceV2; digest: string; store: QualificationStoreV2 }> {
+  let store: QualificationStoreV2 = { storeVersion: "2.0.0", recipes: {} };
+  try {
+    store = JSON.parse(await readFile(input.storePath, "utf8")) as QualificationStoreV2;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (store.storeVersion !== "2.0.0") throw new Error("Qualification store version is incompatible");
+  const raw = JSON.parse(await readFile(input.evidencePath, "utf8")) as QualificationEvidenceV2;
+  const recipe = inspectQualificationRecipe(raw.recipeId);
+  const current = store.recipes[raw.recipeId] ?? {
+    state: "configured" as const,
+    sequence: 0,
+    currentDigest: recipeIdentityHash(recipe),
+    evidenceIds: [],
+    evidenceDigests: [],
+    acceptedEvidence: [],
+  };
+  const evidence = await validateQualificationEvidence(input.evidencePath, {
+    artifactPath: input.artifactPath,
+    trustedPublicKeys: input.trustedPublicKeys,
+    expectedPredecessorDigest: current.currentDigest,
+    expectedPreviousState: current.state,
+    expectedSequence: current.sequence + 1,
+    ...(input.expectedBindings ? { expectedBindings: input.expectedBindings } : {}),
+    ...(input.now ? { now: input.now } : {}),
+  });
+  const digest = qualificationEvidenceDigest(evidence);
+  if (current.evidenceIds.includes(evidence.evidenceId) || current.evidenceDigests.includes(digest))
+    throw new Error("Qualification evidence replay rejected");
+  store.recipes[evidence.recipeId] = {
+    state: evidence.state,
+    sequence: evidence.sequence,
+    currentDigest: digest,
+    evidenceIds: [...current.evidenceIds, evidence.evidenceId],
+    evidenceDigests: [...current.evidenceDigests, digest],
+    acceptedEvidence: [...current.acceptedEvidence, evidence],
+  };
+  await mkdir(dirname(input.storePath), { recursive: true });
+  const temporary = `${input.storePath}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(store, null, 2)}\n`, { flag: "wx" });
+  await rename(temporary, input.storePath);
+  return { evidence, digest, store };
 }

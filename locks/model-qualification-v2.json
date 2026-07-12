@@ -2,7 +2,8 @@
   "version": "2.0.0",
   "generatedAt": "2026-07-12",
   "policy": "Configured permits offline inspection and planning only. Smoke authorization, smoke pass, qualification, and support require monotonically promoted revision- and architecture-bound evidence. Missing evidence fails closed.",
-  "states": ["configured", "smokeAuthorized", "smokePassed", "qualified", "supported"],
+  "qualificationStates": ["configured", "smokeAuthorized", "smokePassed", "qualified"],
+  "supportStates": ["unavailable", "experimental", "supported"],
   "recipes": [
     {
       "id": "qwen3.6-27b",
@@ -12,8 +13,9 @@
       "architecture": "qwen3_5",
       "qualification": "configured",
       "support": "unavailable",
-      "firstWaveExecutable": true,
+      "firstWaveExecutable": false,
       "blockers": [
+        "verified text-only conditional-generation loader not implemented",
         "architecture inventory hash required",
         "manual assistant-mask fixtures required",
         "GPU mechanics evidence absent"
@@ -28,7 +30,11 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": false,
-      "blockers": ["packed expert target_parameters unresolved", "router/expert reload evidence absent"]
+      "blockers": [
+        "not authorized in first smoke wave",
+        "packed expert target_parameters unresolved",
+        "router/expert save-reload evidence absent"
+      ]
     },
     {
       "id": "nemotron-cascade-2-30b-a3b",
@@ -39,7 +45,12 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": false,
-      "blockers": ["pinned LICENSE artifact absent", "remote code/Mamba kernels unreviewed", "dedicated adapter absent"]
+      "blockers": [
+        "not authorized in first smoke wave",
+        "pinned LICENSE artifact absent",
+        "remote code and Mamba kernels unreviewed",
+        "dedicated Nemotron adapter absent"
+      ]
     },
     {
       "id": "nemotron-3-nano-30b-a3b",
@@ -50,7 +61,12 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": false,
-      "blockers": ["pinned LICENSE artifact absent", "remote code/Mamba kernels unreviewed", "dedicated adapter absent"]
+      "blockers": [
+        "not authorized in first smoke wave",
+        "pinned LICENSE artifact absent",
+        "remote code and Mamba kernels unreviewed",
+        "dedicated Nemotron adapter absent"
+      ]
     },
     {
       "id": "olmo-3.1-32b-instruct",
@@ -61,7 +77,11 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": true,
-      "blockers": ["pinned LICENSE artifact absent", "manual assistant-mask evidence absent"]
+      "blockers": [
+        "pinned LICENSE artifact absent",
+        "manual assistant-mask fixtures required",
+        "GPU mechanics evidence absent"
+      ]
     },
     {
       "id": "olmo-3.1-32b-think",
@@ -72,7 +92,11 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": true,
-      "blockers": ["pinned LICENSE artifact absent", "reasoning-mask evidence absent"]
+      "blockers": [
+        "pinned LICENSE artifact absent",
+        "reasoning-mask policy evidence absent",
+        "GPU mechanics evidence absent"
+      ]
     },
     {
       "id": "qwen3-embed-0.6b-lora",
@@ -83,7 +107,7 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": true,
-      "blockers": ["pinned LICENSE artifact absent"]
+      "blockers": ["pinned LICENSE artifact absent", "GPU mechanics evidence absent"]
     },
     {
       "id": "arctic-m-v2-full",
@@ -94,7 +118,11 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": true,
-      "blockers": ["pinned LICENSE artifact absent", "remote code revision/hash review absent"]
+      "blockers": [
+        "pinned LICENSE artifact absent",
+        "remote code revision/hash review required",
+        "GPU mechanics evidence absent"
+      ]
     },
     {
       "id": "bge-m3-dense",
@@ -105,7 +133,11 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": true,
-      "blockers": ["corrected MIT inventory approval absent", "sparse/ColBERT/hybrid excluded"]
+      "blockers": [
+        "corrected MIT legal inventory not yet approved",
+        "sparse/ColBERT/hybrid heads excluded",
+        "GPU mechanics evidence absent"
+      ]
     },
     {
       "id": "nomic-v2-moe-native",
@@ -117,9 +149,10 @@
       "support": "unavailable",
       "firstWaveExecutable": false,
       "blockers": [
-        "native Contrastors/MegaBlocks lane absent",
-        "external-code evidence absent",
-        "router auxiliary-loss evidence absent"
+        "not authorized in first smoke wave",
+        "native Contrastors/MegaBlocks lane required",
+        "external code revision/license review absent",
+        "router auxiliary-loss and utilization evidence absent"
       ]
     },
     {
@@ -131,7 +164,11 @@
       "qualification": "configured",
       "support": "unavailable",
       "firstWaveExecutable": true,
-      "blockers": ["Alibaba-NLP/new-impl revision/hash/license review absent", "sparse excluded"]
+      "blockers": [
+        "Alibaba-NLP/new-impl revision/hash/license review required",
+        "sparse head excluded",
+        "GPU mechanics evidence absent"
+      ]
     }
   ]
 }
