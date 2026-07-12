@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ProviderToolCallError,
@@ -402,11 +402,16 @@ function assertFactoryBehavior() {
 
 async function assertProviderSdkImportBoundary() {
   const srcRoot = new URL("../src/", import.meta.url);
+  const providersRoot = fileURLToPath(new URL("providers/", srcRoot));
   const files = await listTypeScriptFiles(srcRoot);
 
   for (const file of files) {
     const contents = await readFile(file, "utf8");
-    const isProviderFile = file.includes("/src/providers/");
+    const providerRelativePath = relative(providersRoot, file);
+    const isProviderFile =
+      providerRelativePath !== ".." &&
+      !providerRelativePath.startsWith(`..${sep}`) &&
+      !isAbsolute(providerRelativePath);
     if (!isProviderFile && /\bfrom\s+["'](?:openai(?:\/|["'])|@anthropic-ai\/sdk)/.test(contents)) {
       throw new Error(`Provider SDK import escaped src/providers: ${file}`);
     }

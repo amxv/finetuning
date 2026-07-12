@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
-import { parseTrainingEvent, type TrainingEventV1 } from "../training/index.js";
+import { parseTrainingEvent, trainingEventVersion, type TrainingEventV1 } from "../training/index.js";
 import { terminateChild } from "./terminate-child.js";
 export interface TrainerBridgeOptions {
   pythonExecutable: string;
@@ -64,6 +64,16 @@ export async function runPythonTrainer(options: TrainerBridgeOptions): Promise<T
     }
     const exitCode = await closed;
     if (termination) await termination;
+    if (options.signal?.aborted && events.length > 0 && events.at(-1)?.data?.reason !== "cancelled") {
+      events.push({
+        trainingEventVersion,
+        sequence: expected,
+        timestamp: new Date().toISOString(),
+        runId: events[0]!.runId,
+        type: "failed",
+        data: { reason: "cancelled" },
+      });
+    }
     return { exitCode: options.signal?.aborted ? 130 : exitCode, events, stderr };
   } catch (error) {
     reader.close();

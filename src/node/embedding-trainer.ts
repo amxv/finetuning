@@ -62,6 +62,16 @@ export async function runPythonEmbeddingTrainer(options: EmbeddingTrainerBridgeO
     }
     const exitCode = await closed;
     if (termination) await termination;
+    if (options.signal?.aborted && events.length > 0 && events.at(-1)?.data?.reason !== "cancelled") {
+      events.push({
+        embeddingTrainingEventVersion,
+        sequence: expected,
+        timestamp: new Date().toISOString(),
+        runId: events[0]!.runId,
+        type: "failed",
+        data: { reason: "cancelled" },
+      });
+    }
     return { exitCode: options.signal?.aborted ? 130 : exitCode, events, stderr };
   } catch (error) {
     reader.close();
