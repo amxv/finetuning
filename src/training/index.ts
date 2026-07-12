@@ -39,7 +39,7 @@ export interface TrainingSpecV1 {
     customKernelApproved?: boolean;
   };
   qualificationAuthorization?: {
-    state: "smokeAuthorized";
+    state: "smokeAuthorized" | "smokePassed" | "qualified";
     recipeId: string;
     recipeIdentityHash: string;
     evidenceDigest: string;
@@ -50,7 +50,13 @@ export interface TrainingSpecV1 {
     trustPolicySha256: string;
     expiresAt: string;
     architectureEvidenceSha256: string;
-    authorizationHmacSha256: string;
+    operationClass: "mechanicsSmoke" | "qualificationRun" | "experimentalUse";
+    operation: "run" | "resume" | "evaluate" | "export";
+    outputDirectory: string;
+    artifactSha256: string;
+    evidenceBindings: Record<string, string>;
+    signerKeyId: string;
+    authorizationSignatureBase64: string;
   };
   recipeIdentity?: {
     modelRevision: string;
@@ -125,7 +131,7 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
       const authorization = value.qualificationAuthorization;
       if (
         !isObject(authorization) ||
-        authorization.state !== "smokeAuthorized" ||
+        !["smokeAuthorized", "smokePassed", "qualified"].includes(String(authorization.state)) ||
         authorization.recipeId !== value.recipeId ||
         !sha64(authorization.recipeIdentityHash) ||
         !sha64(authorization.evidenceDigest) ||
@@ -134,7 +140,14 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
         !sha64(authorization.trustPolicySha256) ||
         typeof authorization.expiresAt !== "string" ||
         !sha64(authorization.architectureEvidenceSha256) ||
-        !sha64(authorization.authorizationHmacSha256) ||
+        !["mechanicsSmoke", "qualificationRun", "experimentalUse"].includes(String(authorization.operationClass)) ||
+        !["run", "resume", "evaluate", "export"].includes(String(authorization.operation)) ||
+        authorization.operation !== (value.operation ?? "run") ||
+        authorization.outputDirectory !== value.outputDirectory ||
+        !sha64(authorization.artifactSha256) ||
+        !validEvidenceBindings(authorization.evidenceBindings) ||
+        typeof authorization.signerKeyId !== "string" ||
+        typeof authorization.authorizationSignatureBase64 !== "string" ||
         !Array.isArray(authorization.dischargedBlockers) ||
         authorization.dischargedBlockers.some((item) => typeof item !== "string") ||
         typeof authorization.sequence !== "number" ||
@@ -142,6 +155,16 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
         authorization.sequence < 1
       )
         throw new Error("Invalid qualification v2 authorization evidence");
+      const phase = {
+        smokeAuthorized: { operationClass: "mechanicsSmoke", operations: ["run", "resume"] },
+        smokePassed: { operationClass: "qualificationRun", operations: ["run", "resume", "evaluate", "export"] },
+        qualified: { operationClass: "experimentalUse", operations: ["evaluate", "export"] },
+      }[authorization.state as "smokeAuthorized" | "smokePassed" | "qualified"];
+      if (
+        authorization.operationClass !== phase.operationClass ||
+        !phase.operations.includes(String(authorization.operation))
+      )
+        throw new Error("Qualification operation is not authorized for the current state");
       if (gates.uploadRequested === false && gates.uploadApproved !== false)
         throw new Error("No-upload execution requires uploadApproved=false");
     }
@@ -189,4 +212,22 @@ function sha40(v: unknown) {
 }
 function sha64(v: unknown) {
   return typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
+}
+const evidenceBindingKeys = [
+  "commandSha256",
+  "imageDigest",
+  "environmentLockSha256",
+  "tokenizerSha256",
+  "configSha256",
+  "templateOrCodeSha256",
+  "datasetSha256",
+  "targetInventorySha256",
+  "dependencyIdentitySha256",
+] as const;
+function validEvidenceBindings(value: unknown): boolean {
+  return (
+    isObject(value) &&
+    Object.keys(value).length === evidenceBindingKeys.length &&
+    evidenceBindingKeys.every((key) => sha64(value[key]))
+  );
 }

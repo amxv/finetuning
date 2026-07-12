@@ -422,7 +422,7 @@ export interface TrainingSpecV1 {
         customKernelApproved?: boolean;
     };
     qualificationAuthorization?: {
-        state: "smokeAuthorized";
+        state: "smokeAuthorized" | "smokePassed" | "qualified";
         recipeId: string;
         recipeIdentityHash: string;
         evidenceDigest: string;
@@ -433,7 +433,13 @@ export interface TrainingSpecV1 {
         trustPolicySha256: string;
         expiresAt: string;
         architectureEvidenceSha256: string;
-        authorizationHmacSha256: string;
+        operationClass: "mechanicsSmoke" | "qualificationRun" | "experimentalUse";
+        operation: "run" | "resume" | "evaluate" | "export";
+        outputDirectory: string;
+        artifactSha256: string;
+        evidenceBindings: Record<string, string>;
+        signerKeyId: string;
+        authorizationSignatureBase64: string;
     };
     recipeIdentity?: {
         modelRevision: string;
@@ -936,6 +942,7 @@ export interface EmbeddingTrainingSpecV1 {
     dimension?: number;
     adapter?: "lora" | "full";
     seed?: number;
+    operation?: "run" | "resume" | "evaluate" | "export";
     immutableIdentity: {
         modelRevision: string;
         tokenizerRevision: string;
@@ -974,7 +981,7 @@ export interface EmbeddingTrainingSpecV1 {
         customKernelApproved?: boolean;
     };
     qualificationAuthorization?: {
-        state: "smokeAuthorized";
+        state: "smokeAuthorized" | "smokePassed" | "qualified";
         recipeId: string;
         recipeIdentityHash: string;
         evidenceDigest: string;
@@ -985,7 +992,13 @@ export interface EmbeddingTrainingSpecV1 {
         trustPolicySha256: string;
         expiresAt: string;
         architectureEvidenceSha256: string;
-        authorizationHmacSha256: string;
+        operationClass: "mechanicsSmoke" | "qualificationRun" | "experimentalUse";
+        operation: "run" | "resume" | "evaluate" | "export";
+        outputDirectory: string;
+        artifactSha256: string;
+        evidenceBindings: Record<string, string>;
+        signerKeyId: string;
+        authorizationSignatureBase64: string;
     };
     recipeIdentity?: {
         modelRevision: string;

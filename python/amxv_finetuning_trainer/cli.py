@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .contracts import parse_spec
 from .engine import classify_checkpoint, export_artifacts, preflight, resume_identity_hash, train, verify_artifacts
+from .framework import require_execution_gates
 
 
 def main() -> int:
@@ -17,6 +18,8 @@ def main() -> int:
     args = parser.parse_args()
     spec = parse_spec(json.loads(Path(args.spec).read_text()))
     try:
+        if spec["recipeId"] != "cpu-tiny-fixture":
+            require_execution_gates(spec)
         if args.command == "prepare":
             result = preflight(spec)
         elif args.command == "run":

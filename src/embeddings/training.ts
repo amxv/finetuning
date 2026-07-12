@@ -18,6 +18,7 @@ export interface EmbeddingTrainingSpecV1 {
   dimension?: number;
   adapter?: "lora" | "full";
   seed?: number;
+  operation?: "run" | "resume" | "evaluate" | "export";
   immutableIdentity: {
     modelRevision: string;
     tokenizerRevision: string;
@@ -56,7 +57,7 @@ export interface EmbeddingTrainingSpecV1 {
     customKernelApproved?: boolean;
   };
   qualificationAuthorization?: {
-    state: "smokeAuthorized";
+    state: "smokeAuthorized" | "smokePassed" | "qualified";
     recipeId: string;
     recipeIdentityHash: string;
     evidenceDigest: string;
@@ -67,7 +68,13 @@ export interface EmbeddingTrainingSpecV1 {
     trustPolicySha256: string;
     expiresAt: string;
     architectureEvidenceSha256: string;
-    authorizationHmacSha256: string;
+    operationClass: "mechanicsSmoke" | "qualificationRun" | "experimentalUse";
+    operation: "run" | "resume" | "evaluate" | "export";
+    outputDirectory: string;
+    artifactSha256: string;
+    evidenceBindings: Record<string, string>;
+    signerKeyId: string;
+    authorizationSignatureBase64: string;
   };
   recipeIdentity?: { modelRevision: string; tokenizerRevision: string };
   trainingArguments?: Record<string, unknown>;
@@ -212,6 +219,33 @@ export function validateEmbeddingTrainingSpec(value: EmbeddingTrainingSpecV1) {
         path: `$.${key}`,
         remediation: `Provide ${key}.`,
       });
+  if (value.qualificationSchemaVersion === "2.0.0") {
+    const authorization = value.qualificationAuthorization;
+    const phase = authorization
+      ? {
+          smokeAuthorized: { operationClass: "mechanicsSmoke", operations: ["run", "resume"] },
+          smokePassed: { operationClass: "qualificationRun", operations: ["run", "resume", "evaluate", "export"] },
+          qualified: { operationClass: "experimentalUse", operations: ["evaluate", "export"] },
+        }[authorization.state]
+      : undefined;
+    if (
+      !authorization ||
+      !phase ||
+      authorization.recipeId !== value.recipeId ||
+      authorization.operationClass !== phase.operationClass ||
+      authorization.operation !== (value.operation ?? "run") ||
+      !phase.operations.includes(authorization.operation) ||
+      authorization.outputDirectory !== value.outputDirectory ||
+      !/^[a-f0-9]{64}$/.test(authorization.artifactSha256) ||
+      !validQualificationBindings(authorization.evidenceBindings) ||
+      typeof authorization.signerKeyId !== "string" ||
+      typeof authorization.authorizationSignatureBase64 !== "string"
+    )
+      throw new EmbeddingSdkError("EMBED_CONFIG_INVALID", "Invalid qualification execution authorization", {
+        path: "$.qualificationAuthorization",
+        remediation: "Use an externally signed authorization for the exact current state and operation.",
+      });
+  }
   const identity = value.immutableIdentity as Record<string, unknown> | undefined;
   for (const key of [
     "modelRevision",
@@ -240,6 +274,25 @@ export function validateEmbeddingTrainingSpec(value: EmbeddingTrainingSpecV1) {
       remediation: recipe.reason,
     });
   return value;
+}
+const qualificationBindingKeys = [
+  "commandSha256",
+  "imageDigest",
+  "environmentLockSha256",
+  "tokenizerSha256",
+  "configSha256",
+  "templateOrCodeSha256",
+  "datasetSha256",
+  "targetInventorySha256",
+  "dependencyIdentitySha256",
+] as const;
+function validQualificationBindings(value: Record<string, string>): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    Object.keys(value).length === qualificationBindingKeys.length &&
+    qualificationBindingKeys.every((key) => /^[a-f0-9]{64}$/.test(value[key] ?? ""))
+  );
 }
 export class EmbeddingTrainingRun {
   constructor(

@@ -23,6 +23,7 @@
     "effectiveBatchSize": { "type": "integer", "minimum": 2 },
     "dimension": { "type": "integer", "minimum": 1 },
     "adapter": { "enum": ["lora", "full"] },
+    "operation": { "enum": ["run", "resume", "evaluate", "export"] },
     "trustRemoteCode": { "type": "boolean" },
     "executionGates": {
       "type": "object",
@@ -64,10 +65,16 @@
         "trustPolicySha256",
         "expiresAt",
         "architectureEvidenceSha256",
-        "authorizationHmacSha256"
+        "operationClass",
+        "operation",
+        "outputDirectory",
+        "artifactSha256",
+        "evidenceBindings",
+        "signerKeyId",
+        "authorizationSignatureBase64"
       ],
       "properties": {
-        "state": { "const": "smokeAuthorized" },
+        "state": { "enum": ["smokeAuthorized", "smokePassed", "qualified"] },
         "recipeId": { "type": "string" },
         "recipeIdentityHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "evidenceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
@@ -78,8 +85,43 @@
         "trustPolicySha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "expiresAt": { "type": "string", "format": "date-time" },
         "architectureEvidenceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "authorizationHmacSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
-      }
+        "operationClass": { "enum": ["mechanicsSmoke", "qualificationRun", "experimentalUse"] },
+        "operation": { "enum": ["run", "resume", "evaluate", "export"] },
+        "outputDirectory": { "type": "string" },
+        "artifactSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "evidenceBindings": { "$ref": "qualification-evidence-v2.schema.json#/$defs/bindings" },
+        "signerKeyId": { "type": "string" },
+        "authorizationSignatureBase64": { "type": "string", "minLength": 32 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "smokeAuthorized" } }, "required": ["state"] },
+          "then": {
+            "properties": {
+              "operationClass": { "const": "mechanicsSmoke" },
+              "operation": { "enum": ["run", "resume"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "state": { "const": "smokePassed" } }, "required": ["state"] },
+          "then": {
+            "properties": {
+              "operationClass": { "const": "qualificationRun" },
+              "operation": { "enum": ["run", "resume", "evaluate", "export"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "state": { "const": "qualified" } }, "required": ["state"] },
+          "then": {
+            "properties": {
+              "operationClass": { "const": "experimentalUse" },
+              "operation": { "enum": ["evaluate", "export"] }
+            }
+          }
+        }
+      ]
     },
     "recipeIdentity": {
       "type": "object",

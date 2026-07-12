@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 
 export const qualificationSchemaVersion = "2.0.0" as const;
 export type QualificationState = "configured" | "smokeAuthorized" | "smokePassed" | "qualified";
+export type QualificationOperationClass = "mechanicsSmoke" | "qualificationRun" | "experimentalUse";
 export type SupportState = "unavailable" | "experimental" | "supported";
 export type ArchitectureFamily = "dense" | "hybrid" | "moe" | "hybrid-moe" | "custom-code";
 
@@ -477,9 +478,21 @@ export function inspectQualificationRecipe(id: string): QualificationRecipeV2 {
   if (!recipe) throw new Error(`Unknown qualification recipe: ${id}`);
   return recipe;
 }
+export function blockersForState(recipe: QualificationRecipeV2, state: Exclude<QualificationState, "configured">) {
+  if (state === "smokeAuthorized")
+    return recipe.blockers.filter((blocker) => blocker !== "GPU mechanics evidence absent");
+  if (state === "smokePassed") return recipe.blockers.filter((blocker) => blocker === "GPU mechanics evidence absent");
+  return [];
+}
+const operationForState: Record<Exclude<QualificationState, "configured">, QualificationOperationClass> = {
+  smokeAuthorized: "mechanicsSmoke",
+  smokePassed: "qualificationRun",
+  qualified: "experimentalUse",
+};
 export interface QualificationPreflightInput {
   storePath: string;
-  artifactPath: string;
+  artifactPaths: Record<string, string>;
+  operationClass: QualificationOperationClass;
   trustPolicy: QualificationTrustPolicyV1;
   expectedTrustPolicySha256: string;
   expectedBindings?: QualificationEvidenceV2["bindings"];
@@ -500,24 +513,37 @@ export async function preflightQualification(id: string, input?: QualificationPr
         store.storeVersion !== "2.0.0" ||
         store.trustPolicySha256 !== policyDigest ||
         policyDigest !== input.expectedTrustPolicySha256 ||
-        current?.state !== "smokeAuthorized" ||
-        current.sequence !== 1 ||
-        current.acceptedEvidence.length !== 1
+        !current ||
+        current.sequence !== current.acceptedEvidence.length ||
+        current.sequence < 1
       )
-        throw new Error("persisted smoke authorization state is invalid");
-      const evidence = current.acceptedEvidence[0];
-      if (!evidence || qualificationEvidenceDigest(evidence) !== current.currentDigest)
-        throw new Error("persisted smoke authorization digest is invalid");
-      await validateQualificationEvidenceValue(evidence, await readFile(input.artifactPath), {
-        artifactPath: input.artifactPath,
-        trustPolicy: input.trustPolicy,
-        expectedTrustPolicySha256: input.expectedTrustPolicySha256,
-        expectedPredecessorDigest: recipeIdentityHash(recipe),
-        expectedPreviousState: "configured",
-        expectedSequence: 1,
-        ...(input.expectedBindings ? { expectedBindings: input.expectedBindings } : {}),
-        ...(input.now ? { now: input.now } : {}),
-      });
+        throw new Error("persisted qualification state is invalid");
+      let previousState: QualificationState = "configured";
+      let predecessorDigest = recipeIdentityHash(recipe);
+      for (const [index, evidence] of current.acceptedEvidence.entries()) {
+        const artifactPath = input.artifactPaths[evidence.evidenceId];
+        if (!artifactPath) throw new Error(`artifact path missing for ${evidence.evidenceId}`);
+        await validateQualificationEvidenceValue(evidence, await readFile(artifactPath), {
+          artifactPath,
+          trustPolicy: input.trustPolicy,
+          expectedTrustPolicySha256: input.expectedTrustPolicySha256,
+          expectedPredecessorDigest: predecessorDigest,
+          expectedPreviousState: previousState,
+          expectedSequence: index + 1,
+          ...(index === current.acceptedEvidence.length - 1 && input.expectedBindings
+            ? { expectedBindings: input.expectedBindings }
+            : {}),
+          ...(input.now ? { now: input.now } : {}),
+        });
+        previousState = evidence.state;
+        predecessorDigest = qualificationEvidenceDigest(evidence);
+      }
+      if (
+        previousState !== current.state ||
+        predecessorDigest !== current.currentDigest ||
+        operationForState[current.state as Exclude<QualificationState, "configured">] !== input.operationClass
+      )
+        throw new Error("requested operation is not authorized by current qualification state");
     } catch (error) {
       blockers.push(
         `accepted recipe-bound smokeAuthorized evidence invalid: ${error instanceof Error ? error.message : String(error)}`,
@@ -579,7 +605,11 @@ export interface QualificationEvidenceV2 {
     dependencyIdentitySha256: string;
   };
   assertions: Record<string, boolean>;
-  authorization?: { gates: AuthorizationGates; dischargedBlockers: string[] };
+  authorization: {
+    operationClass: QualificationOperationClass;
+    gates: AuthorizationGates;
+    dischargedBlockers: string[];
+  };
   signatureBase64: string;
 }
 const transitions: Record<QualificationState, QualificationState[]> = {
@@ -676,21 +706,22 @@ async function validateQualificationEvidenceValue(
     required.some((key) => evidence.assertions?.[key] !== true)
   )
     throw new Error("Qualification evidence assertions are incomplete");
-  if (evidence.state === "smokeAuthorized") {
-    if (!evidence.authorization) throw new Error("Signed smoke authorization decisions are required");
-    if (JSON.stringify(evidence.authorization.dischargedBlockers) !== JSON.stringify(recipe.blockers))
-      throw new Error("Signed blocker discharge does not exactly match the recipe");
-    const gateKeys = [...requiredAuthorizationGates, "uploadRequested", "uploadApproved"];
-    if (
-      Object.keys(evidence.authorization.gates).sort().join(",") !== gateKeys.sort().join(",") ||
-      requiredAuthorizationGates.some((gate) => evidence.authorization?.gates[gate] !== true) ||
-      evidence.authorization.gates.uploadRequested !== false ||
-      evidence.authorization.gates.uploadApproved !== false
-    )
-      throw new Error("Signed smoke authorization gates are invalid");
-  } else if (evidence.authorization !== undefined) {
-    throw new Error("Authorization decisions are valid only for smokeAuthorized evidence");
-  }
+  if (!evidence.authorization) throw new Error("Signed operation authorization decisions are required");
+  if (evidence.authorization.operationClass !== operationForState[evidence.state])
+    throw new Error("Signed operation class does not match qualification state");
+  if (
+    JSON.stringify(evidence.authorization.dischargedBlockers) !==
+    JSON.stringify(blockersForState(recipe, evidence.state))
+  )
+    throw new Error("Signed blocker discharge does not exactly match the operation phase");
+  const gateKeys = [...requiredAuthorizationGates, "uploadRequested", "uploadApproved"];
+  if (
+    Object.keys(evidence.authorization.gates).sort().join(",") !== gateKeys.sort().join(",") ||
+    requiredAuthorizationGates.some((gate) => evidence.authorization.gates[gate] !== true) ||
+    evidence.authorization.gates.uploadRequested !== false ||
+    evidence.authorization.gates.uploadApproved !== false
+  )
+    throw new Error("Signed operation authorization gates are invalid");
   const issued = Date.parse(evidence.issuedAt),
     expires = Date.parse(evidence.expiresAt),
     now = (options.now ?? new Date()).getTime();

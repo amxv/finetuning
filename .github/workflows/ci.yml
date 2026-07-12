@@ -66,5 +66,5 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v6
       - run: uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-      - run: uv pip install --system "transformers>=4.57,<5" "accelerate>=1.10,<2"
-      - run: PYTHONPATH=python python -m unittest python.training_tests.torch_objective
+      - run: uv pip install --system "transformers>=4.57,<5" "accelerate>=1.10,<2" "cryptography>=45,<47"
+      - run: PYTHONPATH=python python -m unittest python.training_tests.torch_objective python.test_model_recipes

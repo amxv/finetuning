@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .contracts import parse_spec
 from .engine import classify_checkpoint, execute_production, export_artifacts, preflight, resume_identity_hash, train
-from .framework import HuggingFaceFramework
+from .framework import HuggingFaceFramework, require_execution_gates
 
 
 def main(framework_factory=HuggingFaceFramework) -> int:
@@ -33,6 +33,9 @@ def main(framework_factory=HuggingFaceFramework) -> int:
     emit("started")
     operation = spec.get("operation", "run")
     try:
+        production = spec["recipeId"] != "cpu-tiny-fixture"
+        if production:
+            require_execution_gates(spec)
         if operation == "resume":
             checkpoint = spec.get("checkpointPath")
             if not checkpoint:
@@ -40,7 +43,6 @@ def main(framework_factory=HuggingFaceFramework) -> int:
             classification = classify_checkpoint(Path(checkpoint), resume_identity_hash(spec))
             if classification != "full-resume":
                 raise ValueError(f"CHECKPOINT_NOT_FULL_RESUME: {classification}")
-        production = spec["recipeId"] != "cpu-tiny-fixture"
         info = (
             {"mode": "production-gated", "recipeId": spec["recipeId"], "network": False, "uploads": False}
             if production

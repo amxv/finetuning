@@ -14,7 +14,8 @@ from .framework import execute_recipe
 
 def execute_production(spec: dict[str, Any], rows: list[dict[str, Any]], framework: Any) -> dict[str, Any]:
     resolved = dict(spec)
-    resolved["resumeIdentityHash"] = resume_identity_hash(spec)
+    if all(key in spec for key in ("trainingSpecVersion", "dataset", "objective", "seed")):
+        resolved["resumeIdentityHash"] = resume_identity_hash(spec)
     if spec.get("checkpointPath"):
         resolved["checkpointPath"] = str(
             resolve_framework_checkpoint(Path(spec["checkpointPath"]), resume_identity_hash(spec))

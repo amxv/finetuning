@@ -22,6 +22,7 @@
     "artifactSha256",
     "bindings",
     "assertions",
+    "authorization",
     "signatureBase64"
   ],
   "properties": {
@@ -40,6 +41,22 @@
     "signerKeyId": { "type": "string" },
     "trustPolicySha256": { "$ref": "#/$defs/sha256" },
     "artifactSha256": { "$ref": "#/$defs/sha256" },
+    "bindings": { "$ref": "#/$defs/bindings" },
+    "assertions": { "type": "object", "additionalProperties": { "const": true } },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationClass", "gates", "dischargedBlockers"],
+      "properties": {
+        "operationClass": { "enum": ["mechanicsSmoke", "qualificationRun", "experimentalUse"] },
+        "gates": { "$ref": "#/$defs/authorizationGates" },
+        "dischargedBlockers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "signatureBase64": { "type": "string", "minLength": 32 }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "bindings": {
       "type": "object",
       "additionalProperties": false,
@@ -66,17 +83,39 @@
         "dependencyIdentitySha256": { "$ref": "#/$defs/sha256" }
       }
     },
-    "assertions": { "type": "object", "additionalProperties": { "const": true } },
-    "authorization": {
+    "authorizationGates": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["gates", "dischargedBlockers"],
+      "required": [
+        "experimentalExecutionApproved",
+        "stagingNetworkApproved",
+        "downloadsApproved",
+        "remoteCodeApproved",
+        "gpuApproved",
+        "budgetApproved",
+        "datasetRightsApproved",
+        "modelLicenseAccepted",
+        "uploadRequested",
+        "uploadApproved",
+        "architectureEvidenceApproved",
+        "frameworkEvidenceApproved",
+        "customKernelApproved"
+      ],
       "properties": {
-        "gates": { "type": "object" },
-        "dischargedBlockers": { "type": "array", "items": { "type": "string" } }
+        "experimentalExecutionApproved": { "const": true },
+        "stagingNetworkApproved": { "const": true },
+        "downloadsApproved": { "const": true },
+        "remoteCodeApproved": { "const": true },
+        "gpuApproved": { "const": true },
+        "budgetApproved": { "const": true },
+        "datasetRightsApproved": { "const": true },
+        "modelLicenseAccepted": { "const": true },
+        "uploadRequested": { "const": false },
+        "uploadApproved": { "const": false },
+        "architectureEvidenceApproved": { "const": true },
+        "frameworkEvidenceApproved": { "const": true },
+        "customKernelApproved": { "const": true }
       }
-    },
-    "signatureBase64": { "type": "string", "minLength": 32 }
-  },
-  "$defs": { "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+    }
+  }
 }

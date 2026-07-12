@@ -10,7 +10,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .framework import execute_recipe
+from .framework import execute_recipe, require_execution_gates
 
 
 def execute_production(spec, rows, framework):
@@ -276,6 +276,9 @@ def main(framework_factory=None):
     emit("started")
     op = spec.get("operation", "run")
     try:
+        production = spec["recipeId"] != "cpu-tiny-embedding-fixture"
+        if production:
+            require_execution_gates(spec)
         if op == "resume":
             checkpoint = spec.get("checkpointPath")
             if not checkpoint:

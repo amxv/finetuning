@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
-import hmac
 import json
 import os
 from datetime import datetime, timezone
@@ -173,6 +173,178 @@ class HuggingFaceFramework:
         return sorted(p.name for p in output.iterdir())
 
 
+_QUALIFICATION_OPERATIONS = {
+    "smokeAuthorized": ("mechanicsSmoke", ("run", "resume")),
+    "smokePassed": ("qualificationRun", ("run", "resume", "evaluate", "export")),
+    "qualified": ("experimentalUse", ("evaluate", "export")),
+}
+_QUALIFICATION_TRANSITIONS = {
+    "configured": "smokeAuthorized",
+    "smokeAuthorized": "smokePassed",
+    "smokePassed": "qualified",
+}
+_QUALIFICATION_ASSERTIONS = {
+    "smokeAuthorized": (
+        "policyGatesReviewed",
+        "licenseAccepted",
+        "architectureReviewed",
+        "frameworkReviewed",
+        "datasetRightsReviewed",
+        "offlineExecutionNoUpload",
+    ),
+    "smokePassed": ("forwardBackward", "finiteLoss", "finiteNonzeroGradients", "checkpointResume", "offlineReload"),
+    "qualified": ("repeatedCleanRun", "evaluation", "export", "artifactManifestVerified"),
+}
+_QUALIFICATION_BINDINGS = (
+    "commandSha256",
+    "imageDigest",
+    "environmentLockSha256",
+    "tokenizerSha256",
+    "configSha256",
+    "templateOrCodeSha256",
+    "datasetSha256",
+    "targetInventorySha256",
+    "dependencyIdentitySha256",
+)
+_QUALIFICATION_GATE_NAMES = (
+    "experimentalExecutionApproved",
+    "stagingNetworkApproved",
+    "downloadsApproved",
+    "remoteCodeApproved",
+    "gpuApproved",
+    "budgetApproved",
+    "datasetRightsApproved",
+    "modelLicenseAccepted",
+    "uploadRequested",
+    "uploadApproved",
+    "architectureEvidenceApproved",
+    "frameworkEvidenceApproved",
+    "customKernelApproved",
+)
+
+
+def _canonical_json(value: Any) -> bytes:
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def _json_digest(value: Any) -> str:
+    return hashlib.sha256(_canonical_json(value)).hexdigest()
+
+
+def _is_sha256(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def _phase_blockers(recipe_id: str, state: str) -> list[str]:
+    evidence_path = Path(__file__).with_name("recipe-evidence.json")
+    catalog = json.loads(evidence_path.read_text()).get("recipes", {})
+    blockers = catalog.get(recipe_id, {}).get("unavailableReasons", [])
+    if state == "smokeAuthorized":
+        return [blocker for blocker in blockers if blocker != "GPU mechanics evidence absent"]
+    if state == "smokePassed":
+        return [blocker for blocker in blockers if blocker == "GPU mechanics evidence absent"]
+    return []
+
+
+def _verify_public_signature(public_key_pem: str, signature: str, payload: bytes) -> None:
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        public_key = serialization.load_pem_public_key(public_key_pem.encode())
+        if not isinstance(public_key, Ed25519PublicKey):
+            raise ValueError("qualification key must be Ed25519")
+        public_key.verify(base64.b64decode(signature, validate=True), payload)
+    except ImportError as error:
+        raise RuntimeError("TRAINING_DEPENDENCY_MISSING: cryptography") from error
+    except Exception as error:
+        raise RuntimeError("QUALIFICATION_AUTHORIZATION_SIGNATURE_INVALID") from error
+
+
+def _validate_evidence_chain(
+    store: dict[str, Any], authorization: dict[str, Any], trust_policy: dict[str, Any]
+) -> dict[str, Any]:
+    if store.get("storeVersion") != "2.0.0" or store.get("trustPolicySha256") != authorization["trustPolicySha256"]:
+        raise RuntimeError("QUALIFICATION_STORE_POLICY_MISMATCH")
+    accepted = store.get("recipes", {}).get(authorization["recipeId"], {})
+    evidence_chain = accepted.get("acceptedEvidence", [])
+    evidence_ids = accepted.get("evidenceIds", [])
+    evidence_digests = accepted.get("evidenceDigests", [])
+    sequence = authorization.get("sequence")
+    if (
+        accepted.get("state") != authorization["state"]
+        or accepted.get("currentDigest") != authorization["evidenceDigest"]
+        or accepted.get("sequence") != sequence
+        or not isinstance(sequence, int)
+        or sequence < 1
+        or len(evidence_chain) != sequence
+        or len(evidence_ids) != sequence
+        or len(evidence_digests) != sequence
+    ):
+        raise RuntimeError("QUALIFICATION_STORE_AUTHORIZATION_MISMATCH")
+    recipe = RECIPES.get(authorization["recipeId"])
+    if not recipe:
+        raise RuntimeError("QUALIFICATION_RECIPE_UNKNOWN")
+    previous_state = "configured"
+    predecessor_digest = authorization.get("recipeIdentityHash")
+    for index, evidence in enumerate(evidence_chain, start=1):
+        state = evidence.get("state")
+        evidence_digest = _json_digest(evidence)
+        required_assertions = _QUALIFICATION_ASSERTIONS.get(state)
+        signed_authorization = evidence.get("authorization", {})
+        signed_gates = signed_authorization.get("gates", {})
+        bindings = evidence.get("bindings", {})
+        if (
+            evidence.get("evidenceVersion") != "2.0.0"
+            or evidence.get("sequence") != index
+            or evidence.get("recipeId") != authorization["recipeId"]
+            or evidence.get("recipeIdentityHash") != authorization.get("recipeIdentityHash")
+            or evidence.get("revision") != recipe.get("modelRevision")
+            or evidence.get("architecture") != recipe.get("architecture")
+            or evidence.get("previousState") != previous_state
+            or evidence.get("predecessorDigest") != predecessor_digest
+            or _QUALIFICATION_TRANSITIONS.get(previous_state) != state
+            or evidence.get("trustPolicySha256") != authorization.get("trustPolicySha256")
+            or evidence_ids[index - 1] != evidence.get("evidenceId")
+            or evidence_digests[index - 1] != evidence_digest
+            or not required_assertions
+            or set(evidence.get("assertions", {})) != set(required_assertions)
+            or any(evidence.get("assertions", {}).get(name) is not True for name in required_assertions)
+            or set(bindings) != set(_QUALIFICATION_BINDINGS)
+            or any(not _is_sha256(bindings.get(name)) for name in _QUALIFICATION_BINDINGS)
+            or not _is_sha256(evidence.get("artifactSha256"))
+            or signed_authorization.get("operationClass") != _QUALIFICATION_OPERATIONS[state][0]
+            or signed_authorization.get("dischargedBlockers") != _phase_blockers(authorization["recipeId"], state)
+            or set(signed_gates) != set(_QUALIFICATION_GATE_NAMES)
+            or any(
+                signed_gates.get(name) is not True
+                for name in _QUALIFICATION_GATE_NAMES
+                if name not in ("uploadRequested", "uploadApproved")
+            )
+            or signed_gates.get("uploadRequested") is not False
+            or signed_gates.get("uploadApproved") is not False
+        ):
+            raise RuntimeError("SIGNED_QUALIFICATION_EVIDENCE_MISMATCH")
+        try:
+            evidence_issued = datetime.fromisoformat(evidence["issuedAt"].replace("Z", "+00:00"))
+            evidence_expiry = datetime.fromisoformat(evidence["expiresAt"].replace("Z", "+00:00"))
+        except (KeyError, TypeError, ValueError) as error:
+            raise RuntimeError("QUALIFICATION_EVIDENCE_EXPIRY_INVALID") from error
+        now = datetime.now(timezone.utc)
+        if evidence_issued > now or evidence_expiry <= now or evidence_expiry <= evidence_issued:
+            raise RuntimeError("QUALIFICATION_EVIDENCE_EXPIRED")
+        signer_key = trust_policy.get("keys", {}).get(evidence.get("signerKeyId"))
+        if not signer_key:
+            raise RuntimeError("QUALIFICATION_EVIDENCE_SIGNER_UNTRUSTED")
+        canonical_evidence = {**evidence, "signatureBase64": ""}
+        _verify_public_signature(signer_key, evidence.get("signatureBase64", ""), _canonical_json(canonical_evidence))
+        previous_state = state
+        predecessor_digest = evidence_digest
+    if predecessor_digest != authorization["evidenceDigest"] or previous_state != authorization["state"]:
+        raise RuntimeError("QUALIFICATION_EVIDENCE_CHAIN_HEAD_MISMATCH")
+    return evidence_chain[-1]
+
+
 def require_execution_gates(spec: dict[str, Any]) -> None:
     gates = spec.get("executionGates", {})
     required = ["allowModelLoad", "licenseApproved", "revisionPinned", "remoteCodeReviewed", "gpuQualified"]
@@ -199,17 +371,40 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
         raise RuntimeError("REMOTE_CODE_REVIEW_REQUIRED")
     if spec.get("qualificationSchemaVersion") == "2.0.0":
         authorization = spec.get("qualificationAuthorization", {})
+        state = authorization.get("state")
+        operation = spec.get("operation", "run")
         if (
-            authorization.get("state") != "smokeAuthorized"
+            state not in _QUALIFICATION_OPERATIONS
             or authorization.get("recipeId") != spec.get("recipeId")
             or not isinstance(authorization.get("evidenceDigest"), str)
             or len(authorization["evidenceDigest"]) != 64
         ):
-            raise RuntimeError("ACCEPTED_SMOKE_AUTHORIZATION_REQUIRED")
+            raise RuntimeError("ACCEPTED_QUALIFICATION_AUTHORIZATION_REQUIRED")
+        operation_class, allowed_operations = _QUALIFICATION_OPERATIONS[state]
+        if (
+            authorization.get("operationClass") != operation_class
+            or authorization.get("operation") != operation
+            or operation not in allowed_operations
+            or authorization.get("outputDirectory") != spec.get("outputDirectory")
+        ):
+            raise RuntimeError("QUALIFICATION_OPERATION_NOT_AUTHORIZED")
         trust_policy_sha256 = os.environ.get("AMXV_QUALIFICATION_TRUST_POLICY_SHA256")
-        hmac_key = os.environ.get("AMXV_QUALIFICATION_AUTH_HMAC_KEY")
-        if not trust_policy_sha256 or authorization.get("trustPolicySha256") != trust_policy_sha256 or not hmac_key:
+        trust_policy_path = os.environ.get("AMXV_QUALIFICATION_TRUST_POLICY_PATH")
+        if (
+            not trust_policy_sha256
+            or authorization.get("trustPolicySha256") != trust_policy_sha256
+            or not trust_policy_path
+        ):
             raise RuntimeError("INDEPENDENT_QUALIFICATION_TRUST_CONTEXT_REQUIRED")
+        trust_policy = json.loads(Path(trust_policy_path).read_bytes())
+        if (
+            _json_digest(trust_policy) != trust_policy_sha256
+            or trust_policy.get("policyVersion") != "1.0.0"
+            or not isinstance(trust_policy.get("policyId"), str)
+            or not isinstance(trust_policy.get("keys"), dict)
+            or not trust_policy["keys"]
+        ):
+            raise RuntimeError("QUALIFICATION_TRUST_POLICY_DIGEST_MISMATCH")
         try:
             expires = datetime.fromisoformat(authorization["expiresAt"].replace("Z", "+00:00"))
         except (KeyError, TypeError, ValueError) as error:
@@ -221,7 +416,28 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
         ).hexdigest()
         if architecture_hash != authorization.get("architectureEvidenceSha256"):
             raise RuntimeError("SIGNED_ARCHITECTURE_EVIDENCE_MISMATCH")
-        hmac_payload = {
+        store_path = Path(authorization.get("storePath", ""))
+        if not store_path.is_file():
+            raise RuntimeError("QUALIFICATION_STORE_REQUIRED")
+        store_bytes = store_path.read_bytes()
+        if hashlib.sha256(store_bytes).hexdigest() != authorization.get("storeSha256"):
+            raise RuntimeError("QUALIFICATION_STORE_HASH_MISMATCH")
+        current_evidence = _validate_evidence_chain(json.loads(store_bytes), authorization, trust_policy)
+        if (
+            current_evidence.get("artifactSha256") != authorization.get("artifactSha256")
+            or current_evidence.get("expiresAt") != authorization.get("expiresAt")
+            or current_evidence.get("bindings") != authorization.get("evidenceBindings")
+            or current_evidence.get("bindings", {}).get("targetInventorySha256")
+            != spec.get("architectureEvidence", {}).get("inventorySha256")
+            or current_evidence.get("authorization", {}).get("dischargedBlockers")
+            != authorization.get("dischargedBlockers")
+            or any(
+                current_evidence.get("authorization", {}).get("gates", {}).get(name) != gates.get(name)
+                for name in _QUALIFICATION_GATE_NAMES
+            )
+        ):
+            raise RuntimeError("SIGNED_QUALIFICATION_EVIDENCE_MISMATCH")
+        authorization_payload = {
             "recipeId": authorization.get("recipeId"),
             "recipeIdentityHash": authorization.get("recipeIdentityHash"),
             "evidenceDigest": authorization.get("evidenceDigest"),
@@ -231,67 +447,21 @@ def require_execution_gates(spec: dict[str, Any]) -> None:
             "trustPolicySha256": authorization.get("trustPolicySha256"),
             "expiresAt": authorization.get("expiresAt"),
             "architectureEvidenceSha256": authorization.get("architectureEvidenceSha256"),
+            "operationClass": authorization.get("operationClass"),
+            "operation": authorization.get("operation"),
+            "outputDirectory": authorization.get("outputDirectory"),
+            "artifactSha256": authorization.get("artifactSha256"),
+            "evidenceBindings": authorization.get("evidenceBindings"),
             "executionGates": gates,
         }
-        expected_hmac = hmac.new(
-            hmac_key.encode(),
-            json.dumps(hmac_payload, sort_keys=True, separators=(",", ":")).encode(),
-            hashlib.sha256,
-        ).hexdigest()
-        if not hmac.compare_digest(expected_hmac, authorization.get("authorizationHmacSha256", "")):
-            raise RuntimeError("QUALIFICATION_AUTHORIZATION_SIGNATURE_INVALID")
-        store_path = Path(authorization.get("storePath", ""))
-        if not store_path.is_file():
-            raise RuntimeError("QUALIFICATION_STORE_REQUIRED")
-        store_bytes = store_path.read_bytes()
-        if hashlib.sha256(store_bytes).hexdigest() != authorization.get("storeSha256"):
-            raise RuntimeError("QUALIFICATION_STORE_HASH_MISMATCH")
-        store = json.loads(store_bytes)
-        accepted = store.get("recipes", {}).get(spec.get("recipeId"), {})
-        if (
-            accepted.get("state") != "smokeAuthorized"
-            or accepted.get("currentDigest") != authorization["evidenceDigest"]
-            or accepted.get("sequence") != authorization.get("sequence")
-        ):
-            raise RuntimeError("QUALIFICATION_STORE_AUTHORIZATION_MISMATCH")
-        accepted_evidence = accepted.get("acceptedEvidence", [])
-        if len(accepted_evidence) != authorization.get("sequence"):
-            raise RuntimeError("QUALIFICATION_EVIDENCE_CHAIN_LENGTH_MISMATCH")
-        current_evidence = accepted_evidence[-1] if accepted_evidence else {}
-        current_evidence_digest = hashlib.sha256(
-            json.dumps(current_evidence, separators=(",", ":"), ensure_ascii=False).encode()
-        ).hexdigest()
-        signed_gates = current_evidence.get("authorization", {}).get("gates", {})
-        signed_blockers = current_evidence.get("authorization", {}).get("dischargedBlockers")
-        v2_gate_names = (
-            "experimentalExecutionApproved",
-            "stagingNetworkApproved",
-            "downloadsApproved",
-            "remoteCodeApproved",
-            "gpuApproved",
-            "budgetApproved",
-            "datasetRightsApproved",
-            "modelLicenseAccepted",
-            "uploadRequested",
-            "uploadApproved",
-            "architectureEvidenceApproved",
-            "frameworkEvidenceApproved",
-            "customKernelApproved",
+        public_key_pem = trust_policy.get("keys", {}).get(authorization.get("signerKeyId"))
+        if not public_key_pem:
+            raise RuntimeError("QUALIFICATION_AUTHORIZATION_SIGNER_UNTRUSTED")
+        _verify_public_signature(
+            public_key_pem,
+            authorization.get("authorizationSignatureBase64", ""),
+            json.dumps(authorization_payload, sort_keys=True, separators=(",", ":")).encode(),
         )
-        if (
-            current_evidence_digest != authorization["evidenceDigest"]
-            or current_evidence.get("recipeId") != spec.get("recipeId")
-            or current_evidence.get("recipeIdentityHash") != authorization.get("recipeIdentityHash")
-            or current_evidence.get("trustPolicySha256") != authorization.get("trustPolicySha256")
-            or current_evidence.get("expiresAt") != authorization.get("expiresAt")
-            or signed_blockers != authorization.get("dischargedBlockers")
-            or any(signed_gates.get(name) != gates.get(name) for name in v2_gate_names)
-            or current_evidence.get("bindings", {}).get("targetInventorySha256")
-            != spec.get("architectureEvidence", {}).get("inventorySha256")
-        ):
-            raise RuntimeError("SIGNED_QUALIFICATION_EVIDENCE_MISMATCH")
-        if not isinstance(gates.get("uploadRequested"), bool) or not isinstance(gates.get("uploadApproved"), bool):
-            raise RuntimeError("UPLOAD_GATE_VALUES_REQUIRED")
         if gates["uploadRequested"] is not False or gates["uploadApproved"] is not False:
             raise RuntimeError("TRAINING_UPLOADS_FORBIDDEN")
 
@@ -543,12 +713,18 @@ def execute_recipe(
     discharged = spec.get("qualificationAuthorization", {}).get("dischargedBlockers", [])
     if not recipe.get("firstWaveExecutable", True):
         raise RuntimeError("RECIPE_FIRST_WAVE_NON_EXECUTABLE: " + "; ".join(blockers))
-    if blockers and (
+    current_state = spec.get("qualificationAuthorization", {}).get("state")
+    applicable_blockers = (
+        _phase_blockers(spec["recipeId"], current_state)
+        if spec.get("qualificationSchemaVersion") == "2.0.0"
+        else blockers
+    )
+    if applicable_blockers and (
         spec.get("qualificationSchemaVersion") != "2.0.0"
         or not isinstance(discharged, list)
-        or any(blocker not in discharged for blocker in blockers)
+        or discharged != applicable_blockers
     ):
-        raise RuntimeError("RECIPE_EVIDENCE_UNAVAILABLE: " + "; ".join(blockers))
+        raise RuntimeError("RECIPE_EVIDENCE_UNAVAILABLE: " + "; ".join(applicable_blockers))
     if recipe.get("methods") and spec.get("adapter") not in recipe["methods"]:
         raise RuntimeError("RECIPE_OPTIMIZATION_METHOD_UNSUPPORTED")
     for key in ("modelRevision", "tokenizerRevision", "templateHash" if track == "chat" else "modelRevision"):

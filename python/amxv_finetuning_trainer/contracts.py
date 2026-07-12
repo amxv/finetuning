@@ -52,7 +52,7 @@ def parse_spec(value: Any) -> dict[str, Any]:
             authorization = value.get("qualificationAuthorization")
             if (
                 not isinstance(authorization, dict)
-                or authorization.get("state") != "smokeAuthorized"
+                or authorization.get("state") not in ("smokeAuthorized", "smokePassed", "qualified")
                 or authorization.get("recipeId") != value["recipeId"]
                 or not _sha(authorization.get("recipeIdentityHash"), 64)
                 or not _sha(authorization.get("evidenceDigest"), 64)
@@ -63,11 +63,25 @@ def parse_spec(value: Any) -> dict[str, Any]:
                 or not _sha(authorization.get("trustPolicySha256"), 64)
                 or not isinstance(authorization.get("expiresAt"), str)
                 or not _sha(authorization.get("architectureEvidenceSha256"), 64)
-                or not _sha(authorization.get("authorizationHmacSha256"), 64)
+                or authorization.get("operationClass") not in ("mechanicsSmoke", "qualificationRun", "experimentalUse")
+                or authorization.get("operation") not in ("run", "resume", "evaluate", "export")
+                or authorization.get("operation") != value.get("operation", "run")
+                or authorization.get("outputDirectory") != value.get("outputDirectory")
+                or not _sha(authorization.get("artifactSha256"), 64)
+                or not _evidence_bindings(authorization.get("evidenceBindings"))
+                or not isinstance(authorization.get("signerKeyId"), str)
+                or not isinstance(authorization.get("authorizationSignatureBase64"), str)
                 or not isinstance(authorization.get("sequence"), int)
                 or authorization["sequence"] < 1
             ):
                 raise ValueError("invalid qualification v2 authorization evidence")
+            phase = {
+                "smokeAuthorized": ("mechanicsSmoke", ("run", "resume")),
+                "smokePassed": ("qualificationRun", ("run", "resume", "evaluate", "export")),
+                "qualified": ("experimentalUse", ("evaluate", "export")),
+            }[authorization["state"]]
+            if authorization["operationClass"] != phase[0] or authorization["operation"] not in phase[1]:
+                raise ValueError("qualification operation is not authorized for current state")
             if gates["uploadRequested"] is False and gates["uploadApproved"] is not False:
                 raise ValueError("no-upload execution requires uploadApproved=false")
         if (
@@ -90,6 +104,21 @@ def parse_spec(value: Any) -> dict[str, Any]:
 
 def _sha(value: Any, n: int) -> bool:
     return isinstance(value, str) and len(value) == n and all(c in "0123456789abcdef" for c in value)
+
+
+def _evidence_bindings(value: Any) -> bool:
+    keys = (
+        "commandSha256",
+        "imageDigest",
+        "environmentLockSha256",
+        "tokenizerSha256",
+        "configSha256",
+        "templateOrCodeSha256",
+        "datasetSha256",
+        "targetInventorySha256",
+        "dependencyIdentitySha256",
+    )
+    return isinstance(value, dict) and set(value) == set(keys) and all(_sha(value.get(key), 64) for key in keys)
 
 
 def parse_event(value: Any) -> dict[str, Any]:

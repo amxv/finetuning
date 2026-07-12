@@ -24,6 +24,7 @@ import {
   qualificationRecipes,
   recordQualificationEvidence,
   type QualificationTrustPolicyV1,
+  type QualificationOperationClass,
 } from "../training/qualification.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { runEmbedCommand } from "./embed-data.js";
@@ -179,7 +180,11 @@ async function runRecipeQualificationCommand(rawArgs: string[]): Promise<void> {
     const trust = await readQualificationTrustPolicy(args);
     const result = await preflightQualification(readRequiredStringFlag(args, "recipe"), {
       storePath: readRequiredStringFlag(args, "store"),
-      artifactPath: readRequiredStringFlag(args, "artifact"),
+      artifactPaths: JSON.parse(await readFile(readRequiredStringFlag(args, "artifact-paths"), "utf8")) as Record<
+        string,
+        string
+      >,
+      operationClass: readRequiredStringFlag(args, "operation-class") as QualificationOperationClass,
       trustPolicy: trust.policy,
       expectedTrustPolicySha256: trust.expectedDigest,
     });

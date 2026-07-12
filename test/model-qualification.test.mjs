@@ -8,6 +8,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
+  blockersForState,
   inspectQualificationRecipe,
   planRunPodSmoke,
   preflightQualification,
@@ -179,9 +180,35 @@ test("qualification v2 training contracts reject raw gates without accepted auth
     trustPolicySha256: "f".repeat(64),
     expiresAt: "2026-07-13T00:00:00.000Z",
     architectureEvidenceSha256: "1".repeat(64),
-    authorizationHmacSha256: "2".repeat(64),
+    operationClass: "mechanicsSmoke",
+    operation: "run",
+    outputDirectory: spec.outputDirectory,
+    artifactSha256: "2".repeat(64),
+    evidenceBindings: Object.fromEntries(
+      [
+        "commandSha256",
+        "imageDigest",
+        "environmentLockSha256",
+        "tokenizerSha256",
+        "configSha256",
+        "templateOrCodeSha256",
+        "datasetSha256",
+        "targetInventorySha256",
+        "dependencyIdentitySha256",
+      ].map((key, index) => [key, "3456789ab"[index].repeat(64)]),
+    ),
+    signerKeyId: "reviewer",
+    authorizationSignatureBase64: Buffer.alloc(64).toString("base64"),
   };
   assert.equal(parseTrainingSpec(spec).qualificationAuthorization.state, "smokeAuthorized");
+  spec.operation = "evaluate";
+  spec.qualificationAuthorization.state = "smokePassed";
+  spec.qualificationAuthorization.operationClass = "qualificationRun";
+  spec.qualificationAuthorization.operation = "evaluate";
+  spec.qualificationAuthorization.sequence = 2;
+  assert.equal(parseTrainingSpec(spec).qualificationAuthorization.state, "smokePassed");
+  spec.qualificationAuthorization.operationClass = "mechanicsSmoke";
+  assert.throws(() => parseTrainingSpec(spec), /not authorized/i);
 });
 
 test("RunPod plans are offline and create no resources", () => {
@@ -255,12 +282,13 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
         offlineExecutionNoUpload: true,
       },
       authorization: {
+        operationClass: "mechanicsSmoke",
         gates: {
           ...Object.fromEntries(requiredAuthorizationGates.map((gate) => [gate, true])),
           uploadRequested: false,
           uploadApproved: false,
         },
-        dischargedBlockers: [...recipe.blockers],
+        dischargedBlockers: blockersForState(recipe, "smokeAuthorized"),
       },
       signatureBase64: "",
       ...overrides,
@@ -286,11 +314,13 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
   await write(make());
   const first = await record();
   assert.equal(first.store.recipes[recipe.id].state, "smokeAuthorized");
+  assert.ok(!first.evidence.authorization.dischargedBlockers.includes("GPU mechanics evidence absent"));
   assert.equal(
     (
       await preflightQualification(recipe.id, {
         storePath,
-        artifactPath,
+        artifactPaths: { "evidence-1": artifactPath },
+        operationClass: "mechanicsSmoke",
         trustPolicy,
         expectedTrustPolicySha256,
         expectedBindings: bindings,
@@ -298,6 +328,20 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
       })
     ).executable,
     true,
+  );
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath,
+        artifactPaths: { "evidence-1": artifactPath },
+        operationClass: "qualificationRun",
+        trustPolicy,
+        expectedTrustPolicySha256,
+        now,
+      })
+    ).executable,
+    false,
+    "qualification work must remain closed until smoke mechanics evidence is accepted",
   );
   const fabricatedStorePath = join(root, "fabricated-preflight-store.json");
   const fabricatedStore = structuredClone(first.store);
@@ -309,7 +353,8 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
     (
       await preflightQualification(recipe.id, {
         storePath: fabricatedStorePath,
-        artifactPath,
+        artifactPaths: { "evidence-1": artifactPath },
+        operationClass: "mechanicsSmoke",
         trustPolicy,
         expectedTrustPolicySha256,
         now,
@@ -338,15 +383,106 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
       checkpointResume: true,
       offlineReload: true,
     },
-    authorization: undefined,
+    authorization: {
+      operationClass: "qualificationRun",
+      gates: {
+        ...Object.fromEntries(requiredAuthorizationGates.map((gate) => [gate, true])),
+        uploadRequested: false,
+        uploadApproved: false,
+      },
+      dischargedBlockers: blockersForState(recipe, "smokePassed"),
+    },
   });
   await write(secondEvidence);
   const second = await record();
   assert.equal(second.store.recipes[recipe.id].state, "smokePassed");
+  assert.deepEqual(second.evidence.authorization.dischargedBlockers, ["GPU mechanics evidence absent"]);
   assert.equal(second.store.recipes[recipe.id].currentDigest, qualificationEvidenceDigest(secondEvidence));
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath,
+        artifactPaths: { "evidence-1": artifactPath, "evidence-2": artifactPath },
+        operationClass: "qualificationRun",
+        trustPolicy,
+        expectedTrustPolicySha256,
+        now,
+      })
+    ).executable,
+    true,
+  );
+  const thirdEvidence = make({
+    evidenceId: "evidence-3",
+    sequence: 3,
+    state: "qualified",
+    previousState: "smokePassed",
+    predecessorDigest: second.digest,
+    assertions: { repeatedCleanRun: true, evaluation: true, export: true, artifactManifestVerified: true },
+    authorization: {
+      operationClass: "experimentalUse",
+      gates: {
+        ...Object.fromEntries(requiredAuthorizationGates.map((gate) => [gate, true])),
+        uploadRequested: false,
+        uploadApproved: false,
+      },
+      dischargedBlockers: blockersForState(recipe, "qualified"),
+    },
+  });
+  await write(thirdEvidence);
+  const third = await record();
+  assert.equal(third.store.recipes[recipe.id].state, "qualified");
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath,
+        artifactPaths: {
+          "evidence-1": artifactPath,
+          "evidence-2": artifactPath,
+          "evidence-3": artifactPath,
+        },
+        operationClass: "experimentalUse",
+        trustPolicy,
+        expectedTrustPolicySha256,
+        now,
+      })
+    ).executable,
+    true,
+  );
+  assert.equal(
+    (
+      await preflightQualification(recipe.id, {
+        storePath,
+        artifactPaths: {
+          "evidence-1": artifactPath,
+          "evidence-2": artifactPath,
+          "evidence-3": artifactPath,
+        },
+        operationClass: "mechanicsSmoke",
+        trustPolicy,
+        expectedTrustPolicySha256,
+        now,
+      })
+    ).executable,
+    false,
+  );
   const forged = make({ evidenceId: "forged-self-consistent", assertions: { invented: true } });
   await write(forged);
   await assert.rejects(record(join(root, "forged-store.json")), /assertions/i);
+  await write(
+    make({
+      evidenceId: "premature-mechanics-claim",
+      assertions: {
+        policyGatesReviewed: true,
+        licenseAccepted: true,
+        architectureReviewed: true,
+        frameworkReviewed: true,
+        datasetRightsReviewed: true,
+        offlineExecutionNoUpload: true,
+        forwardBackward: true,
+      },
+    }),
+  );
+  await assert.rejects(record(join(root, "premature-store.json")), /assertions/i);
   await write(make({ artifactSha256: "0".repeat(64) }));
   await assert.rejects(record(join(root, "artifact-store.json")), /artifact digest/i);
   const staleBindings = { ...bindings, dependencyIdentitySha256: hash("drifted-dependencies") };
@@ -372,6 +508,32 @@ test("evidence promotion is signed, artifact-bound, linked, stateful, and replay
   await assert.rejects(record(join(root, "orphan-store.json")), /transition/i);
   await write(make({ recipeId: "arctic-m-v2-full" }));
   await assert.rejects(record(join(root, "cross-store.json")), /identity/i);
+  await write(
+    make({
+      evidenceId: "regressed-state",
+      sequence: 4,
+      state: "smokePassed",
+      previousState: "qualified",
+      predecessorDigest: third.digest,
+      assertions: {
+        forwardBackward: true,
+        finiteLoss: true,
+        finiteNonzeroGradients: true,
+        checkpointResume: true,
+        offlineReload: true,
+      },
+      authorization: {
+        operationClass: "qualificationRun",
+        gates: {
+          ...Object.fromEntries(requiredAuthorizationGates.map((gate) => [gate, true])),
+          uploadRequested: false,
+          uploadApproved: false,
+        },
+        dischargedBlockers: blockersForState(recipe, "smokePassed"),
+      },
+    }),
+  );
+  await assert.rejects(record(), /monotonic/i);
 });
 
 test("qualification CLI lists and plans without side effects", async () => {

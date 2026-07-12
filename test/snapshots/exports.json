@@ -206,6 +206,7 @@
   "@amxv/finetuning/training": [
     "artifactManifestVersion",
     "assertCompatibleMajor",
+    "blockersForState",
     "inspectQualificationRecipe",
     "parseArtifactManifest",
     "parseTrainingEvent",
