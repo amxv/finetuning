@@ -383,8 +383,10 @@ export declare const trainingApiVersion: "1.0.0";
 export declare const trainingSpecVersion: "1.0.0";
 export declare const trainingEventVersion: "1.0.0";
 export declare const artifactManifestVersion: "1.0.0";
+export * from "./qualification.js";
 export interface TrainingSpecV1 {
     trainingSpecVersion: typeof trainingSpecVersion;
+    qualificationSchemaVersion?: "2.0.0";
     runId: string;
     dataset: {
         manifestPath: string;
@@ -405,6 +407,14 @@ export interface TrainingSpecV1 {
         revisionPinned: boolean;
         remoteCodeReviewed: boolean;
         gpuQualified: boolean;
+        networkApproved?: boolean;
+        downloadsApproved?: boolean;
+        budgetApproved?: boolean;
+        datasetRightsApproved?: boolean;
+        uploadApproved?: boolean;
+        architectureQualified?: boolean;
+        frameworkQualified?: boolean;
+        customKernelApproved?: boolean;
     };
     recipeIdentity?: {
         modelRevision: string;
@@ -897,6 +907,7 @@ export declare const embeddingTrainingEventVersion: "embedding.training.event.v1
 export declare const embeddingArtifactVersion: "embedding.training.artifact.v1";
 export interface EmbeddingTrainingSpecV1 {
     embeddingTrainingSpecVersion: typeof embeddingTrainingSpecVersion;
+    qualificationSchemaVersion?: "2.0.0";
     runId: string;
     datasetManifest: string;
     recipeId: string;
@@ -929,6 +940,14 @@ export interface EmbeddingTrainingSpecV1 {
         revisionPinned: boolean;
         remoteCodeReviewed: boolean;
         gpuQualified: boolean;
+        networkApproved?: boolean;
+        downloadsApproved?: boolean;
+        budgetApproved?: boolean;
+        datasetRightsApproved?: boolean;
+        uploadApproved?: boolean;
+        architectureQualified?: boolean;
+        frameworkQualified?: boolean;
+        customKernelApproved?: boolean;
     };
     recipeIdentity?: {
         modelRevision: string;

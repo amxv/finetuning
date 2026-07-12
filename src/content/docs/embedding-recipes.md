@@ -5,6 +5,8 @@ order: 4
 category: Concepts
 ---
 
+> Planned entries are structurally configured, not qualified or supported. See [Model recipe qualification](/docs/model-qualification) for exact evidence states, preflight gates, and first-wave blockers.
+
 ## Loss chooser
 
 | Data shape                            | Objective                            | Distillation meaning                               |

@@ -206,12 +206,20 @@
   "@amxv/finetuning/training": [
     "artifactManifestVersion",
     "assertCompatibleMajor",
+    "inspectQualificationRecipe",
     "parseArtifactManifest",
     "parseTrainingEvent",
     "parseTrainingSpec",
+    "planRunPodSmoke",
+    "preflightQualification",
+    "qualificationRecipes",
+    "qualificationSchemaVersion",
+    "recipeIdentityHash",
+    "requiredAuthorizationGates",
     "trainingApiVersion",
     "trainingEventVersion",
-    "trainingSpecVersion"
+    "trainingSpecVersion",
+    "validateQualificationEvidence"
   ],
   "@amxv/finetuning/orchestration": [
     "AttemptLedger",

@@ -5,6 +5,8 @@ order: 9
 category: Reference
 ---
 
+Production recipes remain fail-closed until revision-bound qualification evidence exists. Chat preparation uses manual, prefix-verified assistant labels rather than tokenizer generation masks. Embedding training uses an explicit contrastive/Matryoshka two-tower loss; a generic embedding forward without a loss is not treated as a training objective.
+
 The dependency-free base package is `amxv-finetuning-trainer`; large training libraries are an optional extra and are never bundled into NPM.
 
 ```bash
