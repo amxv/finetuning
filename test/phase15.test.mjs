@@ -155,16 +155,26 @@ test("embedding abort escalates when SIGTERM is ignored", async (t) => {
     specPath = join(root, "ignore.json");
   await writeFile(specPath, JSON.stringify({ case: "ignore-term", track: "embedding", marker }));
   const controller = new AbortController(),
-    started = performance.now();
+    started = performance.now(),
+    observed = [];
   const result = await runPythonEmbeddingTrainer({
     pythonExecutable: "python3",
     module: "amxv_finetuning_trainer.test_runner_cases",
     specPath,
     cwd: resolve("python"),
     signal: controller.signal,
-    onEvent: () => controller.abort(),
+    onEvent: (event) => {
+      observed.push(event);
+      if (event.type === "started") controller.abort();
+    },
   });
   assert.notEqual(result.exitCode, 0);
+  const finalEvent = result.events.at(-1);
+  assert.strictEqual(observed.at(-1), finalEvent);
+  assert.equal(finalEvent.type, "failed");
+  assert.equal(finalEvent.data.reason, "cancelled");
+  assert.equal(finalEvent.sequence, result.events.at(-2).sequence + 1);
+  assert.equal(finalEvent.runId, result.events[0].runId);
   assert(performance.now() - started < 750, "cancellation must complete within escalation bound");
   await new Promise((resolve) => setTimeout(resolve, 350));
   await assert.rejects(access(marker));

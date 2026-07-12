@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,19 +66,25 @@ test("packed package imports and runs its bin in a clean ESM consumer", async ()
     );
     const { stdout: sdkOutput } = await execFileAsync(process.execPath, ["embedding-example.mjs"], { cwd: fixture });
     assert.equal(JSON.parse(sdkOutput).validation.valid, true);
-    const finetuningBin = join(fixture, "node_modules/@amxv/finetuning/dist/cli/index.js");
-    const { stdout: help } = await execFileAsync(process.execPath, [finetuningBin, "--help"], {
+    const installed = JSON.parse(await readFile(join(fixture, "node_modules/@amxv/finetuning/package.json"), "utf8"));
+    assert.equal(installed.private, true);
+    assert.deepEqual(installed.bin, { finetuning: "./dist/cli/index.js" });
+    const finetuningBin = join(
+      fixture,
+      "node_modules/.bin",
+      process.platform === "win32" ? "finetuning.cmd" : "finetuning",
+    );
+    await access(finetuningBin);
+    const { stdout: help } = await runNpm(execFileAsync, ["exec", "--offline", "--", "finetuning", "--help"], {
       cwd: fixture,
     });
     assert.match(help, /^Usage: finetuning <command>/);
-    const { stdout: embedHelp } = await execFileAsync(
-      process.execPath,
-      [finetuningBin, "embed", "train", "estimate", "--help"],
+    const { stdout: embedHelp } = await runNpm(
+      execFileAsync,
+      ["exec", "--offline", "--", "finetuning", "embed", "train", "estimate", "--help"],
       { cwd: fixture },
     );
     assert.match(embedHelp, /^Usage:/);
-    const installed = JSON.parse(await readFile(join(fixture, "node_modules/@amxv/finetuning/package.json"), "utf8"));
-    assert.equal(installed.private, true);
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
