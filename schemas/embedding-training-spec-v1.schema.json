@@ -14,6 +14,7 @@
   ],
   "properties": {
     "embeddingTrainingSpecVersion": { "const": "embedding.training.v1" },
+    "qualificationSchemaVersion": { "const": "2.0.0" },
     "runId": { "type": "string", "minLength": 1 },
     "datasetManifest": { "type": "string", "minLength": 1 },
     "recipeId": { "type": "string", "minLength": 1 },
@@ -32,7 +33,15 @@
         "licenseApproved": { "type": "boolean" },
         "revisionPinned": { "type": "boolean" },
         "remoteCodeReviewed": { "type": "boolean" },
-        "gpuQualified": { "type": "boolean" }
+        "gpuQualified": { "type": "boolean" },
+        "networkApproved": { "type": "boolean" },
+        "downloadsApproved": { "type": "boolean" },
+        "budgetApproved": { "type": "boolean" },
+        "datasetRightsApproved": { "type": "boolean" },
+        "uploadApproved": { "type": "boolean" },
+        "architectureQualified": { "type": "boolean" },
+        "frameworkQualified": { "type": "boolean" },
+        "customKernelApproved": { "type": "boolean" }
       }
     },
     "recipeIdentity": {

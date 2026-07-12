@@ -56,13 +56,32 @@ const descriptor = (
   generationPrompt: true,
   liveAudit: "not-run",
 });
+const pins: Record<string, string> = {
+  "qwen3.6-dense": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+  "qwen3.6-moe": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+  "nemotron-cascade-2": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
+  "nemotron-nano-3": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
+  "olmo-3.1-instruct": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
+  "olmo-3.1-think": "832c3f543499af8fe68b88359501de9cb7840544",
+};
+const configuredDescriptor = (...args: Parameters<typeof descriptor>): ChatTemplateDescriptorV1 => {
+  const value = descriptor(...args);
+  const revision = pins[value.id];
+  return revision
+    ? {
+        ...value,
+        modelRevision: { status: "pinned", value: revision },
+        tokenizerRevision: { status: "pinned", value: revision },
+      }
+    : value;
+};
 export const templateRegistry: readonly ChatTemplateDescriptorV1[] = [
-  descriptor("qwen3.6-dense", "qwen3-dense", "Qwen/Qwen3.6-27B", "strip"),
-  descriptor("qwen3.6-moe", "qwen3-moe", "Qwen/Qwen3.6-35B-A3B", "strip"),
-  descriptor("nemotron-cascade-2", "nemotron-cascade", "nvidia/Nemotron-Cascade-2-30B-A3B", "preserve"),
-  descriptor("nemotron-nano-3", "nemotron-nano", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", "preserve"),
-  descriptor("olmo-3.1-instruct", "olmo-instruct", "allenai/Olmo-3.1-32B-Instruct", "none"),
-  descriptor("olmo-3.1-think", "olmo-think", "allenai/Olmo-3.1-32B-Think", "preserve"),
+  configuredDescriptor("qwen3.6-dense", "qwen3-dense", "Qwen/Qwen3.6-27B", "strip"),
+  configuredDescriptor("qwen3.6-moe", "qwen3-moe", "Qwen/Qwen3.6-35B-A3B", "strip"),
+  configuredDescriptor("nemotron-cascade-2", "nemotron-cascade", "nvidia/Nemotron-Cascade-2-30B-A3B", "preserve"),
+  configuredDescriptor("nemotron-nano-3", "nemotron-nano", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", "preserve"),
+  configuredDescriptor("olmo-3.1-instruct", "olmo-instruct", "allenai/Olmo-3.1-32B-Instruct", "none"),
+  configuredDescriptor("olmo-3.1-think", "olmo-think", "allenai/Olmo-3.1-32B-Think", "preserve"),
   descriptor("qwen3.5-pilot", "qwen3-dense", "Qwen/Qwen3.5-9B", "strip"),
 ];
 const recipe = (

@@ -6,6 +6,7 @@
   "required": ["trainingSpecVersion", "runId", "dataset", "recipeId", "outputDirectory", "objective", "seed"],
   "properties": {
     "trainingSpecVersion": { "const": "1.0.0" },
+    "qualificationSchemaVersion": { "const": "2.0.0" },
     "runId": { "type": "string", "minLength": 1 },
     "dataset": {
       "type": "object",
@@ -34,7 +35,15 @@
         "licenseApproved": { "type": "boolean" },
         "revisionPinned": { "type": "boolean" },
         "remoteCodeReviewed": { "type": "boolean" },
-        "gpuQualified": { "type": "boolean" }
+        "gpuQualified": { "type": "boolean" },
+        "networkApproved": { "type": "boolean" },
+        "downloadsApproved": { "type": "boolean" },
+        "budgetApproved": { "type": "boolean" },
+        "datasetRightsApproved": { "type": "boolean" },
+        "uploadApproved": { "type": "boolean" },
+        "architectureQualified": { "type": "boolean" },
+        "frameworkQualified": { "type": "boolean" },
+        "customKernelApproved": { "type": "boolean" }
       }
     },
     "recipeIdentity": {

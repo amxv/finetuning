@@ -1,0 +1,132 @@
+{
+  "version": "2.0.0",
+  "generatedAt": "2026-07-12",
+  "policy": "Configured permits offline inspection and planning only. Smoke authorization, smoke pass, qualification, and support require monotonically promoted revision- and architecture-bound evidence. Missing evidence fails closed.",
+  "states": ["configured", "smokeAuthorized", "smokePassed", "qualified", "supported"],
+  "recipes": [
+    {
+      "id": "qwen3.6-27b",
+      "modelId": "Qwen/Qwen3.6-27B",
+      "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+      "license": "Apache-2.0",
+      "architecture": "qwen3_5",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true
+    },
+    {
+      "id": "qwen3.6-35b-a3b",
+      "modelId": "Qwen/Qwen3.6-35B-A3B",
+      "revision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+      "license": "Apache-2.0",
+      "architecture": "qwen3_5_moe",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": false,
+      "blockers": ["packed expert target_parameters unresolved", "router/expert reload evidence absent"]
+    },
+    {
+      "id": "nemotron-cascade-2-30b-a3b",
+      "modelId": "nvidia/Nemotron-Cascade-2-30B-A3B",
+      "revision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
+      "license": "LicenseRef-NVIDIA-Open-Model",
+      "architecture": "nemotron_h",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": false,
+      "blockers": ["pinned LICENSE artifact absent", "remote code/Mamba kernels unreviewed", "dedicated adapter absent"]
+    },
+    {
+      "id": "nemotron-3-nano-30b-a3b",
+      "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+      "revision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
+      "license": "LicenseRef-NVIDIA-Nemotron-Open-Model",
+      "architecture": "nemotron_h",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": false,
+      "blockers": ["pinned LICENSE artifact absent", "remote code/Mamba kernels unreviewed", "dedicated adapter absent"]
+    },
+    {
+      "id": "olmo-3.1-32b-instruct",
+      "modelId": "allenai/Olmo-3.1-32B-Instruct",
+      "revision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
+      "license": "Apache-2.0",
+      "architecture": "olmo3",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true,
+      "blockers": ["pinned LICENSE artifact absent", "manual assistant-mask evidence absent"]
+    },
+    {
+      "id": "olmo-3.1-32b-think",
+      "modelId": "allenai/Olmo-3.1-32B-Think",
+      "revision": "832c3f543499af8fe68b88359501de9cb7840544",
+      "license": "Apache-2.0",
+      "architecture": "olmo3",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true,
+      "blockers": ["pinned LICENSE artifact absent", "reasoning-mask evidence absent"]
+    },
+    {
+      "id": "qwen3-embed-0.6b-lora",
+      "modelId": "Qwen/Qwen3-Embedding-0.6B",
+      "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "license": "Apache-2.0",
+      "architecture": "qwen3",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true,
+      "blockers": ["pinned LICENSE artifact absent"]
+    },
+    {
+      "id": "arctic-m-v2-full",
+      "modelId": "Snowflake/snowflake-arctic-embed-m-v2.0",
+      "revision": "95c2741480856aa9666782eb4afe11959938017f",
+      "license": "Apache-2.0",
+      "architecture": "gte",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true,
+      "blockers": ["pinned LICENSE artifact absent", "remote code revision/hash review absent"]
+    },
+    {
+      "id": "bge-m3-dense",
+      "modelId": "BAAI/bge-m3",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "license": "MIT",
+      "architecture": "xlm-roberta",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true,
+      "blockers": ["corrected MIT inventory approval absent", "sparse/ColBERT/hybrid excluded"]
+    },
+    {
+      "id": "nomic-v2-moe-native",
+      "modelId": "nomic-ai/nomic-embed-text-v2-moe",
+      "revision": "1066b6599d099fbb93dfcb64f9c37a7c9e503e85",
+      "license": "Apache-2.0",
+      "architecture": "nomic_bert",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": false,
+      "blockers": [
+        "native Contrastors/MegaBlocks lane absent",
+        "external-code evidence absent",
+        "router auxiliary-loss evidence absent"
+      ]
+    },
+    {
+      "id": "gte-multilingual-base-full",
+      "modelId": "Alibaba-NLP/gte-multilingual-base",
+      "revision": "9bbca17d9273fd0d03d5725c7a4b0f6b45142062",
+      "license": "Apache-2.0",
+      "architecture": "new",
+      "qualification": "configured",
+      "support": "unavailable",
+      "firstWaveExecutable": true,
+      "blockers": ["Alibaba-NLP/new-impl revision/hash/license review absent", "sparse excluded"]
+    }
+  ]
+}

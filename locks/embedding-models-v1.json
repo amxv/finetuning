@@ -36,7 +36,7 @@
       "license": { "declared": "apache-2.0" },
       "architecture": "XLM-R encoder",
       "dependencies": ["transformers", "sentence-transformers"],
-      "prompt": "query: {text} / document: {text}",
+      "prompt": "query: {text} / unprefixed document",
       "pooling": "cls",
       "padding": "right",
       "normalization": "l2",
@@ -77,13 +77,16 @@
       "remoteCode": { "required": false },
       "hardware": "encoder GPU or CPU",
       "intendedUse": "multilingual retrieval embedding",
-      "limitations": ["metadata license conflicts with plan research", "unified heads gated"],
+      "limitations": [
+        "former Apache assumption resolved as erroneous; MIT inventory approval pending",
+        "unified heads gated"
+      ],
       "evidence": [
         { "url": "https://huggingface.co/api/models/BAAI/bge-m3", "retrievedAt": "2026-07-12" },
         { "url": "https://huggingface.co/BAAI/bge-m3", "retrievedAt": "2026-07-12" }
       ],
       "unavailableReasons": [
-        "repository metadata declares MIT, not expected Apache-2.0; reviewed license artifact hash required"
+        "MIT model-card snapshot and upstream MIT license relationship require reviewed inventory approval"
       ]
     },
     {

@@ -39,7 +39,7 @@ class HuggingFaceFramework:
     def __init__(self):
         try:
             from datasets import Dataset
-            from peft import LoraConfig, get_peft_model
+            from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
             from transformers import (
                 AutoModel,
                 AutoModelForCausalLM,
@@ -54,6 +54,7 @@ class HuggingFaceFramework:
         self.AutoModel, self.AutoModelForCausalLM, self.AutoTokenizer = AutoModel, AutoModelForCausalLM, AutoTokenizer
         self.BitsAndBytesConfig, self.TrainingArguments = BitsAndBytesConfig, TrainingArguments
         self.Dataset, self.LoraConfig, self.get_peft_model = Dataset, LoraConfig, get_peft_model
+        self.prepare_model_for_kbit_training = prepare_model_for_kbit_training
         self.SFTConfig, self.SFTTrainer, self.Trainer = SFTConfig, SFTTrainer, Trainer
 
     def load_tokenizer(self, model_id, revision, trust_remote_code=False):
@@ -62,27 +63,23 @@ class HuggingFaceFramework:
     def load_model(self, model_id, revision, *, quantization, trust_remote_code=False, track="chat"):
         kwargs = {"revision": revision, "trust_remote_code": trust_remote_code}
         if quantization == "4bit":
-            kwargs["quantization_config"] = self.BitsAndBytesConfig(load_in_4bit=True)
+            kwargs["quantization_config"] = self.BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+            )
         cls = self.AutoModel if track == "embedding" else self.AutoModelForCausalLM
-        return cls.from_pretrained(model_id, **kwargs)
+        model = cls.from_pretrained(model_id, **kwargs)
+        if quantization == "4bit":
+            model = self.prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+            model.config.use_cache = False
+        return model
 
     def prepare_chat(self, rows, tokenizer):
         prepared = []
         for row in rows:
-            rendered = tokenizer.apply_chat_template(
-                row["messages"],
-                tokenize=True,
-                add_generation_prompt=False,
-                return_assistant_tokens_mask=True,
-                return_dict=True,
-            )
-            ids = rendered["input_ids"]
-            mask = rendered["assistant_masks"]
-            if len(ids) != len(mask):
-                raise ValueError("assistant label mask/token alignment mismatch")
-            labels = [x if m else -100 for x, m in zip(ids, mask)]
-            if not any(x != -100 for x in labels):
-                raise ValueError("assistant-only label mask is empty")
+            ids, labels = manual_assistant_labels(tokenizer, row["messages"])
             prepared.append({"input_ids": ids, "attention_mask": [1] * len(ids), "labels": labels})
         return self.Dataset.from_list(prepared)
 
@@ -90,25 +87,53 @@ class HuggingFaceFramework:
         def encode(text):
             return tokenizer(text, truncation=True, max_length=recipe["maxLength"])
 
+        def query_text(row):
+            prefix = recipe.get("queryPrefix", "")
+            if "{task}" in prefix:
+                task = row.get("task") or recipe.get("queryTask")
+                if not task or "\n" in task:
+                    raise ValueError("EMBED_QUERY_TASK_REQUIRED: expected one sentence")
+                prefix = prefix.replace("{task}", task)
+            return prefix + row["query"]
+
         prepared = [
             {
-                "query": encode(recipe.get("queryPrefix", "") + r["query"]),
+                "query": encode(query_text(r)),
                 "document": encode(recipe.get("documentPrefix", "") + r["document"]),
+                **(
+                    {"hard_negative": encode(recipe.get("documentPrefix", "") + r["hardNegative"])}
+                    if r.get("hardNegative")
+                    else {}
+                ),
             }
             for r in rows
         ]
 
         def collate(batch):
-            return {
-                side: tokenizer.pad([x[side] for x in batch], return_tensors="pt") for side in ("query", "document")
-            }
+            sides = ["query", "document"]
+            if all("hard_negative" in x for x in batch):
+                sides.append("hard_negative")
+            return {side: tokenizer.pad([x[side] for x in batch], return_tensors="pt") for side in sides}
 
         return self.Dataset.from_list(prepared), collate
 
     def wrap_embedding(self, model, recipe, dimension=None):
-        return BiEncoder(model, recipe["pooling"], dimension, recipe.get("normalization") == "l2")
+        dimensions = [dimension] if dimension is not None else recipe.get("dimensions", [])
+        return BiEncoder(
+            model,
+            recipe["pooling"],
+            dimensions=dimensions,
+            normalize=recipe.get("normalization") == "l2",
+            temperature=recipe.get("temperature", 0.05),
+        )
 
     def attach_adapter(self, model, config):
+        target_modules = config.get("target_modules", [])
+        if target_modules and hasattr(model, "named_modules"):
+            names = [name for name, _ in model.named_modules()]
+            missing = [target for target in target_modules if not any(name.endswith(target) for name in names)]
+            if missing:
+                raise RuntimeError("LORA_TARGET_DISCOVERY_MISMATCH: " + ", ".join(missing))
         return self.get_peft_model(model, self.LoraConfig(**config))
 
     def train_sft(self, model, tokenizer, dataset, config):
@@ -140,7 +165,20 @@ class HuggingFaceFramework:
 
 def require_execution_gates(spec: dict[str, Any]) -> None:
     gates = spec.get("executionGates", {})
-    required = ("allowModelLoad", "licenseApproved", "revisionPinned", "remoteCodeReviewed", "gpuQualified")
+    required = ["allowModelLoad", "licenseApproved", "revisionPinned", "remoteCodeReviewed", "gpuQualified"]
+    if spec.get("qualificationSchemaVersion") == "2.0.0":
+        required.extend(
+            [
+                "networkApproved",
+                "downloadsApproved",
+                "budgetApproved",
+                "datasetRightsApproved",
+                "uploadApproved",
+                "architectureQualified",
+                "frameworkQualified",
+                "customKernelApproved",
+            ]
+        )
     missing = [k for k in required if gates.get(k) is not True]
     if missing:
         raise RuntimeError("PRODUCTION_GATE_CLOSED: " + ", ".join(missing))
@@ -152,45 +190,74 @@ RECIPES = {
     "qwen3.6-27b": {
         "track": "chat",
         "modelId": "Qwen/Qwen3.6-27B",
-        "architecture": "dense",
+        "modelRevision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+        "tokenizerRevision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+        "architecture": "hybrid-dense",
         "reasoning": "unified",
         "roles": ["system", "user", "assistant", "tool"],
-        "lora": {"r": 16, "lora_alpha": 32, "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]},
+        "lora": {
+            "r": 16,
+            "lora_alpha": 32,
+            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        },
     },
     "qwen3.6-35b-a3b": {
         "track": "chat",
         "modelId": "Qwen/Qwen3.6-35B-A3B",
-        "architecture": "moe",
+        "modelRevision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+        "tokenizerRevision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+        "architecture": "hybrid-moe",
         "reasoning": "unified",
         "roles": ["system", "user", "assistant", "tool"],
+        "blocked": "not authorized in first smoke wave; packed expert target_parameters unresolved",
     },
     "nemotron-cascade-2-30b-a3b": {
         "track": "chat",
         "modelId": "nvidia/Nemotron-Cascade-2-30B-A3B",
-        "architecture": "moe",
+        "modelRevision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
+        "tokenizerRevision": "6327cdbcf907e1c7cec9cb29fb6e6cebdf8feaf7",
+        "architecture": "custom-nemotron-h",
         "reasoning": "thinking-policy-required",
         "roles": ["system", "user", "assistant", "tool"],
+        "blocked": "not authorized in first smoke wave; NVIDIA license artifact, remote code, Mamba kernels, and dedicated adapter unresolved",
     },
     "nemotron-3-nano-30b-a3b": {
         "track": "chat",
         "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+        "modelRevision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
+        "tokenizerRevision": "cbd3fa9f933d55ef16a84236559f4ee2a0526848",
         "architecture": "mamba-transformer-moe",
         "reasoning": "explicit",
         "roles": ["system", "user", "assistant", "tool"],
+        "blocked": "not authorized in first smoke wave; NVIDIA license artifact, remote code, Mamba kernels, and dedicated adapter unresolved",
     },
     "olmo-3.1-32b-instruct": {
         "track": "chat",
         "modelId": "allenai/Olmo-3.1-32B-Instruct",
+        "modelRevision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
+        "tokenizerRevision": "ac0587e4a7744a551c059d8cd17ba220bc940dae",
         "architecture": "dense",
         "reasoning": "instruct",
-        "roles": ["system", "user", "assistant"],
+        "roles": ["system", "user", "assistant", "tool"],
+        "lora": {
+            "r": 16,
+            "lora_alpha": 32,
+            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        },
     },
     "olmo-3.1-32b-think": {
         "track": "chat",
         "modelId": "allenai/Olmo-3.1-32B-Think",
+        "modelRevision": "832c3f543499af8fe68b88359501de9cb7840544",
+        "tokenizerRevision": "832c3f543499af8fe68b88359501de9cb7840544",
         "architecture": "dense",
         "reasoning": "think",
         "roles": ["system", "user", "assistant"],
+        "lora": {
+            "r": 16,
+            "lora_alpha": 32,
+            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        },
     },
     "qwen3-embed-0.6b-lora": {
         "track": "embedding",
@@ -201,9 +268,14 @@ RECIPES = {
         "objective": "multiple-negatives",
         "dimensions": [32, 64, 128, 256, 512, 768, 1024],
         "maxLength": 32768,
-        "queryPrefix": "Instruct: ",
+        "queryPrefix": "Instruct: {task}\nQuery:",
+        "queryTask": "Given a web search query, retrieve relevant passages that answer the query.",
         "documentPrefix": "",
-        "lora": {"r": 16, "lora_alpha": 32, "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]},
+        "lora": {
+            "r": 16,
+            "lora_alpha": 32,
+            "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        },
         "blocked": "license artifact unresolved",
     },
     "arctic-m-v2-full": {
@@ -216,7 +288,7 @@ RECIPES = {
         "dimensions": [256, 768],
         "maxLength": 8192,
         "queryPrefix": "query: ",
-        "documentPrefix": "passage: ",
+        "documentPrefix": "",
         "lora": {},
         "blocked": "license and remote code unresolved",
     },
@@ -232,7 +304,7 @@ RECIPES = {
         "queryPrefix": "",
         "documentPrefix": "",
         "lora": {},
-        "blocked": "MIT versus Apache-2.0 license conflict",
+        "blocked": "corrected MIT legal inventory approval required; sparse/ColBERT/hybrid heads excluded",
     },
     "nomic-v2-moe-native": {
         "track": "embedding",
@@ -246,7 +318,7 @@ RECIPES = {
         "queryPrefix": "search_query: ",
         "documentPrefix": "search_document: ",
         "lora": {},
-        "blocked": "license and remote code unresolved",
+        "blocked": "not authorized in first smoke wave; native Contrastors/MegaBlocks lane and external-code evidence unresolved",
     },
     "gte-multilingual-base-full": {
         "track": "embedding",
@@ -399,19 +471,69 @@ def publish_checkpoint_descriptor(spec: dict[str, Any], trainer: Any) -> str | N
     return str(manifest)
 
 
+def _template_ids(tokenizer, messages):
+    rendered = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=False)
+    if isinstance(rendered, dict):
+        rendered = rendered.get("input_ids")
+    if hasattr(rendered, "tolist"):
+        rendered = rendered.tolist()
+    if rendered and isinstance(rendered[0], list):
+        rendered = rendered[0]
+    if not isinstance(rendered, list) or not all(isinstance(value, int) for value in rendered):
+        raise ValueError("CHAT_TEMPLATE_TOKEN_IDS_INVALID")
+    return rendered
+
+
+def manual_assistant_labels(tokenizer, messages):
+    """Derive assistant labels from stable cumulative template boundaries, never Jinja generation masks."""
+    if not messages or not isinstance(messages, list):
+        raise ValueError("CHAT_MESSAGES_REQUIRED")
+    final_ids = _template_ids(tokenizer, messages)
+    labels = [-100] * len(final_ids)
+    previous = []
+    for index, message in enumerate(messages):
+        current = _template_ids(tokenizer, messages[: index + 1])
+        if len(current) < len(previous) or current[: len(previous)] != previous:
+            raise ValueError(f"CHAT_TEMPLATE_PREFIX_DRIFT: message {index}")
+        if final_ids[: len(current)] != current:
+            raise ValueError(f"CHAT_TEMPLATE_FINAL_DRIFT: message {index}")
+        if message.get("role") == "assistant":
+            labels[len(previous) : len(current)] = current[len(previous) :]
+        previous = current
+    if previous != final_ids:
+        raise ValueError("CHAT_TEMPLATE_FINAL_MISMATCH")
+    if not any(value != -100 for value in labels):
+        raise ValueError("CHAT_ASSISTANT_LABELS_EMPTY")
+    return final_ids, labels
+
+
 class BiEncoder(_Module):
-    def __init__(self, encoder, pooling, dimension=None, normalize=True):
+    def __init__(self, encoder, pooling, dimension=None, normalize=True, *, dimensions=None, temperature=0.05):
         if torch is None:
             raise RuntimeError("TRAINING_DEPENDENCY_MISSING: torch")
         super().__init__()
-        self.encoder, self.pooling, self.dimension, self.normalize = encoder, pooling, dimension, normalize
+        selected = dimensions if dimensions is not None else ([dimension] if dimension else [])
+        self.encoder, self.pooling, self.dimensions = encoder, pooling, selected
+        self.dimension, self.normalize, self.temperature = dimension, normalize, temperature
 
-    def forward(self, query, document, **_):
-        q = self._encode(query)
-        d = self._encode(document)
-        logits = q @ d.transpose(0, 1)
-        labels = torch.arange(logits.shape[0], device=logits.device)
-        loss = torch.nn.functional.cross_entropy(logits, labels)
+    def forward(self, query, document, hard_negative=None, **_):
+        q_full = self._encode(query)
+        d_full = self._encode(document)
+        negative_full = self._encode(hard_negative) if hard_negative is not None else None
+        dimensions = self.dimensions or [q_full.shape[-1]]
+        losses, logits = [], None
+        for dimension in dimensions:
+            if dimension > q_full.shape[-1]:
+                raise ValueError(f"EMBED_DIMENSION_EXCEEDS_HIDDEN: {dimension}")
+            q = self._normalize(q_full[:, :dimension])
+            d = self._normalize(d_full[:, :dimension])
+            candidates = d
+            if negative_full is not None:
+                candidates = torch.cat((d, self._normalize(negative_full[:, :dimension])), dim=0)
+            logits = (q @ candidates.transpose(0, 1)) / self.temperature
+            labels = torch.arange(q.shape[0], device=q.device)
+            losses.append(torch.nn.functional.cross_entropy(logits, labels))
+        loss = torch.stack(losses).mean()
         return {"loss": loss, "logits": logits, "query_embeddings": q, "document_embeddings": d}
 
     def _encode(self, batch):
@@ -426,8 +548,9 @@ class BiEncoder(_Module):
             pooled = hidden[torch.arange(hidden.shape[0], device=hidden.device), mask.sum(1) - 1]
         else:
             pooled = (hidden * mask.unsqueeze(-1)).sum(1) / mask.sum(1, keepdim=True).clamp(min=1)
-        if self.dimension:
-            pooled = pooled[:, : self.dimension]
+        return pooled
+
+    def _normalize(self, pooled):
         return torch.nn.functional.normalize(pooled, p=2, dim=-1) if self.normalize else pooled
 
     def save_pretrained(self, path):
@@ -438,7 +561,9 @@ class BiEncoder(_Module):
                 "state_dict": self.state_dict(),
                 "pooling": self.pooling,
                 "dimension": self.dimension,
+                "dimensions": self.dimensions,
                 "normalize": self.normalize,
+                "temperature": self.temperature,
             },
             target / "biencoder.pt",
         )
@@ -446,6 +571,13 @@ class BiEncoder(_Module):
     @classmethod
     def from_pretrained(cls, path, encoder):
         value = torch.load(Path(path) / "biencoder.pt", map_location="cpu", weights_only=True)
-        model = cls(encoder, value["pooling"], value["dimension"], value["normalize"])
+        model = cls(
+            encoder,
+            value["pooling"],
+            value["dimension"],
+            value["normalize"],
+            dimensions=value.get("dimensions"),
+            temperature=value.get("temperature", 0.05),
+        )
         model.load_state_dict(value["state_dict"])
         return model

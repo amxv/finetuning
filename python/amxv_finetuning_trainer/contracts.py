@@ -29,6 +29,20 @@ def parse_spec(value: Any) -> dict[str, Any]:
             for k in ("allowModelLoad", "licenseApproved", "revisionPinned", "remoteCodeReviewed", "gpuQualified")
         ):
             raise ValueError("invalid production executionGates")
+        if value.get("qualificationSchemaVersion") == "2.0.0" and any(
+            not isinstance(gates.get(k), bool)
+            for k in (
+                "networkApproved",
+                "downloadsApproved",
+                "budgetApproved",
+                "datasetRightsApproved",
+                "uploadApproved",
+                "architectureQualified",
+                "frameworkQualified",
+                "customKernelApproved",
+            )
+        ):
+            raise ValueError("invalid qualification v2 executionGates")
         if (
             not isinstance(identity, dict)
             or any(not _sha(identity.get(k), 40) for k in ("modelRevision", "tokenizerRevision"))

@@ -8,6 +8,7 @@ export const embeddingTrainingEventVersion = "embedding.training.event.v1" as co
 export const embeddingArtifactVersion = "embedding.training.artifact.v1" as const;
 export interface EmbeddingTrainingSpecV1 {
   embeddingTrainingSpecVersion: typeof embeddingTrainingSpecVersion;
+  qualificationSchemaVersion?: "2.0.0";
   runId: string;
   datasetManifest: string;
   recipeId: string;
@@ -40,6 +41,14 @@ export interface EmbeddingTrainingSpecV1 {
     revisionPinned: boolean;
     remoteCodeReviewed: boolean;
     gpuQualified: boolean;
+    networkApproved?: boolean;
+    downloadsApproved?: boolean;
+    budgetApproved?: boolean;
+    datasetRightsApproved?: boolean;
+    uploadApproved?: boolean;
+    architectureQualified?: boolean;
+    frameworkQualified?: boolean;
+    customKernelApproved?: boolean;
   };
   recipeIdentity?: { modelRevision: string; tokenizerRevision: string };
   trainingArguments?: Record<string, unknown>;

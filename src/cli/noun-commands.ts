@@ -17,6 +17,14 @@ import { atomicWrite } from "../node/storage.js";
 import { runPythonTrainer } from "../node/trainer.js";
 import { inspectRecipe, inspectTemplate, preflightRecipe } from "../templates/index.js";
 import { trainingSpecVersion, type TrainingSpecV1 } from "../training/index.js";
+import {
+  inspectQualificationRecipe,
+  planRunPodSmoke,
+  preflightQualification,
+  qualificationRecipes,
+  validateQualificationEvidence,
+  type AuthorizationGates,
+} from "../training/qualification.js";
 import { parseArgs, readBooleanFlag, readOptionalStringFlag, readRequiredStringFlag } from "./argv.js";
 import { runEmbedCommand } from "./embed-data.js";
 import { runEmbedPhase13 } from "./embed-distill.js";
@@ -25,6 +33,10 @@ import { runRunPodCommand } from "./runpod.js";
 import { providerDistillation } from "./distill-provider.js";
 
 export async function runNounCommand(noun: string, rawArgs: string[]): Promise<boolean> {
+  if (noun === "recipes") {
+    await runRecipeQualificationCommand(rawArgs);
+    return true;
+  }
   if (noun === "runpod") {
     await runRunPodCommand(rawArgs);
     return true;
@@ -132,6 +144,53 @@ export async function runNounCommand(noun: string, rawArgs: string[]): Promise<b
     return true;
   }
   throw new Error(`Unknown command: ${noun} ${verb}`);
+}
+
+async function runRecipeQualificationCommand(rawArgs: string[]): Promise<void> {
+  const [verb, ...verbArgs] = rawArgs;
+  if (!verb || verb === "--help" || verb === "-h") {
+    console.log("Usage: finetuning recipes <list|inspect|preflight|plan|record-evidence> [options]");
+    return;
+  }
+  const args = parseArgs(verbArgs);
+  if (verb === "list") {
+    printResult(
+      qualificationRecipes.map(({ id, track, modelId, revision, qualification, blockers }) => ({
+        id,
+        track,
+        modelId,
+        revision,
+        qualification,
+        blockers,
+      })),
+      args,
+    );
+    return;
+  }
+  if (verb === "inspect") {
+    printResult(inspectQualificationRecipe(readRequiredStringFlag(args, "recipe")), args);
+    return;
+  }
+  if (verb === "plan") {
+    printResult(planRunPodSmoke(readRequiredStringFlag(args, "recipe")), args);
+    return;
+  }
+  if (verb === "preflight") {
+    const authorizationPath = readOptionalStringFlag(args, "authorization");
+    const gates = authorizationPath
+      ? (JSON.parse(await readFile(authorizationPath, "utf8")) as Partial<AuthorizationGates>)
+      : undefined;
+    const result = preflightQualification(readRequiredStringFlag(args, "recipe"), gates);
+    printResult(result, args);
+    if (!result.executable && readBooleanFlag(args, "require-executable")) throw new Error(result.blockers.join("; "));
+    return;
+  }
+  if (verb === "record-evidence") {
+    const evidence = await validateQualificationEvidence(readRequiredStringFlag(args, "evidence"));
+    printResult({ validated: true, evidence }, args);
+    return;
+  }
+  throw new Error(`Unknown command: recipes ${verb}`);
 }
 
 async function datasetFreeze(args: ReturnType<typeof parseArgs>): Promise<void> {

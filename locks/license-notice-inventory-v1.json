@@ -3,7 +3,14 @@
   "packageLicense": { "expression": "Apache-2.0", "licenseFile": "LICENSE", "noticeFile": "NOTICE" },
   "npm": { "bundledRuntimeDependencies": [], "optionalPeers": ["openai", "@anthropic-ai/sdk"] },
   "python": { "bundledRuntimeDependencies": [], "optionalTrainingExtra": "not bundled" },
-  "models": { "source": "embedding-models-v1.json", "artifactsBundled": false, "verificationRequiredBeforeUse": true },
+  "models": {
+    "sources": ["embedding-models-v1.json", "model-qualification-v2.json"],
+    "artifactsBundled": false,
+    "verificationRequiredBeforeUse": true,
+    "resolvedCorrections": ["BAAI/bge-m3 is MIT; former Apache-2.0 assumption was erroneous"],
+    "nonApacheLicenses": ["LicenseRef-NVIDIA-Open-Model", "LicenseRef-NVIDIA-Nemotron-Open-Model"],
+    "missingPinnedLicenseArtifactIsBlocking": true
+  },
   "datasets": [{ "path": "examples/embedding-offline", "license": "CC0-1.0", "synthetic": true }],
   "excluded": ["weights", "provider-envelopes", "third-party-evaluation-corpora"]
 }

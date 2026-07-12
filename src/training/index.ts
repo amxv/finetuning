@@ -2,9 +2,11 @@ export const trainingApiVersion = "1.0.0" as const;
 export const trainingSpecVersion = "1.0.0" as const;
 export const trainingEventVersion = "1.0.0" as const;
 export const artifactManifestVersion = "1.0.0" as const;
+export * from "./qualification.js";
 
 export interface TrainingSpecV1 {
   trainingSpecVersion: typeof trainingSpecVersion;
+  qualificationSchemaVersion?: "2.0.0";
   runId: string;
   dataset: { manifestPath: string; recordsHash: string };
   recipeId: string;
@@ -22,6 +24,14 @@ export interface TrainingSpecV1 {
     revisionPinned: boolean;
     remoteCodeReviewed: boolean;
     gpuQualified: boolean;
+    networkApproved?: boolean;
+    downloadsApproved?: boolean;
+    budgetApproved?: boolean;
+    datasetRightsApproved?: boolean;
+    uploadApproved?: boolean;
+    architectureQualified?: boolean;
+    frameworkQualified?: boolean;
+    customKernelApproved?: boolean;
   };
   recipeIdentity?: {
     modelRevision: string;
@@ -73,6 +83,20 @@ export function parseTrainingSpec(value: unknown): TrainingSpecV1 {
       )
     )
       throw new Error("Invalid production executionGates");
+    if (
+      value.qualificationSchemaVersion === "2.0.0" &&
+      ![
+        "networkApproved",
+        "downloadsApproved",
+        "budgetApproved",
+        "datasetRightsApproved",
+        "uploadApproved",
+        "architectureQualified",
+        "frameworkQualified",
+        "customKernelApproved",
+      ].every((k) => typeof gates[k] === "boolean")
+    )
+      throw new Error("Invalid qualification v2 executionGates");
     if (
       !isObject(value.recipeIdentity) ||
       !sha40(value.recipeIdentity.modelRevision) ||
