@@ -58,12 +58,12 @@ const expected = new Map([
   ],
 ]);
 
-test("all exact recipes are configured but neither qualified nor supported", () => {
+test("all exact recipes are configured and explicitly experimental", () => {
   assert.equal(qualificationRecipes.length, expected.size);
   for (const recipe of qualificationRecipes) {
     assert.deepEqual([recipe.modelId, recipe.revision, recipe.license.spdx], expected.get(recipe.id));
     assert.equal(recipe.qualification.state, "configured");
-    assert.equal(recipe.qualification.supportState, "unavailable");
+    assert.equal(recipe.qualification.supportState, "experimental");
     assert.ok(recipe.blockers.length > 0);
     assert.equal(recipe.identity.tokenizerRevision, recipe.revision);
     assert.equal(recipe.identity.configRevision, recipe.revision);
@@ -97,7 +97,7 @@ test("machine-readable lock records explicit blockers for every configured recip
   for (const recipe of lock.recipes) {
     const sdk = inspectQualificationRecipe(recipe.id);
     assert.equal(recipe.qualification, "configured");
-    assert.equal(recipe.support, "unavailable");
+    assert.equal(recipe.support, "experimental");
     assert.ok(recipe.blockers.length > 0, `${recipe.id} must record explicit blockers`);
     assert.deepEqual(
       {
@@ -128,12 +128,12 @@ test("machine-readable lock records explicit blockers for every configured recip
   }
 });
 
-test("existing support registry keeps every planned recipe unavailable", async () => {
+test("existing support registry labels every planned recipe experimental", async () => {
   const support = JSON.parse(await readFile(new URL("../locks/recipe-support-v1.json", import.meta.url), "utf8"));
   for (const id of expected.keys()) {
     const recipe = support.recipes.find((candidate) => candidate.id === id);
     assert.ok(recipe, `${id} must exist in support registry`);
-    assert.equal(recipe.status, "unavailable", `${id} cannot be supported without qualification evidence`);
+    assert.equal(recipe.status, "experimental", `${id} must remain explicitly experimental`);
   }
 });
 

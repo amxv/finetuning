@@ -38,7 +38,7 @@
           "license": { "type": "string" },
           "architecture": { "type": "string" },
           "qualification": { "const": "configured" },
-          "support": { "const": "unavailable" },
+          "support": { "const": "experimental" },
           "firstWaveExecutable": { "type": "boolean" },
           "blockers": { "type": "array", "minItems": 1, "items": { "type": "string" } }
         }

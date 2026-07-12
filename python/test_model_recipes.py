@@ -443,7 +443,7 @@ class ModelRecipes(unittest.TestCase):
         ):
             self.assertRegex(RECIPES[recipe_id]["modelRevision"], r"^[0-9a-f]{40}$")
             self.assertEqual(evidence[recipe_id]["modelRevision"], RECIPES[recipe_id]["modelRevision"])
-            self.assertEqual(evidence[recipe_id]["supportState"], "unavailable")
+            self.assertEqual(evidence[recipe_id]["supportState"], "experimental")
             self.assertEqual(evidence[recipe_id]["qualificationState"], "configured")
             self.assertEqual(RECIPES[recipe_id]["architecture"], lock_by_id[recipe_id]["architecture"])
             self.assertEqual(evidence[recipe_id]["blockerCodes"], blockers["recipes"][recipe_id])

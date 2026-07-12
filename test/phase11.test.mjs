@@ -125,7 +125,7 @@ test("exact five reviewed locks fail closed with JSON and human-remediation data
   );
   for (const lock of lockfile.models) {
     assert.match(lock.commit, /^[a-f0-9]{40}$/);
-    assert.equal(lock.status, "unavailable");
+    assert.equal(lock.status, "experimental");
     const report = preflightEmbedding(lock, {
       dimension: lock.safeDimensions[0],
       splitGroups: false,

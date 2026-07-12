@@ -21,8 +21,8 @@ test("embedding protocol, five-recipe honesty, and CPU CLI train/resume/export",
     () => assertEmbeddingContractMajor("embedding.training.v2", embeddingTrainingSpecVersion, "spec"),
     /Incompatible/,
   );
-  assert.equal(embeddingModelRegistry.list().filter((x) => x.status === "unavailable").length, 5);
-  assert.equal(embeddingRecipeRegistry.list().filter((x) => x.status === "unavailable").length, 5);
+  assert.equal(embeddingModelRegistry.list().filter((x) => x.status === "experimental").length, 5);
+  assert.equal(embeddingRecipeRegistry.list().filter((x) => x.status === "experimental").length, 5);
   const root = await mkdtemp(join(tmpdir(), "phase15-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const data = join(root, "data"),

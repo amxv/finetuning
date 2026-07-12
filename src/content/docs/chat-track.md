@@ -82,6 +82,6 @@ Each command returns `exitCode: 0`. Verify every path and SHA-256 in `tmp/chat-o
 
 ## Recovery and production transition
 
-On interruption, rerun status and resume from the newest atomic, compatible checkpoint. Never adopt a checkpoint with a different data hash, recipe identity, image, or spec. The Qwen 9B recipe is an experimental pilot; all production chat recipes remain unavailable until pinned license, GPU smoke, clean reload, and evaluation gates pass.
+On interruption, rerun status and resume from the newest atomic, compatible checkpoint. Never adopt a checkpoint with a different data hash, recipe identity, image, or spec. The Qwen 9B recipe and all production chat recipes are experimental; execution remains gated until pinned license, GPU smoke, clean reload, and evaluation gates pass.
 
 Next: [choose a distillation target](/docs/distillation-guide) or [interpret evaluation and artifacts](/docs/evaluation-artifacts).

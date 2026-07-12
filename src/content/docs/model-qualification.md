@@ -5,7 +5,7 @@ order: 5
 category: Concepts
 ---
 
-Every planned model recipe is currently **configured** and **unavailable for supported use**. Configuration means its canonical ID, immutable candidate revision, architecture, legal conclusion, optimization shape, runtime plan, and blockers are machine-readable. It does not authorize downloads or training and it is not GPU evidence.
+Every planned model recipe is currently **configured** and labeled **experimental**. Experimental is a maturity label, not an execution authorization or production-support claim: configuration means its canonical ID, immutable candidate revision, architecture, legal conclusion, optimization shape, runtime plan, and blockers are machine-readable. Downloads and training still require the signed qualification gates described below, and configuration is not GPU evidence.
 
 Qualification progresses monotonically from `configured` to `smokeAuthorized`, `smokePassed`, and `qualified`. `supported` is a separate release decision after legal, quality, operational, and compatibility review. Evidence uses a reviewer-trusted Ed25519 signature, hashes the referenced artifact bytes, binds command/image/environment/tokenizer/config/template-or-code/dataset/target/dependency identities, and links each transition to the accepted predecessor digest in a persisted store. The signed architecture identity is the canonical upstream `modelType`; broader family labels remain display/planning metadata. Replay, skipped state, unknown assertions, stale identity, and cross-recipe reuse fail closed. CLI users cannot promote a recipe by setting a status Boolean or by recomputing an unkeyed digest.
 
@@ -27,7 +27,7 @@ Blocker authorization signs stable blocker codes from the versioned blocker cata
 
 Historical predecessor envelopes remain immutable proof after promotion. Their signatures, identities, transitions, and issuance-time validity are always revalidated, but an expired historical authorization does not invalidate a later live head. Current-time expiry applies to the current evidence head and the separately signed execution authorization. Evidence whose expiry was not later than its issuance is never accepted. `plan` only emits a RunPod-oriented GPU, storage, image, and distributed-strategy proposal. It sets `createsResources: false`, `executableEnvironment: false`, makes no network call, spends nothing, and represents the image digest as missing rather than using a runnable-looking placeholder.
 
-The planned first-wave order is Qwen3 Embedding, Arctic Embed, OLMo 3.1 Instruct, OLMo 3.1 Think, Qwen3.6 dense, BGE dense after corrected MIT inventory approval, then GTE dense after external-code review. Each still has blockers and none is smoke-passed, qualified, or supported.
+The planned first-wave order is Qwen3 Embedding, Arctic Embed, OLMo 3.1 Instruct, OLMo 3.1 Think, Qwen3.6 dense, BGE dense after corrected MIT inventory approval, then GTE dense after external-code review. Each still has blockers and none is smoke-passed, qualified, or supported for production use.
 
 Nomic v2 MoE, both Nemotron variants, Qwen3.6 MoE, BGE sparse/ColBERT/hybrid, and GTE sparse are non-executable in the first wave. Their machine-readable blockers name the missing native lane, custom code/kernel review, packed expert/router evidence, license artifact, or excluded head.
 

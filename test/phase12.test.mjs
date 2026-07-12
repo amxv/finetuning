@@ -404,14 +404,14 @@ test("embed data CLI covers every subcommand, JSON/dry-run/stdin/overwrite and s
   }
 });
 
-test("embedding subpaths are additive and model locks remain unavailable", async () => {
+test("embedding subpaths are additive and model locks remain experimental", async () => {
   const data = await import("../dist/embeddings/index.js"),
     formats = await import("../dist/embeddings/formats.js"),
     lockfile = JSON.parse(await readFile(new URL("../locks/embedding-models-v1.json", import.meta.url)));
   assert.equal(typeof data.freezeEmbeddingDataset, "function");
   assert.equal(typeof formats.decodeEmbeddingRow, "function");
   assert.equal(lockfile.models.length, 5);
-  assert(lockfile.models.every((x) => x.status === "unavailable"));
+  assert(lockfile.models.every((x) => x.status === "experimental"));
 });
 function cliInput(args, input) {
   return new Promise((resolve, reject) => {

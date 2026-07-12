@@ -356,7 +356,7 @@ for (const expected of [
 // Machine-readable production locks are authoritative and remain gated in offline docs verification.
 const locks = JSON.parse(await readFile(join(root, "locks/embedding-models-v1.json"), "utf8"));
 assert.equal(locks.models.length, 5);
-assert(locks.models.every((model) => model.status === "unavailable"));
+assert(locks.models.every((model) => model.status === "experimental"));
 const support = JSON.parse(await readFile(join(root, "locks/recipe-support-v1.json"), "utf8"));
 for (const file of ["models-providers.md", "troubleshooting-faq.md"]) {
   const text = await readFile(join(root, "src/content/docs", file), "utf8");

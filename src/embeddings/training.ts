@@ -101,7 +101,7 @@ export function assertEmbeddingContractMajor(actual: string, expected: string, c
 }
 export interface EmbeddingModelDescriptor {
   id: string;
-  status: "unavailable" | "available";
+  status: "unavailable" | "experimental" | "available";
   reason: string;
   evidence: string[];
   dimensions: readonly number[];
@@ -109,7 +109,7 @@ export interface EmbeddingModelDescriptor {
 export interface EmbeddingRecipeDescriptor {
   id: string;
   modelId: string;
-  status: "unavailable" | "available";
+  status: "unavailable" | "experimental" | "available";
   reason: string;
   objective: string;
 }
@@ -123,35 +123,35 @@ export const embeddingModelRegistry = new TypedRegistry<EmbeddingModelDescriptor
   },
   {
     id: "qwen3-embedding-0.6b",
-    status: "unavailable",
+    status: "experimental",
     reason: "Phase 15 executable trainer evidence is not complete.",
     evidence: [],
     dimensions: [32, 64, 128, 256, 512, 1024],
   },
   {
     id: "arctic-m-v2",
-    status: "unavailable",
+    status: "experimental",
     reason: "Pinned license/remote-code and model-specific smoke evidence are incomplete.",
     evidence: [],
     dimensions: [256, 768],
   },
   {
     id: "bge-m3",
-    status: "unavailable",
+    status: "experimental",
     reason: "License discrepancy and native-vs-ST parity evidence are unresolved.",
     evidence: [],
     dimensions: [1024],
   },
   {
     id: "nomic-v2-moe",
-    status: "unavailable",
+    status: "experimental",
     reason: "Reviewed remote code, expert/router, and save-load evidence are incomplete.",
     evidence: [],
     dimensions: [256, 768],
   },
   {
     id: "gte-multilingual-base",
-    status: "unavailable",
+    status: "experimental",
     reason: "Reviewed pinned remote-code and clean reload evidence are incomplete.",
     evidence: [],
     dimensions: [768],
@@ -168,35 +168,35 @@ export const embeddingRecipeRegistry = new TypedRegistry<EmbeddingRecipeDescript
   {
     id: "qwen3-embed-0.6b-lora",
     modelId: "qwen3-embedding-0.6b",
-    status: "unavailable",
+    status: "experimental",
     reason: "Gated until Phase 15 training and reload evidence exists.",
     objective: "multiple-negatives",
   },
   {
     id: "arctic-m-v2-full",
     modelId: "arctic-m-v2",
-    status: "unavailable",
+    status: "experimental",
     reason: "Gated pending model-specific evidence.",
     objective: "multiple-negatives",
   },
   {
     id: "bge-m3-dense",
     modelId: "bge-m3",
-    status: "unavailable",
+    status: "experimental",
     reason: "Dense-only gate pending license and parity evidence; sparse/ColBERT are later.",
     objective: "multiple-negatives",
   },
   {
     id: "nomic-v2-moe-native",
     modelId: "nomic-v2-moe",
-    status: "unavailable",
+    status: "experimental",
     reason: "Gated pending expert/router and native reload evidence.",
     objective: "multiple-negatives",
   },
   {
     id: "gte-multilingual-base-full",
     modelId: "gte-multilingual-base",
-    status: "unavailable",
+    status: "experimental",
     reason: "Dense-only gate pending reviewed remote code and reload evidence; sparse is later.",
     objective: "multiple-negatives",
   },

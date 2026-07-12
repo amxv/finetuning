@@ -17,7 +17,7 @@ Every command page/help output is authoritative for its syntax. Exit `0` means s
 | deterministic chat generation/validation      | offline     | none                               | writes only explicit `--out`; refuses overwrite |
 | provider-backed chat/translation/distillation | opt-in      | paid/provider-dependent            | budget + env reference + resume ledger required |
 | embedding data/evaluation fixture             | offline     | none                               | stdin/stdout only where help declares `-`       |
-| embedding production model/train              | unavailable | download/GPU may be required later | lock gates must pass first                      |
+| embedding production model/train              | experimental (execution gated) | download/GPU may be required later | qualification gates must pass first             |
 | RunPod diagnostics and volume list            | read-only   | credentialed read only             | live lifecycle/volume mutation unavailable      |
 
 Configuration precedence is CLI → referenced environment value → command config → default. Never store a resolved secret. With `--json`, stdout contains one result object and diagnostics stay on stderr. A nonzero exit distinguishes usage/config, unavailable capability, policy/license, budget, provider/network, incomplete checkpoint, artifact integrity, and internal failures.
@@ -111,7 +111,7 @@ The complete tested matrix contains 39 command pairs:
 - `embed train init|validate|estimate|run|resume|status|evaluate|export|inspect`
 - `embed evaluate run|compare|inspect`
 
-All 39 help pages are executed by the documentation gate. Mutating embedding commands accept dry-run where implemented; configuration is strict and versioned; CLI flags override environment references, command config, then defaults. Production recipes remain unavailable. See [Configuration and schemas](/docs/config-schemas) and [Models, recipes, providers, and execution](/docs/models-providers).
+All 39 help pages are executed by the documentation gate. Mutating embedding commands accept dry-run where implemented; configuration is strict and versioned; CLI flags override environment references, command config, then defaults. Production recipes are experimental and execution remains qualification-gated. See [Configuration and schemas](/docs/config-schemas) and [Models, recipes, providers, and execution](/docs/models-providers).
 
 ### Rendered command registry
 

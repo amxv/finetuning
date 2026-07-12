@@ -31,21 +31,21 @@ assert.equal(compatibility.protocols.embeddingTrainingSpec, embeddingTrainingSpe
 assert.equal(compatibility.protocols.embeddingEvents, embeddingTrainingEventVersion);
 assert.deepEqual(
   modelLocks.models.map((x) => x.status),
-  Array(5).fill("unavailable"),
+  Array(5).fill("experimental"),
 );
 assert.deepEqual(
   embeddingModelRegistry
     .list()
     .filter((x) => x.id !== "cpu-tiny-embedding")
     .map((x) => x.status),
-  Array(5).fill("unavailable"),
+  Array(5).fill("experimental"),
 );
 assert.deepEqual(
   embeddingRecipeRegistry
     .list()
     .filter((x) => x.id !== "cpu-tiny-embedding-fixture")
     .map((x) => x.status),
-  Array(5).fill("unavailable"),
+  Array(5).fill("experimental"),
 );
 const canonicalEmbeddingRecipeIds = support.recipes.filter((x) => x.track === "embedding").map((x) => x.id);
 assert.deepEqual(
@@ -122,5 +122,5 @@ try {
   await rm(directory, { recursive: true, force: true });
 }
 console.log(
-  `Verified release readiness: ${support.recipes.length} recipe statuses, ${modelLocks.models.length} unavailable production embedding locks, reproducible private NPM artifact, compatibility/license/provenance inventories.`,
+  `Verified release readiness: ${support.recipes.length} recipe statuses, ${modelLocks.models.length} experimental production embedding locks, reproducible private NPM artifact, compatibility/license/provenance inventories.`,
 );

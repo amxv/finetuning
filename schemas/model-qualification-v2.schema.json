@@ -35,7 +35,7 @@
       "required": ["state", "supportState", "firstWaveExecutable"],
       "properties": {
         "state": { "enum": ["configured", "smokeAuthorized", "smokePassed", "qualified"] },
-        "supportState": { "const": "unavailable" },
+        "supportState": { "const": "experimental" },
         "firstWaveExecutable": { "type": "boolean" }
       }
     },

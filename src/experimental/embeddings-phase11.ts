@@ -210,7 +210,7 @@ export interface EmbeddingModelLockV1 {
   version: "1.0.0";
   modelId: string;
   commit: string;
-  status: "available" | "unavailable";
+  status: "available" | "experimental" | "unavailable";
   license: { declared: string; artifactSha256?: string };
   architecture: string;
   dependencies: string[];

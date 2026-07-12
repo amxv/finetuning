@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "generatedAt": "2026-07-12",
-  "policy": "Configured permits offline inspection and planning only. Smoke authorization, smoke pass, qualification, and support require monotonically promoted revision- and architecture-bound evidence. Missing evidence fails closed.",
+  "policy": "Configured experimental recipes permit offline inspection and planning only. Experimental status does not authorize execution or imply production support. Smoke authorization, smoke pass, qualification, and support require monotonically promoted revision- and architecture-bound evidence. Missing evidence fails closed.",
   "qualificationStates": ["configured", "smokeAuthorized", "smokePassed", "qualified"],
   "supportStates": ["unavailable", "experimental", "supported"],
   "recipes": [
@@ -12,7 +12,7 @@
       "license": "Apache-2.0",
       "architecture": "qwen3_5",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": false,
       "blockers": [
         "verified text-only conditional-generation loader not implemented",
@@ -28,7 +28,7 @@
       "license": "Apache-2.0",
       "architecture": "qwen3_5_moe",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": false,
       "blockers": [
         "not authorized in first smoke wave",
@@ -43,7 +43,7 @@
       "license": "LicenseRef-NVIDIA-Open-Model",
       "architecture": "nemotron_h",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": false,
       "blockers": [
         "not authorized in first smoke wave",
@@ -59,7 +59,7 @@
       "license": "LicenseRef-NVIDIA-Nemotron-Open-Model",
       "architecture": "nemotron_h",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": false,
       "blockers": [
         "not authorized in first smoke wave",
@@ -75,7 +75,7 @@
       "license": "Apache-2.0",
       "architecture": "olmo3",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": true,
       "blockers": [
         "pinned LICENSE artifact absent",
@@ -90,7 +90,7 @@
       "license": "Apache-2.0",
       "architecture": "olmo3",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": true,
       "blockers": [
         "pinned LICENSE artifact absent",
@@ -105,7 +105,7 @@
       "license": "Apache-2.0",
       "architecture": "qwen3",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": true,
       "blockers": ["pinned LICENSE artifact absent", "GPU mechanics evidence absent"]
     },
@@ -116,7 +116,7 @@
       "license": "Apache-2.0",
       "architecture": "gte",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": true,
       "blockers": [
         "pinned LICENSE artifact absent",
@@ -131,7 +131,7 @@
       "license": "MIT",
       "architecture": "xlm-roberta",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": true,
       "blockers": [
         "corrected MIT legal inventory not yet approved",
@@ -146,7 +146,7 @@
       "license": "Apache-2.0",
       "architecture": "nomic_bert",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": false,
       "blockers": [
         "not authorized in first smoke wave",
@@ -162,7 +162,7 @@
       "license": "Apache-2.0",
       "architecture": "new",
       "qualification": "configured",
-      "support": "unavailable",
+      "support": "experimental",
       "firstWaveExecutable": true,
       "blockers": [
         "Alibaba-NLP/new-impl revision/hash/license review required",

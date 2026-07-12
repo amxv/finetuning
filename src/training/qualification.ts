@@ -29,7 +29,7 @@ export interface QualificationRecipeV2 {
   };
   license: { spdx: string; pinnedArtifact: boolean; note: string };
   architecture: { family: ArchitectureFamily; modelType: string; remoteCode: boolean; customKernels: string[] };
-  qualification: { state: "configured"; supportState: "unavailable"; firstWaveExecutable: boolean };
+  qualification: { state: "configured"; supportState: "experimental"; firstWaveExecutable: boolean };
   optimization: {
     methods: ("lora" | "qlora" | "full")[];
     targetModules: string[];
@@ -73,7 +73,7 @@ export interface QualificationRecipeV2 {
 
 const common = {
   recipeSchemaVersion: qualificationSchemaVersion,
-  qualification: { state: "configured", supportState: "unavailable", firstWaveExecutable: true },
+  qualification: { state: "configured", supportState: "experimental", firstWaveExecutable: true },
 } as const;
 const runtime = (
   gpu: string,
