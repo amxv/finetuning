@@ -8,6 +8,7 @@ import {
   deferredLogConversionBoundary,
   supportedWorkflows,
 } from "../dist/index.js";
+import { assertDeferredLogTechnicalDocumentation } from "./lib/log-deferment-docs.mjs";
 
 const execFileAsync = promisify(execFile);
 const cliPath = fileURLToPath(new URL("../dist/cli/index.js", import.meta.url));
@@ -68,24 +69,8 @@ if (!failureRun.stderr.includes(createDeferredLogConversionError().message)) {
   throw new Error(`convert-logs did not print the shared deferred error:\n${failureRun.stderr}`);
 }
 
-const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
 const architecture = await readFile(new URL("../docs/architecture.md", import.meta.url), "utf8");
-
-for (const [label, contents] of [
-  ["README.md", readme],
-  ["docs/architecture.md", architecture],
-]) {
-  for (const expected of [
-    "Real-log conversion is explicitly deferred",
-    "does not",
-    "redaction hooks",
-    "privacy-safe",
-  ]) {
-    if (!contents.includes(expected)) {
-      throw new Error(`${label} is missing deferred log-conversion documentation: ${expected}`);
-    }
-  }
-}
+assertDeferredLogTechnicalDocumentation(architecture);
 
 console.log("Verified log-derived dataset support is explicitly deferred across exports, CLI, and docs.");
 

@@ -147,7 +147,7 @@
     "format:check": "npm run format:check:js && npm run format:check:python",
     "format:check:js": "prettier --check .",
     "format:check:python": "uvx --from ruff==0.12.11 ruff format --check python",
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "npm run build && node scripts/run-tests.mjs",
     "test:unit": "npm run build && node --test test/unit.test.mjs",
     "test:compat": "npm run build && node --test test/compatibility.test.mjs",
     "test:package": "npm run build && node --test test/package.test.mjs",

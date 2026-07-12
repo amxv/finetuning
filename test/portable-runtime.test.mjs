@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolveNpmInvocation } from "../scripts/lib/npm-command.mjs";
-import { toNativePath } from "../scripts/lib/portable-paths.mjs";
+import { toNativePath, toPortablePath } from "../scripts/lib/portable-paths.mjs";
 
 test("file URLs convert to native POSIX and Windows paths", () => {
   assert.equal(toNativePath(new URL("file:///tmp/space%20path/file.js"), "linux"), "/tmp/space path/file.js");
   assert.equal(toNativePath(new URL("file:///C:/work/space%20path/file.js"), "win32"), "C:\\work\\space path\\file.js");
+  assert.equal(toPortablePath("dist\\core\\index.d.ts", "\\"), "dist/core/index.d.ts");
 });
 
 test("npm invocation prefers npm_execpath and has platform fallbacks", () => {

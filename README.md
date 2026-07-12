@@ -231,7 +231,6 @@ No production chat or embedding recipe is currently claimed as supported. Model 
 
 - Network requests, paid calls, credentials, model downloads, uploads, overwrites, GPU paths, and `trust_remote_code` require explicit choices.
 - Secrets are referenced by environment-variable name and must not be stored in configs, datasets, logs, or artifacts.
-- Real-log conversion is explicitly deferred. It remains unavailable until a public source contract, caller-supplied redaction hooks, privacy guidance, and privacy-safe fixture coverage exist. Use canonical or documented external dataset formats instead.
 - This repository bundles no model weights, provider responses, third-party evaluation corpora, or third-party runtime code. Verify upstream licenses and notices at the pinned revision before use.
 
 Review [security and compliance](src/content/docs/security-compliance.md), [operations and compliance](src/content/docs/operations-compliance.md), and [SUPPORT.md](SUPPORT.md) before using non-synthetic data or external services.

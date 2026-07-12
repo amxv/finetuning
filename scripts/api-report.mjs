@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toPortablePath } from "./lib/portable-paths.mjs";
 
 const root = new URL("../", import.meta.url);
 const reportPath = new URL("../test/snapshots/api-report.md", import.meta.url);
@@ -30,7 +31,7 @@ const declarations = [
 let report = "# Public API declaration report\n\nGenerated from the public package entry points.\n";
 for (const declaration of declarations) {
   const url = new URL(declaration, root);
-  report += `\n## ${relative(fileURLToPath(new URL(".", root)), fileURLToPath(url))}\n\n\`\`\`ts\n`;
+  report += `\n## ${toPortablePath(relative(fileURLToPath(new URL(".", root)), fileURLToPath(url)))}\n\n\`\`\`ts\n`;
   report += (await readFile(url, "utf8")).trimEnd();
   report += "\n```\n";
 }
