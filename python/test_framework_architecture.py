@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from amxv_finetuning_trainer.checkpoints import checkpoint_inventory
 from amxv_finetuning_trainer.embedding_training import execute_production as embedding
 from amxv_finetuning_trainer.engine import execute_production as chat
 from amxv_finetuning_trainer.engine import resume_identity_hash
@@ -57,6 +58,13 @@ class Fake:
 
 
 class Architecture(unittest.TestCase):
+    def complete_checkpoint(self, path):
+        path.mkdir()
+        for name in ("trainer_state.json", "optimizer.pt", "scheduler.pt", "rng_state.pth"):
+            (path / name).write_text(name)
+        (path / "adapter_model.safetensors").write_bytes(b"weights")
+        return checkpoint_inventory(path)
+
     def setUp(self):
         from amxv_finetuning_trainer import framework
 
@@ -149,7 +157,7 @@ class Architecture(unittest.TestCase):
                 }
             )
             checkpoint_dir = root / "checkpoint-10"
-            checkpoint_dir.mkdir()
+            inventory = self.complete_checkpoint(checkpoint_dir)
             descriptor = root / "checkpoint.json"
             descriptor.write_text(
                 json.dumps(
@@ -158,6 +166,7 @@ class Architecture(unittest.TestCase):
                         "complete": True,
                         "identityHash": resume_identity_hash(spec),
                         "frameworkCheckpointPath": checkpoint_dir.name,
+                        "files": inventory,
                     }
                 )
             )
@@ -172,6 +181,7 @@ class Architecture(unittest.TestCase):
                         "complete": True,
                         "identityHash": "b" * 64,
                         "frameworkCheckpointPath": checkpoint_dir.name,
+                        "files": inventory,
                     }
                 )
             )
@@ -183,7 +193,7 @@ class Architecture(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             checkpoint = root / "checkpoint-3"
-            checkpoint.mkdir()
+            self.complete_checkpoint(checkpoint)
             trainer = type("Trainer", (), {"state": type("State", (), {"best_model_checkpoint": str(checkpoint)})()})()
             spec = {"outputDirectory": str(root / "out"), "resumeIdentityHash": "a" * 64}
             manifest = Path(publish_checkpoint_descriptor(spec, trainer))
@@ -191,6 +201,70 @@ class Architecture(unittest.TestCase):
             self.assertEqual(value["identityHash"], "a" * 64)
             self.assertEqual(value["frameworkCheckpointPath"], str(checkpoint.resolve()))
             self.assertFalse(manifest.with_suffix(".tmp").exists())
+
+    def test_checkpoint_integrity_and_numeric_selection_fail_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            spec = self.spec(root / "out")
+            spec.update(
+                {
+                    "trainingSpecVersion": "1.0.0",
+                    "runId": "r",
+                    "dataset": {"manifestPath": str(root / "manifest.json"), "recordsHash": "a" * 64},
+                    "objective": "sft",
+                    "seed": 1,
+                    "operation": "resume",
+                }
+            )
+            complete = root / "checkpoint-10"
+            inventory = self.complete_checkpoint(complete)
+            descriptor = root / "descriptor.json"
+
+            def write(value):
+                descriptor.write_text(json.dumps(value))
+                spec["checkpointPath"] = str(descriptor)
+
+            base = {
+                "checkpointManifestVersion": "1.0.0",
+                "complete": True,
+                "identityHash": resume_identity_hash(spec),
+                "frameworkCheckpointPath": complete.name,
+                "files": inventory,
+            }
+            for mutate in ("malformed", "tampered", "deleted"):
+                write(base)
+                if mutate == "malformed":
+                    descriptor.write_text("{")
+                elif mutate == "tampered":
+                    (complete / "optimizer.pt").write_text("changed")
+                else:
+                    (complete / "optimizer.pt").unlink()
+                fake = Fake()
+                self.assertRaisesRegex(ValueError, "CHECKPOINT_INCOMPATIBLE: corrupt", chat, spec, [], fake)
+                self.assertEqual(fake.calls, [])
+                if complete.exists():
+                    for child in complete.iterdir():
+                        child.unlink()
+                    complete.rmdir()
+                inventory = self.complete_checkpoint(complete)
+                base["files"] = inventory
+
+            partial = root / "checkpoint-11"
+            partial.mkdir()
+            (partial / "adapter_model.safetensors").write_bytes(b"weights")
+            trainer = type("Trainer", (), {"state": type("State", (), {"best_model_checkpoint": str(partial)})()})()
+            self.assertIsNone(publish_checkpoint_descriptor(spec, trainer))
+
+            nine = root / "checkpoint-9"
+            self.complete_checkpoint(nine)
+            selection_spec = {
+                "outputDirectory": str(root / "selection"),
+                "resumeIdentityHash": "a" * 64,
+                "trainingArguments": {"output_dir": str(root)},
+            }
+            trainer = type("Trainer", (), {"state": type("State", (), {"best_model_checkpoint": None})()})()
+            manifest = json.loads(Path(publish_checkpoint_descriptor(selection_spec, trainer)).read_text())
+            self.assertTrue(manifest["frameworkCheckpointPath"].endswith("checkpoint-10"))
 
     def test_normal_event_runner_reaches_injected_framework(self):
         from amxv_finetuning_trainer import runner

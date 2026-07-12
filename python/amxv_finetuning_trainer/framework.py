@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any, Protocol
 
+from .checkpoints import checkpoint_inventory, checkpoint_step
+
 try:
     import torch
 
@@ -360,9 +362,21 @@ def publish_checkpoint_descriptor(spec: dict[str, Any], trainer: Any) -> str | N
     if not checkpoint:
         output_dir = spec.get("trainingArguments", {}).get("output_dir")
         if output_dir:
-            candidates = sorted(Path(output_dir).glob("checkpoint-*"), key=lambda p: p.name)
-            checkpoint = str(candidates[-1]) if candidates else None
+            candidates = [(checkpoint_step(path), path) for path in Path(output_dir).glob("checkpoint-*")]
+            candidates = [(step, path) for step, path in candidates if step is not None]
+            complete = []
+            for step, path in candidates:
+                try:
+                    checkpoint_inventory(path)
+                    complete.append((step, path))
+                except ValueError:
+                    continue
+            checkpoint = str(max(complete, key=lambda item: item[0])[1]) if complete else None
     if not checkpoint or not Path(checkpoint).is_dir():
+        return None
+    try:
+        inventory = checkpoint_inventory(Path(checkpoint))
+    except ValueError:
         return None
     output = Path(spec["outputDirectory"])
     output.mkdir(parents=True, exist_ok=True)
@@ -377,6 +391,7 @@ def publish_checkpoint_descriptor(spec: dict[str, Any], trainer: Any) -> str | N
         "complete": True,
         "identityHash": identity_hash,
         "frameworkCheckpointPath": str(relative),
+        "files": inventory,
     }
     temporary = manifest.with_suffix(".tmp")
     temporary.write_text(json.dumps(payload, sort_keys=True) + "\n")

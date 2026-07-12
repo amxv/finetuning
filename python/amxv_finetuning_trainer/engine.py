@@ -7,6 +7,7 @@ import random
 from pathlib import Path
 from typing import Any
 
+from .checkpoints import verify_inventory
 from .contracts import parse_artifact_manifest, parse_spec
 from .framework import execute_recipe
 
@@ -110,7 +111,12 @@ def discover_lora_targets(module_names: list[str]) -> list[str]:
 def classify_checkpoint(path: Path, expected_identity_hash: str | None = None) -> str:
     if not path.exists():
         return "missing"
-    value = json.loads(path.read_text())
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return "corrupt"
+    if not isinstance(value, dict):
+        return "corrupt"
     fixture_complete = all(key in value for key in FULL_STATE)
     framework_complete = (
         value.get("checkpointManifestVersion") == "1.0.0"
@@ -121,22 +127,31 @@ def classify_checkpoint(path: Path, expected_identity_hash: str | None = None) -
         return "weights-only"
     if expected_identity_hash is not None and value["identityHash"] != expected_identity_hash:
         return "incompatible"
+    if framework_complete:
+        try:
+            resolved = _framework_path(path, value)
+            verify_inventory(resolved, value.get("files"))
+        except (OSError, ValueError):
+            return "corrupt"
     return "full-resume"
 
 
 def resolve_framework_checkpoint(path: Path, expected_identity_hash: str) -> Path:
+    classification = classify_checkpoint(path, expected_identity_hash)
+    if classification != "full-resume":
+        raise ValueError(f"CHECKPOINT_INCOMPATIBLE: {classification}")
     value = json.loads(path.read_text())
-    if classify_checkpoint(path, expected_identity_hash) != "full-resume":
-        raise ValueError(f"CHECKPOINT_INCOMPATIBLE: {classify_checkpoint(path, expected_identity_hash)}")
+    resolved = _framework_path(path, value)
+    verify_inventory(resolved, value["files"])
+    return resolved
+
+
+def _framework_path(descriptor: Path, value: dict[str, Any]) -> Path:
     framework_path = value.get("frameworkCheckpointPath")
     if not isinstance(framework_path, str) or not framework_path:
         raise ValueError("CHECKPOINT_FRAMEWORK_PATH_MISSING")
     resolved = Path(framework_path)
-    if not resolved.is_absolute():
-        resolved = path.parent / resolved
-    if not resolved.is_dir():
-        raise ValueError("CHECKPOINT_FRAMEWORK_PATH_MISSING")
-    return resolved
+    return resolved if resolved.is_absolute() else descriptor.parent / resolved
 
 
 def _examples(records_path: Path) -> list[tuple[float, float]]:
