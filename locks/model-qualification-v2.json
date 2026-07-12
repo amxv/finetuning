@@ -12,7 +12,12 @@
       "architecture": "qwen3_5",
       "qualification": "configured",
       "support": "unavailable",
-      "firstWaveExecutable": true
+      "firstWaveExecutable": true,
+      "blockers": [
+        "architecture inventory hash required",
+        "manual assistant-mask fixtures required",
+        "GPU mechanics evidence absent"
+      ]
     },
     {
       "id": "qwen3.6-35b-a3b",

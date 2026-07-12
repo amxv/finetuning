@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -60,6 +60,17 @@ test("all exact recipes are configured but neither qualified nor supported", () 
   }
   assert.equal(inspectQualificationRecipe("bge-m3-dense").license.spdx, "MIT");
   assert.notEqual(inspectQualificationRecipe("nemotron-cascade-2-30b-a3b").license.spdx, "Apache-2.0");
+});
+
+test("machine-readable lock records explicit blockers for every configured recipe", async () => {
+  const lock = JSON.parse(await readFile(new URL("../locks/model-qualification-v2.json", import.meta.url), "utf8"));
+  assert.equal(lock.version, "2.0.0");
+  assert.deepEqual(lock.states, ["configured", "smokeAuthorized", "smokePassed", "qualified", "supported"]);
+  for (const recipe of lock.recipes) {
+    assert.equal(recipe.qualification, "configured");
+    assert.equal(recipe.support, "unavailable");
+    assert.ok(recipe.blockers.length > 0, `${recipe.id} must record explicit blockers`);
+  }
 });
 
 test("preflight fails closed and first-wave exclusions cannot execute", () => {
