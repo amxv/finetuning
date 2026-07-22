@@ -4,6 +4,8 @@ export const siteConfig = {
   description:
     "Documentation for reproducible chat and embedding data, distillation, training, evaluation, resume, and export workflows.",
   repoUrl: "https://github.com/amxv/finetuning",
+  accentColor: "#a21caf",
+  accentColorDark: "#f0abfc",
   footerSections: [
     {
       title: "finetuning",
@@ -34,7 +36,6 @@ export const docCategories = [
 ] as const;
 
 export const primaryNav = [
-  { href: "/", label: "Overview" },
   { href: "/docs", label: "Docs" },
   { href: siteConfig.repoUrl, label: "GitHub", external: true },
 ];
