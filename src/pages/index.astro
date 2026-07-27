@@ -28,68 +28,91 @@ const capabilities = [
 >
   <main class="landing">
     <section class="hero shell">
-      <div class="hero__eyebrow reveal" style="--delay: 0ms">
-        <span class="status-dot"></span>
-        <span>agent-native model laboratory</span>
-        <span class="hero__version">private alpha · 0.0.x</span>
-      </div>
-
-      <div class="hero__grid">
-        <div class="hero__copy reveal" style="--delay: 90ms">
-          <h1>
-            Fine-tuning,<br />
-            <em>with receipts.</em>
-          </h1>
-          <p class="hero__lede">
-            Build chat and embedding datasets, distill frontier-model behavior, train open models,
-            evaluate the result, and export artifacts you can trace all the way back to the data.
-          </p>
-          <div class="hero__actions">
-            <a class="action action--primary" href="/docs/quickstart">
-              <span>Run the offline quickstart</span><span aria-hidden="true">↗</span>
-            </a>
-            <a class="action action--secondary" href="https://github.com/amxv/finetuning">
-              <span>Read the source</span><span aria-hidden="true">↗</span>
-            </a>
-          </div>
+      <div class="hero__topline reveal" style="--delay: 0ms">
+        <div class="hero__identity">
+          <span class="status-dot"></span>
+          <span>finetuning / model workflow sdk</span>
         </div>
-
-        <div class="run-card reveal" style="--delay: 180ms" aria-label="Example reproducible training run">
-          <div class="run-card__top">
-            <div><span class="run-card__dot"></span> run_7d0f2a</div>
-            <span>verified</span>
-          </div>
-          <div class="run-card__body">
-            <div class="run-card__rail" aria-hidden="true"></div>
-            <div class="run-event">
-              <span class="run-event__icon">D</span>
-              <div><small>DATASET</small><strong>chat-receptionist-v4</strong><code>sha256: 9c72…d81a</code></div>
-              <span class="run-event__state">frozen</span>
-            </div>
-            <div class="run-event">
-              <span class="run-event__icon">T</span>
-              <div><small>TEACHER</small><strong>frontier candidate pass</strong><code>budget: explicit · judge: separate</code></div>
-              <span class="run-event__state">accepted</span>
-            </div>
-            <div class="run-event">
-              <span class="run-event__icon">R</span>
-              <div><small>RECIPE</small><strong>qwen · tool trajectory SFT</strong><code>template + tokenizer pinned</code></div>
-              <span class="run-event__state">bound</span>
-            </div>
-            <div class="run-event">
-              <span class="run-event__icon">A</span>
-              <div><small>ARTIFACT</small><strong>portable model export</strong><code>17 files · all hashes match</code></div>
-              <span class="run-event__state">verified</span>
-            </div>
-          </div>
-          <div class="run-card__foot"><span>one chain of identities</span><span>not a folder of guesses</span></div>
+        <div class="hero__tags" aria-label="Supported workflow tracks and runtimes">
+          <span>chat + embeddings</span>
+          <span>typescript + python</span>
         </div>
       </div>
 
-      <div class="command-strip reveal" style="--delay: 270ms">
-        <span class="command-strip__prompt">$</span>
-        <code>finetuning distill plan --root tmp/run --json</code>
-        <button class="copy-command" type="button" data-copy-command aria-label="Copy command">copy</button>
+      <div class="hero__copy reveal" style="--delay: 80ms">
+        <p class="hero__kicker">reproducible training infrastructure</p>
+        <h1>
+          From raw data to<br />
+          <em>a model you can explain.</em>
+        </h1>
+        <p class="hero__lede">
+          One TypeScript SDK and CLI for building datasets, distilling behavior, coordinating
+          training, evaluating results, and exporting hash-verifiable chat and embedding models.
+        </p>
+        <div class="hero__actions">
+          <a class="action action--primary" href="/docs/quickstart">
+            <span>Run the offline quickstart</span><span aria-hidden="true">↗</span>
+          </a>
+          <a class="action action--secondary" href="https://github.com/amxv/finetuning">
+            <span>View on GitHub</span><span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="model-map reveal" style="--delay: 160ms" aria-label="Fine-tuning workflow map">
+        <div class="model-map__header">
+          <div>
+            <span class="model-map__pulse"></span>
+            <span>workflow / offline-fixture-01</span>
+          </div>
+          <span>all identities bound</span>
+        </div>
+
+        <div class="model-map__viewport">
+          <div class="model-map__body">
+            <div class="model-map__sources">
+              <div class="map-node map-node--source">
+                <span>CHAT</span>
+                <strong>Tool trajectories</strong>
+                <small>response + behavior</small>
+              </div>
+              <div class="map-node map-node--source">
+                <span>EMBEDDINGS</span>
+                <strong>Task records</strong>
+                <small>vectors + relevance</small>
+              </div>
+            </div>
+
+            <div class="map-arrow" aria-hidden="true">→</div>
+
+            <div class="model-map__stages">
+              <div class="map-stage"><span>01</span><strong>Freeze</strong><small>canonical data</small></div>
+              <div class="map-stage"><span>02</span><strong>Distill</strong><small>teacher signal</small></div>
+              <div class="map-stage"><span>03</span><strong>Train</strong><small>bound recipe</small></div>
+              <div class="map-stage"><span>04</span><strong>Evaluate</strong><small>compatible report</small></div>
+            </div>
+
+            <div class="map-arrow" aria-hidden="true">→</div>
+
+            <div class="map-node map-node--artifact">
+              <span>ARTIFACT</span>
+              <strong>Verified export</strong>
+              <small>17 / 17 hashes match</small>
+              <div class="map-node__seal">✓</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="model-map__footer">
+          <div class="model-map__command">
+            <span>$</span>
+            <code>finetuning distill plan --root tmp/run --json</code>
+            <button class="copy-command" type="button" data-copy-command aria-label="Copy command">copy</button>
+          </div>
+          <div class="model-map__checks">
+            <span>offline</span><span>deterministic</span><span>hash-verified</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -242,38 +265,52 @@ const capabilities = [
   .landing .shell { width: min(1280px, calc(100% - 40px)); margin-inline: auto; }
   .landing code, .landing button { font-family: var(--ft-mono); }
 
-  .hero { padding-top: clamp(3rem, 7vw, 7rem); padding-bottom: 5rem; }
-  .hero__eyebrow { display: flex; align-items: center; gap: .7rem; border-top: 1px solid var(--ft-line); padding-top: .8rem; font: 500 .68rem/1 var(--ft-mono); letter-spacing: .12em; text-transform: uppercase; }
+  .hero { position: relative; isolation: isolate; padding-top: clamp(2rem, 4vw, 3.5rem); padding-bottom: clamp(5rem, 9vw, 8rem); }
+  .hero::before { position: absolute; z-index: -1; top: 5rem; left: 50%; width: min(100vw, 1100px); height: 620px; transform: translateX(-50%); background: radial-gradient(circle at center, color-mix(in srgb, var(--ft-blue) 28%, transparent), transparent 68%); content: ""; pointer-events: none; }
+  .hero__topline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 0; border-block: 1px solid var(--ft-line); font: 500 .62rem/1 var(--ft-mono); letter-spacing: .1em; text-transform: uppercase; }
+  .hero__identity, .hero__tags { display: flex; align-items: center; gap: .7rem; }
+  .hero__tags span { padding: .38rem .55rem; border: 1px solid var(--ft-line); color: var(--ft-muted); letter-spacing: .04em; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ft-acid); box-shadow: 0 0 0 5px color-mix(in srgb, var(--ft-acid) 18%, transparent); }
-  .hero__version { margin-left: auto; color: var(--ft-muted); }
-  .hero__grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: clamp(3rem, 7vw, 8rem); align-items: center; min-height: 660px; padding: 5rem 0 3.5rem; }
-  .hero h1 { margin: 0; max-width: 760px; font: 400 clamp(5rem, 9.5vw, 9.3rem)/.78 var(--ft-serif); letter-spacing: -.055em; }
-  .hero h1 em, .closing h2 em { color: var(--ft-orange); font-weight: 400; }
-  .hero__lede { max-width: 670px; margin: 2.5rem 0 0; font-size: clamp(1.08rem, 1.5vw, 1.42rem); line-height: 1.65; color: var(--ft-muted); }
-  .hero__actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 2.5rem; }
+  .hero__copy { max-width: 1080px; margin: 0 auto; padding: clamp(5rem, 10vw, 8.5rem) 0 clamp(3.5rem, 7vw, 5.5rem); text-align: center; }
+  .hero__kicker { margin: 0 0 1.7rem; color: var(--ft-orange); font: 500 .68rem/1 var(--ft-mono); letter-spacing: .14em; text-transform: uppercase; }
+  .hero h1 { margin: 0; font: 700 clamp(4rem, 8.4vw, 8.2rem)/.88 var(--ft-sans); letter-spacing: -.07em; }
+  .hero h1 em { display: inline-block; color: var(--ft-orange); font-family: var(--ft-serif); font-weight: 400; letter-spacing: -.04em; }
+  .hero__lede { max-width: 760px; margin: 2.2rem auto 0; color: var(--ft-muted); font-size: clamp(1rem, 1.35vw, 1.25rem); line-height: 1.7; }
+  .hero__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .7rem; margin-top: 2.4rem; }
   .action { display: inline-flex; align-items: center; justify-content: space-between; gap: 2rem; min-width: 230px; padding: 1rem 1.1rem; border: 1px solid var(--ft-ink); text-decoration: none; font: 600 .75rem/1 var(--ft-mono); text-transform: uppercase; letter-spacing: .04em; transition: transform .2s ease, background .2s ease, color .2s ease; }
   .action:hover { transform: translateY(-3px); }
   .action--primary { background: var(--ft-ink); color: var(--ft-paper); }
   .action--secondary { color: var(--ft-ink); }
   .action--secondary:hover { background: var(--ft-acid); color: #171713; }
 
-  .run-card { position: relative; border: 1px solid var(--ft-ink); background: color-mix(in srgb, var(--ft-paper) 92%, var(--ft-blue)); box-shadow: 18px 18px 0 var(--ft-blue); transform: rotate(1.2deg); }
-  .run-card__top, .run-card__foot { display: flex; justify-content: space-between; padding: .75rem 1rem; font: 500 .62rem/1 var(--ft-mono); letter-spacing: .07em; text-transform: uppercase; }
-  .run-card__top { border-bottom: 1px solid var(--ft-line); }
-  .run-card__dot { display: inline-block; width: 7px; height: 7px; margin-right: .5rem; border-radius: 50%; background: var(--ft-acid); }
-  .run-card__foot { border-top: 1px solid var(--ft-line); color: var(--ft-muted); }
-  .run-card__body { position: relative; padding: 1.6rem 1rem; }
-  .run-card__rail { position: absolute; left: 2.05rem; top: 2.3rem; bottom: 2.3rem; width: 1px; background: var(--ft-line); }
-  .run-event { position: relative; display: grid; grid-template-columns: 2.1rem 1fr auto; align-items: start; gap: .85rem; padding: .85rem 0; }
-  .run-event__icon { z-index: 1; display: grid; place-items: center; width: 2.1rem; aspect-ratio: 1; border: 1px solid var(--ft-ink); background: var(--ft-paper); font: 500 .72rem var(--ft-mono); }
-  .run-event div { display: grid; gap: .26rem; }
-  .run-event small, .run-event code, .run-event__state { font: 400 .58rem/1.3 var(--ft-mono); letter-spacing: .05em; }
-  .run-event small, .run-event code { color: var(--ft-muted); }
-  .run-event strong { font-size: .86rem; }
-  .run-event__state { padding: .32rem .45rem; background: var(--ft-acid); color: #171713; text-transform: uppercase; }
-  .command-strip { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; border-block: 1px solid var(--ft-line); padding: 1rem 0; }
-  .command-strip__prompt { color: var(--ft-orange); font: 500 1rem var(--ft-mono); }
-  .command-strip code { overflow: hidden; color: var(--ft-muted); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+  .model-map { overflow: hidden; border: 1px solid var(--ft-ink); background: color-mix(in srgb, var(--ft-paper) 96%, var(--ft-blue)); box-shadow: 0 24px 60px color-mix(in srgb, var(--ft-ink) 10%, transparent); }
+  .model-map__header, .model-map__footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; font: 500 .6rem/1 var(--ft-mono); letter-spacing: .08em; text-transform: uppercase; }
+  .model-map__header { border-bottom: 1px solid var(--ft-line); color: var(--ft-muted); }
+  .model-map__header > div { display: flex; align-items: center; gap: .55rem; color: var(--ft-ink); }
+  .model-map__pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--ft-acid); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ft-acid) 18%, transparent); }
+  .model-map__viewport { overflow-x: auto; scrollbar-width: thin; }
+  .model-map__body { position: relative; display: grid; grid-template-columns: 180px 36px minmax(560px, 1fr) 36px 180px; gap: 1.1rem; align-items: center; min-width: 1080px; padding: clamp(2rem, 4vw, 3.5rem); background-image: linear-gradient(var(--ft-line) 1px, transparent 1px), linear-gradient(90deg, var(--ft-line) 1px, transparent 1px); background-size: 32px 32px; }
+  .model-map__body::before { position: absolute; inset: 0; background: linear-gradient(90deg, var(--ft-paper), transparent 12%, transparent 88%, var(--ft-paper)); content: ""; pointer-events: none; opacity: .65; }
+  .model-map__sources { z-index: 1; display: grid; gap: .8rem; }
+  .map-node { position: relative; z-index: 1; display: grid; gap: .45rem; padding: 1rem; border: 1px solid var(--ft-ink); background: var(--ft-paper); }
+  .map-node > span, .map-stage > span { color: var(--ft-orange); font: 500 .55rem/1 var(--ft-mono); letter-spacing: .09em; }
+  .map-node strong { font-size: .83rem; }
+  .map-node small, .map-stage small { color: var(--ft-muted); font: 400 .57rem/1.3 var(--ft-mono); }
+  .map-arrow { z-index: 1; color: var(--ft-orange); font: 400 1.7rem var(--ft-mono); text-align: center; }
+  .model-map__stages { z-index: 1; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--ft-ink); background: var(--ft-paper); }
+  .map-stage { position: relative; display: grid; gap: .65rem; min-height: 132px; padding: 1rem; border-right: 1px solid var(--ft-line); }
+  .map-stage:last-child { border-right: 0; }
+  .map-stage:not(:last-child)::after { position: absolute; top: 50%; right: -7px; z-index: 2; display: grid; place-items: center; width: 14px; height: 14px; transform: translateY(-50%); border: 1px solid var(--ft-line); border-radius: 50%; background: var(--ft-paper); color: var(--ft-muted); content: "›"; font: 500 .65rem var(--ft-mono); }
+  .map-stage strong { margin-top: auto; font: 400 1.35rem/1 var(--ft-serif); }
+  .map-node--artifact { min-height: 158px; background: var(--ft-acid); color: #171713; }
+  .map-node--artifact > span, .map-node--artifact small { color: rgba(23, 23, 19, .66); }
+  .map-node__seal { position: absolute; right: 1rem; bottom: 1rem; display: grid; place-items: center; width: 2.4rem; aspect-ratio: 1; border: 1px solid #171713; border-radius: 50%; font: 500 1rem var(--ft-mono); }
+  .model-map__footer { border-top: 1px solid var(--ft-line); }
+  .model-map__command { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-width: 0; color: var(--ft-muted); }
+  .model-map__command > span { color: var(--ft-orange); }
+  .model-map__command code { overflow: hidden; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+  .model-map__checks { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
+  .model-map__checks span { padding: .35rem .5rem; border: 1px solid var(--ft-line); color: var(--ft-muted); }
   .copy-command { border: 0; background: none; color: var(--ft-ink); cursor: pointer; font-size: .66rem; text-transform: uppercase; }
 
   .section-kicker { margin: 0 0 1rem; font: 500 .67rem/1 var(--ft-mono); letter-spacing: .13em; color: var(--ft-orange); }
@@ -336,6 +373,7 @@ const capabilities = [
   .closing { padding-block: 10rem; text-align: center; }
   .closing__hash { display: inline-block; margin-bottom: 2.5rem; padding: .55rem .8rem; border: 1px solid var(--ft-line); font: .63rem var(--ft-mono); color: var(--ft-muted); }
   .closing h2 { margin: 0; font: 400 clamp(5rem, 10vw, 10rem)/.78 var(--ft-serif); letter-spacing: -.05em; }
+  .closing h2 em { color: var(--ft-orange); font-weight: 400; }
   .closing > p { max-width: 650px; margin: 3rem auto 0; color: var(--ft-muted); line-height: 1.7; }
   .closing .hero__actions { justify-content: center; }
 
@@ -344,10 +382,11 @@ const capabilities = [
   @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 
   @media (max-width: 900px) {
-    .hero__grid, .manifesto, .section-head, .trajectory, .safety { grid-template-columns: 1fr; }
-    .hero__grid { min-height: auto; padding-block: 4rem; }
-    .hero h1 { font-size: clamp(4.6rem, 18vw, 8rem); }
-    .run-card { margin: 1rem 18px 18px 0; }
+    .manifesto, .section-head, .trajectory, .safety { grid-template-columns: 1fr; }
+    .hero h1 { font-size: clamp(4.3rem, 12vw, 7rem); }
+    .model-map__footer { align-items: flex-start; flex-direction: column; }
+    .model-map__command { width: 100%; }
+    .model-map__checks { justify-content: flex-start; }
     .manifesto__statement, .manifesto__body { grid-column: 1; }
     .manifesto__body { grid-template-columns: 1fr; gap: 1rem; }
     .pipeline-step { grid-template-columns: .3fr .5fr 1fr auto; }
@@ -362,12 +401,16 @@ const capabilities = [
   @media (max-width: 560px) {
     .landing .shell { width: min(100% - 24px, 1280px); }
     .hero { padding-top: 2rem; }
-    .hero__version { display: none; }
-    .hero h1 { font-size: clamp(4rem, 21vw, 6rem); }
+    .hero__topline { align-items: flex-start; flex-direction: column; }
+    .hero__tags { width: 100%; }
+    .hero__tags span { flex: 1; text-align: center; }
+    .hero__copy { padding-block: 4.5rem 3.5rem; }
+    .hero h1 { font-size: clamp(3.4rem, 16vw, 5.4rem); }
     .hero__lede { font-size: 1rem; }
     .action { width: 100%; }
-    .run-card__foot span:last-child, .run-event__state { display: none; }
-    .run-event { grid-template-columns: 2.1rem 1fr; }
+    .model-map__header > span { display: none; }
+    .model-map__body { min-width: 900px; padding: 1.5rem; }
+    .model-map__checks { display: none; }
     .manifesto, .pipeline, .trajectory, .capabilities, .safety { padding-block: 5rem; }
     .manifesto__statement { font-size: 3.1rem; }
     .pipeline-step { grid-template-columns: auto 1fr auto; gap: .8rem; }
