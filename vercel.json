@@ -3,9 +3,6 @@
   "buildCommand": "npm run docs:build",
   "outputDirectory": "docs-dist",
   "git": {
-    "deploymentEnabled": {
-      "main": true,
-      "*": false
-    }
+    "deploymentEnabled": false
   }
 }
