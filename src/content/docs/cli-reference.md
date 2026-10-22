@@ -12,13 +12,13 @@ The CLI binary name is `finetuning`. During local development you typically run 
 
 Every command page/help output is authoritative for its syntax. Exit `0` means success; usage, validation, policy, provider, budget, unavailable-capability, checkpoint, and artifact-integrity failures are nonzero and expose stable codes where the command supports JSON. Unless help explicitly says otherwise, commands do not read stdin or write result data to stdout, and mutation requires an output path. `--json` reserves stdout for one result document; progress belongs on stderr. `--dry-run` plans without side effects. `--force` may overwrite data and is never implied.
 
-| Surface                                       | Default     | Network/cost                       | Mutation/data-loss boundary                     |
-| --------------------------------------------- | ----------- | ---------------------------------- | ----------------------------------------------- |
-| deterministic chat generation/validation      | offline     | none                               | writes only explicit `--out`; refuses overwrite |
-| provider-backed chat/translation/distillation | opt-in      | paid/provider-dependent            | budget + env reference + resume ledger required |
-| embedding data/evaluation fixture             | offline     | none                               | stdin/stdout only where help declares `-`       |
+| Surface                                       | Default                        | Network/cost                       | Mutation/data-loss boundary                     |
+| --------------------------------------------- | ------------------------------ | ---------------------------------- | ----------------------------------------------- |
+| deterministic chat generation/validation      | offline                        | none                               | writes only explicit `--out`; refuses overwrite |
+| provider-backed chat/translation/distillation | opt-in                         | paid/provider-dependent            | budget + env reference + resume ledger required |
+| embedding data/evaluation fixture             | offline                        | none                               | stdin/stdout only where help declares `-`       |
 | embedding production model/train              | experimental (execution gated) | download/GPU may be required later | qualification gates must pass first             |
-| RunPod diagnostics and volume list            | read-only   | credentialed read only             | live lifecycle/volume mutation unavailable      |
+| RunPod diagnostics and volume list            | read-only                      | credentialed read only             | live lifecycle/volume mutation unavailable      |
 
 Configuration precedence is CLI → referenced environment value → command config → default. Never store a resolved secret. With `--json`, stdout contains one result object and diagnostics stay on stderr. A nonzero exit distinguishes usage/config, unavailable capability, policy/license, budget, provider/network, incomplete checkpoint, artifact integrity, and internal failures.
 
